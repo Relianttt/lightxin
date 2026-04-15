@@ -30,6 +30,7 @@ import com.lightxin.feature.running.ui.RunningResultScreen
 import com.lightxin.feature.running.ui.RunningSimScreen
 import com.lightxin.feature.running.ui.RunningViewModel
 import com.lightxin.feature.aiclass.ui.AiClassHomeScreen
+import com.lightxin.feature.aiclass.ui.AiClassScanScreen
 
 @Composable
 fun LightXinNavHost(
@@ -212,8 +213,27 @@ fun LightXinNavHost(
 
         // AI Class
         composable(Routes.AICLASS_HOME) {
+            val aiClassEntry = remember(navController) { navController.getBackStackEntry(Routes.AICLASS_HOME) }
+            val aiClassViewModel: com.lightxin.feature.aiclass.ui.AiClassViewModel = hiltViewModel(aiClassEntry)
             AiClassHomeScreen(
+                viewModel = aiClassViewModel,
                 onBack = { navController.popBackStack() },
+                onOpenScan = {
+                    navController.navigate(Routes.AICLASS_SCAN) {
+                        launchSingleTop = true
+                    }
+                },
+            )
+        }
+        composable(Routes.AICLASS_SCAN) {
+            val aiClassEntry = remember(navController) { navController.getBackStackEntry(Routes.AICLASS_HOME) }
+            val aiClassViewModel: com.lightxin.feature.aiclass.ui.AiClassViewModel = hiltViewModel(aiClassEntry)
+            AiClassScanScreen(
+                onBack = { navController.popBackStack() },
+                onScanResult = { token ->
+                    aiClassViewModel.submitQrCode(token)
+                    navController.popBackStack()
+                },
             )
         }
     }

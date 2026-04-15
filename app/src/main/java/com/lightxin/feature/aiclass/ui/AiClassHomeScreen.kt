@@ -55,6 +55,7 @@ import com.lightxin.feature.aiclass.domain.AiCourse
 @Composable
 fun AiClassHomeScreen(
     onBack: () -> Unit,
+    onOpenScan: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: AiClassViewModel = hiltViewModel(),
 ) {
@@ -73,6 +74,20 @@ fun AiClassHomeScreen(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = { LxTopBar(title = "AI课堂", onBack = onBack) },
         snackbarHost = { SnackbarHost(snackbarHostState) },
+        floatingActionButton = {
+            if (!uiState.isLoading && uiState.error == null) {
+                FloatingActionButton(
+                    onClick = onOpenScan,
+                    containerColor = MaterialTheme.colorScheme.primary,
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.CameraAlt,
+                        contentDescription = "扫码签到",
+                        tint = MaterialTheme.colorScheme.onPrimary,
+                    )
+                }
+            }
+        },
     ) { padding ->
         when {
             uiState.isLoading || uiState.isSsoInProgress -> {

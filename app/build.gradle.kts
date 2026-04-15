@@ -71,4 +71,10 @@ dependencies {
 
     // Image
     implementation(libs.coil.compose)
+
+    // CameraX + ML Kit (AI课堂扫码)
+    implementation(libs.camerax.camera2)
+    implementation(libs.camerax.lifecycle)
+    implementation(libs.camerax.view)
+    implementation(libs.mlkit.barcode)
 }

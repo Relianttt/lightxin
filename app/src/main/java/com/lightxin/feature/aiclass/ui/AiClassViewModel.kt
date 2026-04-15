@@ -119,6 +119,20 @@ class AiClassViewModel @Inject constructor(
         _uiState.update { it.copy(signResult = null) }
     }
 
+    /** 扫码签到 */
+    fun submitQrCode(token: String) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isSigningIn = true, signResult = null) }
+            val result = repository.submitQrCode(token)
+            _uiState.update {
+                it.copy(
+                    isSigningIn = false,
+                    signResult = result.getOrElse { e -> e.message ?: "扫码签到失败" },
+                )
+            }
+        }
+    }
+
     fun retry() {
         load()
     }

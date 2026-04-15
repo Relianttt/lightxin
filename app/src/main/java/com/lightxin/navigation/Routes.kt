@@ -27,4 +27,5 @@ object Routes {
 
     // AI Class
     const val AICLASS_HOME = "aiclass/home"
+    const val AICLASS_SCAN = "aiclass/scan"
 }

@@ -1,5 +1,6 @@
 package com.lightxin.feature.aiclass.data
 
+import com.lightxin.core.network.FifOkHttpClient
 import com.lightxin.core.network.FifRetrofit
 import com.lightxin.core.network.FifSessionManager
 import com.lightxin.feature.aiclass.domain.AiCourse
@@ -9,6 +10,8 @@ import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
+import okhttp3.OkHttpClient
+import okhttp3.Request
 import retrofit2.HttpException
 import retrofit2.Retrofit
 import java.io.IOException
@@ -19,6 +22,7 @@ import javax.inject.Singleton
 class AiClassRepository @Inject constructor(
     private val api: AiClassApi,
     private val fifSession: FifSessionManager,
+    @FifOkHttpClient private val fifClient: OkHttpClient,
 ) {
     /** 确保 FIF 会话有效，无效则自动 SSO */
     private suspend fun ensureSession(): String {
@@ -125,6 +129,45 @@ class AiClassRepository @Inject constructor(
             }
         } catch (e: Exception) {
             Result.failure(Exception(mapError("签到", e), e))
+        }
+    }
+
+    /**
+     * 扫码签到：用二维码 token 调用 qrcodeHandler。
+     * 该接口返回 302 跳转到成功页，不是 JSON。
+     */
+    suspend fun submitQrCode(token: String): Result<String> {
+        return try {
+            val auth = ensureSession()
+            val url = "${com.lightxin.core.network.ApiConstants.BASE_FIF}" +
+                "/coursecenter-interaction/qrcodeV2/qrcodeHandler?token=$token&openTheWay=2"
+
+            val noRedirectClient = fifClient.newBuilder()
+                .followRedirects(false)
+                .followSslRedirects(false)
+                .build()
+
+            val request = Request.Builder()
+                .url(url)
+                .get()
+                .header("authorization", auth)
+                .header("Visit-Type", "mobile")
+                .build()
+
+            val response = noRedirectClient.newCall(request).execute()
+            val code = response.code
+            val location = response.header("Location").orEmpty()
+            response.close()
+
+            if (code == 302 && location.contains("signSuccess")) {
+                Result.success("扫码签到成功")
+            } else if (code == 302) {
+                Result.success("签到已处理")
+            } else {
+                Result.failure(Exception("签到失败（HTTP $code）"))
+            }
+        } catch (e: Exception) {
+            Result.failure(Exception(mapError("扫码签到", e), e))
         }
     }
 
