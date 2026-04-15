@@ -1,5 +1,6 @@
 package com.lightxin.feature.aiclass.data
 
+import com.lightxin.core.network.ApiConstants
 import com.lightxin.core.network.FifOkHttpClient
 import com.lightxin.core.network.FifRetrofit
 import com.lightxin.core.network.FifSessionManager
@@ -10,6 +11,8 @@ import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import retrofit2.HttpException
@@ -37,11 +40,11 @@ class AiClassRepository @Inject constructor(
         return try {
             val auth = ensureSession()
 
-            // 先获取当前学期
+            // 先获取当前学期（selected=1）
             val termResp = api.getTermList(auth)
-            val current = termResp.data?.currentTerm
-            val termYear = current?.termYear ?: return Result.failure(Exception("无法获取当前学期"))
-            val term = current.term ?: return Result.failure(Exception("无法获取当前学期"))
+            val currentTerm = termResp.data?.dataList?.find { it.selected == "1" }
+            val termYear = currentTerm?.year ?: return Result.failure(Exception("无法获取当前学期"))
+            val term = currentTerm.num ?: return Result.failure(Exception("无法获取当前学期"))
 
             // 查询课程
             val resp = api.getCourses(termYear, term, auth)
@@ -136,10 +139,10 @@ class AiClassRepository @Inject constructor(
      * 扫码签到：用二维码 token 调用 qrcodeHandler。
      * 该接口返回 302 跳转到成功页，不是 JSON。
      */
-    suspend fun submitQrCode(token: String): Result<String> {
-        return try {
+    suspend fun submitQrCode(token: String): Result<String> = withContext(Dispatchers.IO) {
+        try {
             val auth = ensureSession()
-            val url = "${com.lightxin.core.network.ApiConstants.BASE_FIF}" +
+            val url = ApiConstants.BASE_FIF +
                 "/coursecenter-interaction/qrcodeV2/qrcodeHandler?token=$token&openTheWay=2"
 
             val noRedirectClient = fifClient.newBuilder()

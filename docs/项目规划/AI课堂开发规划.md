@@ -100,8 +100,8 @@ Hilt 提供方式：
 class FifSessionManager {
     // 持久化（DataStore）
     val fifToken: String          // authorization header
-    val studentId: String         // FIF 学生 ID (e.g. 3889526)
-    val userName: String          // FIF 用户名 (e.g. aiit3233032235)
+    val studentId: String         // FIF 学生 ID 
+    val userName: String          // FIF 用户名 
     val schoolId: String          // FIF 学校 ID
     
     // 运行时

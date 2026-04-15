@@ -16,18 +16,14 @@ data class AiClassTermResponse(
 ) {
     data class TermListData(
         val dataList: List<TermItem>?,
-        val currentTerm: CurrentTerm?,
     )
 
     data class TermItem(
-        val termYear: String?,
-        val term: String?,
-        val termName: String?,
-    )
-
-    data class CurrentTerm(
-        val termYear: String?,
-        val term: String?,
+        val year: String?,
+        val num: String?,
+        val name: String?,
+        val id: String?,
+        val selected: String?,
     )
 }
 

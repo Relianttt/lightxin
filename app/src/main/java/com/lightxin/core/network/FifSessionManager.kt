@@ -9,7 +9,9 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.lightxin.core.auth.TokenManager
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withContext
 import okhttp3.CookieJar
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
@@ -60,27 +62,27 @@ class FifSessionManager @Inject constructor(
      * 3. 跟随重定向建立 Cookie 会话
      * 4. 调用 getAiktUserIdByMemberId 获取 FIF 用户标识
      */
-    suspend fun performSso(): Result<Unit> {
-        return try {
+    suspend fun performSso(): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
             val accessToken = tokenManager.getAccessToken().orEmpty()
             val userCode = tokenManager.getUserCode().orEmpty()
             val userName = tokenManager.getUserName().orEmpty()
             val userType = tokenManager.getUserType().orEmpty()
 
             if (accessToken.isBlank() || userCode.isBlank()) {
-                return Result.failure(Exception("校内登录信息已失效，请重新登录"))
+                return@withContext Result.failure(Exception("校内登录信息已失效，请重新登录"))
             }
 
             // Step 1: SSO 跳转，提取 FIF token
             val fifToken = performSsoRedirect(accessToken, userCode, userName, userType)
-                ?: return Result.failure(Exception("FIF 单点登录失败"))
+                ?: return@withContext Result.failure(Exception("FIF 单点登录失败"))
 
             // Step 2: 用 token 访问 FIF 首页建立 Cookie
             establishSession(fifToken)
 
             // Step 3: 用户映射
-            val userInfo = fetchUserMapping()
-                ?: return Result.failure(Exception("FIF 用户映射失败"))
+            val userInfo = fetchUserMapping(fifToken)
+                ?: return@withContext Result.failure(Exception("FIF 用户映射失败"))
 
             // 持久化
             context.fifDataStore.edit { prefs ->
@@ -95,10 +97,6 @@ class FifSessionManager @Inject constructor(
             Result.failure(Exception("AI课堂登录失败: ${e.message}", e))
         }
     }
-
-    /**
-     * Step 1: 请求 SSO 入口，禁止自动重定向，从 302 Location 提取 token。
-     */
     private fun performSsoRedirect(
         accessToken: String,
         userCode: String,
@@ -153,11 +151,12 @@ class FifSessionManager @Inject constructor(
     /**
      * Step 3: 调用用户映射接口获取 FIF 身份。
      */
-    private fun fetchUserMapping(): FifUserInfo? {
+    private fun fetchUserMapping(token: String): FifUserInfo? {
         val url = "${ApiConstants.BASE_FIF}/studycenter/mobile/common/getAiktUserIdByMemberId"
         val request = Request.Builder()
             .url(url)
             .post(okhttp3.FormBody.Builder().build())
+            .header("authorization", "Basic $token")
             .header("Visit-Type", "mobile")
             .build()
 
@@ -183,11 +182,8 @@ class FifSessionManager @Inject constructor(
      * 构建 FIF 业务请求所需的 authorization header 值。
      */
     suspend fun buildAuthHeader(): String {
-        val userName = getUserName().orEmpty()
-        // FIF 使用 Basic auth，token 通常是 base64(userName:token)
         val fifToken = getFifToken().orEmpty()
-        val credentials = "$userName:$fifToken"
-        return "Basic " + Base64.encodeToString(credentials.toByteArray(), Base64.NO_WRAP)
+        return "Basic $fifToken"
     }
 
     suspend fun clear() {
