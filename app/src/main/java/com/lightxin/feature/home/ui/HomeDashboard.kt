@@ -124,11 +124,6 @@ private fun QuickCard(
 }
 
 @Composable
-fun SchedulePlaceholder(modifier: Modifier = Modifier) {
-    LxEmpty(message = "课程表 - Phase 3 实现", modifier = modifier)
-}
-
-@Composable
 fun RunningPlaceholder(modifier: Modifier = Modifier) {
     LxEmpty(message = "跑步运动 - Phase 6 实现", modifier = modifier)
 }

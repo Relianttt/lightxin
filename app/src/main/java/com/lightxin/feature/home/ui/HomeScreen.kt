@@ -21,6 +21,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.navigation.NavHostController
+import com.lightxin.feature.schedule.ui.ScheduleScreen
 
 private data class TabItem(
     val label: String,
@@ -62,7 +63,7 @@ fun HomeScreen(navController: NavHostController) {
     ) { padding ->
         when (selectedTab) {
             0 -> HomeDashboard(modifier = Modifier.padding(padding), navController = navController)
-            1 -> SchedulePlaceholder(modifier = Modifier.padding(padding))
+            1 -> ScheduleScreen(modifier = Modifier.padding(padding))
             2 -> RunningPlaceholder(modifier = Modifier.padding(padding))
             3 -> ProfilePlaceholder(modifier = Modifier.padding(padding))
         }
