@@ -12,6 +12,8 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.lightxin.core.auth.SessionManager
 import com.lightxin.core.designsystem.component.LxLoading
+import com.lightxin.feature.checkin.ui.CheckinDetailScreen
+import com.lightxin.feature.checkin.ui.CheckinListScreen
 import com.lightxin.feature.home.ui.HomeScreen
 import com.lightxin.feature.labor.ui.LaborDetailScreen
 import com.lightxin.feature.labor.ui.LaborSummaryScreen
@@ -54,14 +56,33 @@ fun LightXinNavHost(
         }
 
         // Checkin
-        composable(Routes.CHECKIN_LIST) {
-            // TODO: Phase 5
+        composable(Routes.CHECKIN_LIST) { backStackEntry ->
+            val shouldRefresh by backStackEntry.savedStateHandle
+                .getStateFlow("checkin_refresh", false)
+                .collectAsState()
+            CheckinListScreen(
+                onBack = { navController.popBackStack() },
+                onTaskClick = { taskDateId ->
+                    navController.navigate(Routes.checkinDetail(taskDateId))
+                },
+                shouldRefresh = shouldRefresh,
+                onRefreshConsumed = {
+                    backStackEntry.savedStateHandle["checkin_refresh"] = false
+                },
+            )
         }
         composable(
             route = Routes.CHECKIN_DETAIL,
             arguments = listOf(navArgument("taskDateId") { type = NavType.StringType }),
         ) {
-            // TODO: Phase 5
+            CheckinDetailScreen(
+                onSubmitSuccess = {
+                    navController.previousBackStackEntry
+                        ?.savedStateHandle
+                        ?.set("checkin_refresh", true)
+                },
+                onBack = { navController.popBackStack() },
+            )
         }
 
         // Running

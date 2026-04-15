@@ -62,7 +62,11 @@ fun HomeScreen(navController: NavHostController) {
         },
     ) { padding ->
         when (selectedTab) {
-            0 -> HomeDashboard(modifier = Modifier.padding(padding), navController = navController)
+            0 -> HomeDashboard(
+                modifier = Modifier.padding(padding),
+                navController = navController,
+                onTabSelected = { selectedTab = it },
+            )
             1 -> ScheduleScreen(modifier = Modifier.padding(padding))
             2 -> RunningPlaceholder(modifier = Modifier.padding(padding))
             3 -> ProfilePlaceholder(modifier = Modifier.padding(padding))

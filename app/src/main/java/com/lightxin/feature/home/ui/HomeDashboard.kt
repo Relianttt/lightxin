@@ -27,9 +27,14 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import com.lightxin.core.designsystem.component.LxCard
 import com.lightxin.core.designsystem.component.LxEmpty
+import com.lightxin.navigation.Routes
 
 @Composable
-fun HomeDashboard(modifier: Modifier = Modifier, navController: NavHostController) {
+fun HomeDashboard(
+    modifier: Modifier = Modifier,
+    navController: NavHostController,
+    onTabSelected: (Int) -> Unit,
+) {
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -57,6 +62,7 @@ fun HomeDashboard(modifier: Modifier = Modifier, navController: NavHostControlle
             icon = Icons.Default.CalendarMonth,
             title = "今日课程",
             subtitle = "暂无数据",
+            onClick = { onTabSelected(1) },
         )
 
         Spacer(modifier = Modifier.height(12.dp))
@@ -66,6 +72,11 @@ fun HomeDashboard(modifier: Modifier = Modifier, navController: NavHostControlle
             icon = Icons.Default.CheckCircle,
             title = "查寝签到",
             subtitle = "暂无任务",
+            onClick = {
+                navController.navigate(Routes.CHECKIN_LIST) {
+                    launchSingleTop = true
+                }
+            },
         )
 
         Spacer(modifier = Modifier.height(12.dp))
@@ -75,6 +86,7 @@ fun HomeDashboard(modifier: Modifier = Modifier, navController: NavHostControlle
             icon = Icons.Default.DirectionsRun,
             title = "运动进度",
             subtitle = "暂无数据",
+            onClick = { onTabSelected(2) },
         )
 
         Spacer(modifier = Modifier.height(12.dp))
@@ -84,6 +96,11 @@ fun HomeDashboard(modifier: Modifier = Modifier, navController: NavHostControlle
             icon = Icons.Default.WorkHistory,
             title = "劳动教育",
             subtitle = "暂无数据",
+            onClick = {
+                navController.navigate(Routes.LABOR_SUMMARY) {
+                    launchSingleTop = true
+                }
+            },
         )
     }
 }
@@ -93,8 +110,9 @@ private fun QuickCard(
     icon: ImageVector,
     title: String,
     subtitle: String,
+    onClick: () -> Unit,
 ) {
-    LxCard {
+    LxCard(onClick = onClick) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()

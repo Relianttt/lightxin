@@ -39,11 +39,21 @@ class AuthInterceptor @Inject constructor(
                     .build()
             }
 
-            // 查寝接口: 认证在Api层通过JSON body处理，Interceptor只加通用header
+            // 查寝接口: H5 实际请求会携带 accessToken/userCode/userType/xh 等身份头
             host.contains("fdygl.aiit.edu.cn") -> {
                 val token = runBlocking { tokenManager.getAccessToken() } ?: ""
+                val userCode = runBlocking { tokenManager.getUserCode() } ?: ""
+                val userType = runBlocking { tokenManager.getUserType() } ?: "1"
                 original.newBuilder()
                     .header("Authorization", "Bearer $token")
+                    .header("accessToken", token)
+                    .header("access_token", token)
+                    .header("userCode", userCode)
+                    .header("xh", userCode)
+                    .header("userType", userType)
+                    .header("X-Requested-With", "XMLHttpRequest")
+                    .header("Origin", "https://fdygl.aiit.edu.cn")
+                    .header("Referer", "https://fdygl.aiit.edu.cn/swp-app/")
                     .build()
             }
 
