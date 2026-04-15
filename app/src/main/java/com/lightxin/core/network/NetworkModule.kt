@@ -4,10 +4,14 @@ import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
+import okhttp3.Cookie
+import okhttp3.CookieJar
+import okhttp3.HttpUrl
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 import javax.inject.Qualifier
 import javax.inject.Singleton
@@ -18,6 +22,8 @@ import javax.inject.Singleton
 @Qualifier @Retention(AnnotationRetention.BINARY) annotation class CheckinRetrofit
 @Qualifier @Retention(AnnotationRetention.BINARY) annotation class SportsRetrofit
 @Qualifier @Retention(AnnotationRetention.BINARY) annotation class LaborRetrofit
+@Qualifier @Retention(AnnotationRetention.BINARY) annotation class FifRetrofit
+@Qualifier @Retention(AnnotationRetention.BINARY) annotation class FifOkHttpClient
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -74,4 +80,36 @@ object NetworkModule {
     @Provides @Singleton @LaborRetrofit
     fun provideLaborRetrofit(client: OkHttpClient): Retrofit =
         buildRetrofit(client, ApiConstants.BASE_LABOR + "/")
+
+    // ─── FIF AI课堂 ───
+
+    @Provides @Singleton
+    fun provideFifCookieJar(): CookieJar {
+        val store = ConcurrentHashMap<String, List<Cookie>>()
+        return object : CookieJar {
+            override fun saveFromResponse(url: HttpUrl, cookies: List<Cookie>) {
+                store[url.host] = cookies
+            }
+            override fun loadForRequest(url: HttpUrl): List<Cookie> {
+                return store.values.flatten().filter { it.matches(url) }
+            }
+        }
+    }
+
+    @Provides @Singleton @FifOkHttpClient
+    fun provideFifOkHttpClient(cookieJar: CookieJar): OkHttpClient {
+        val logging = HttpLoggingInterceptor().apply {
+            level = HttpLoggingInterceptor.Level.BODY
+        }
+        return OkHttpClient.Builder()
+            .cookieJar(cookieJar)
+            .addInterceptor(logging)
+            .connectTimeout(30, TimeUnit.SECONDS)
+            .readTimeout(30, TimeUnit.SECONDS)
+            .build()
+    }
+
+    @Provides @Singleton @FifRetrofit
+    fun provideFifRetrofit(@FifOkHttpClient client: OkHttpClient): Retrofit =
+        buildRetrofit(client, ApiConstants.BASE_FIF + "/")
 }

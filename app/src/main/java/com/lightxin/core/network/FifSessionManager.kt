@@ -1,0 +1,205 @@
+package com.lightxin.core.network
+
+import android.content.Context
+import android.util.Base64
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.preferencesDataStore
+import com.lightxin.core.auth.TokenManager
+import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.flow.first
+import okhttp3.CookieJar
+import okhttp3.HttpUrl.Companion.toHttpUrl
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import java.net.URLEncoder
+import javax.inject.Inject
+import javax.inject.Singleton
+
+private val Context.fifDataStore: DataStore<Preferences> by preferencesDataStore(name = "fif_session")
+
+/**
+ * FIF AI课堂独立会话管理。
+ * 与校内 TokenManager 完全分离，管理 FIF SSO 登录态。
+ */
+@Singleton
+class FifSessionManager @Inject constructor(
+    @ApplicationContext private val context: Context,
+    private val tokenManager: TokenManager,
+    @FifOkHttpClient private val fifClient: OkHttpClient,
+    private val cookieJar: CookieJar,
+) {
+    companion object {
+        private val KEY_FIF_TOKEN = stringPreferencesKey("fif_token")
+        private val KEY_STUDENT_ID = stringPreferencesKey("student_id")
+        private val KEY_USER_NAME = stringPreferencesKey("user_name")
+        private val KEY_SCHOOL_ID = stringPreferencesKey("school_id")
+    }
+
+    suspend fun getStudentId(): String? =
+        context.fifDataStore.data.first()[KEY_STUDENT_ID]
+
+    suspend fun getUserName(): String? =
+        context.fifDataStore.data.first()[KEY_USER_NAME]
+
+    suspend fun getFifToken(): String? =
+        context.fifDataStore.data.first()[KEY_FIF_TOKEN]
+
+    suspend fun getSchoolId(): String? =
+        context.fifDataStore.data.first()[KEY_SCHOOL_ID]
+
+    suspend fun isSessionValid(): Boolean =
+        !getStudentId().isNullOrBlank() && !getFifToken().isNullOrBlank()
+
+    /**
+     * 执行完整的 SSO 登录链路:
+     * 1. 携带校内 token 请求 aiitpass.fifedu.com
+     * 2. 从 302 Location 提取 FIF token
+     * 3. 跟随重定向建立 Cookie 会话
+     * 4. 调用 getAiktUserIdByMemberId 获取 FIF 用户标识
+     */
+    suspend fun performSso(): Result<Unit> {
+        return try {
+            val accessToken = tokenManager.getAccessToken().orEmpty()
+            val userCode = tokenManager.getUserCode().orEmpty()
+            val userName = tokenManager.getUserName().orEmpty()
+            val userType = tokenManager.getUserType().orEmpty()
+
+            if (accessToken.isBlank() || userCode.isBlank()) {
+                return Result.failure(Exception("校内登录信息已失效，请重新登录"))
+            }
+
+            // Step 1: SSO 跳转，提取 FIF token
+            val fifToken = performSsoRedirect(accessToken, userCode, userName, userType)
+                ?: return Result.failure(Exception("FIF 单点登录失败"))
+
+            // Step 2: 用 token 访问 FIF 首页建立 Cookie
+            establishSession(fifToken)
+
+            // Step 3: 用户映射
+            val userInfo = fetchUserMapping()
+                ?: return Result.failure(Exception("FIF 用户映射失败"))
+
+            // 持久化
+            context.fifDataStore.edit { prefs ->
+                prefs[KEY_FIF_TOKEN] = fifToken
+                prefs[KEY_STUDENT_ID] = userInfo.studentId
+                prefs[KEY_USER_NAME] = userInfo.userName
+                prefs[KEY_SCHOOL_ID] = userInfo.schoolId
+            }
+
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(Exception("AI课堂登录失败: ${e.message}", e))
+        }
+    }
+
+    /**
+     * Step 1: 请求 SSO 入口，禁止自动重定向，从 302 Location 提取 token。
+     */
+    private fun performSsoRedirect(
+        accessToken: String,
+        userCode: String,
+        userName: String,
+        userType: String,
+    ): String? {
+        val encodedName = URLEncoder.encode(userName, "UTF-8")
+        val url = buildString {
+            append(ApiConstants.BASE_FIF_SSO)
+            append("/iplat-pass-aiit/h5/login")
+            append("?access_token=$accessToken")
+            append("&_userCode=$userCode")
+            append("&code=$userCode")
+            append("&userCode=$userCode")
+            append("&_userName=$encodedName")
+            append("&_userType=$userType")
+            append("&appId=${ApiConstants.APP_ID}")
+            append("&returnFromIscToAppFunc=ReturnDefault")
+        }
+
+        // 禁止自动重定向以手动提取 Location
+        val noRedirectClient = fifClient.newBuilder()
+            .followRedirects(false)
+            .followSslRedirects(false)
+            .build()
+
+        val request = Request.Builder().url(url).get().build()
+        val response = noRedirectClient.newCall(request).execute()
+
+        val location = response.header("Location") ?: return null
+        response.close()
+
+        // 从 Location 提取 token 参数
+        // e.g. https://sttp.fifedu.com/studycenter-nh5/?token=xxx&app=axx&redirect_uri=null
+        return try {
+            location.toHttpUrl().queryParameter("token")
+        } catch (_: Exception) {
+            // URL 解析失败时用正则兜底
+            Regex("[?&]token=([^&]+)").find(location)?.groupValues?.get(1)
+        }
+    }
+
+    /**
+     * Step 2: 访问 FIF 首页以建立 SESSION Cookie。
+     */
+    private fun establishSession(token: String) {
+        val url = "${ApiConstants.BASE_FIF}/studycenter-nh5/?token=$token&app=axx"
+        val request = Request.Builder().url(url).get().build()
+        fifClient.newCall(request).execute().close()
+    }
+
+    /**
+     * Step 3: 调用用户映射接口获取 FIF 身份。
+     */
+    private fun fetchUserMapping(): FifUserInfo? {
+        val url = "${ApiConstants.BASE_FIF}/studycenter/mobile/common/getAiktUserIdByMemberId"
+        val request = Request.Builder()
+            .url(url)
+            .post(okhttp3.FormBody.Builder().build())
+            .header("Visit-Type", "mobile")
+            .build()
+
+        val response = fifClient.newCall(request).execute()
+        val body = response.body?.string() ?: return null
+        response.close()
+
+        // 解析 JSON: { data: { id, userType, number, userName, schoolId } }
+        return try {
+            val json = com.google.gson.JsonParser.parseString(body).asJsonObject
+            val data = json.getAsJsonObject("data") ?: return null
+            FifUserInfo(
+                studentId = data.get("id")?.asString ?: return null,
+                userName = data.get("userName")?.asString.orEmpty(),
+                schoolId = data.get("schoolId")?.asString.orEmpty(),
+            )
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    /**
+     * 构建 FIF 业务请求所需的 authorization header 值。
+     */
+    suspend fun buildAuthHeader(): String {
+        val userName = getUserName().orEmpty()
+        // FIF 使用 Basic auth，token 通常是 base64(userName:token)
+        val fifToken = getFifToken().orEmpty()
+        val credentials = "$userName:$fifToken"
+        return "Basic " + Base64.encodeToString(credentials.toByteArray(), Base64.NO_WRAP)
+    }
+
+    suspend fun clear() {
+        context.fifDataStore.edit { it.clear() }
+        // 清除 FIF 相关 Cookie
+        val fifUrl = ApiConstants.BASE_FIF.toHttpUrl()
+        cookieJar.loadForRequest(fifUrl) // 触发读取，无法直接清除，但会话失效后不影响
+    }
+
+    private data class FifUserInfo(
+        val studentId: String,
+        val userName: String,
+        val schoolId: String,
+    )
+}

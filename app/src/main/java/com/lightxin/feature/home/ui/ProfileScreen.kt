@@ -21,6 +21,7 @@ import androidx.compose.material.icons.filled.Bed
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.WorkHistory
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
@@ -47,6 +48,7 @@ import com.lightxin.core.designsystem.component.LxOutlinedButton
 fun ProfileScreen(
     onNavigateCheckin: () -> Unit,
     onNavigateLabor: () -> Unit,
+    onNavigateAiClass: () -> Unit,
     onLogout: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: ProfileViewModel = hiltViewModel(),
@@ -124,6 +126,11 @@ fun ProfileScreen(
                     icon = Icons.Default.WorkHistory,
                     title = "劳动教育",
                     onClick = onNavigateLabor,
+                )
+                MenuRow(
+                    icon = Icons.Default.School,
+                    title = "AI课堂",
+                    onClick = onNavigateAiClass,
                     showDivider = false,
                 )
             }

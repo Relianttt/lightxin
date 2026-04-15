@@ -29,6 +29,7 @@ import com.lightxin.feature.running.ui.RunningHomeScreen
 import com.lightxin.feature.running.ui.RunningResultScreen
 import com.lightxin.feature.running.ui.RunningSimScreen
 import com.lightxin.feature.running.ui.RunningViewModel
+import com.lightxin.feature.aiclass.ui.AiClassHomeScreen
 
 @Composable
 fun LightXinNavHost(
@@ -205,6 +206,13 @@ fun LightXinNavHost(
             LaborDetailScreen(
                 id = backStackEntry.arguments?.getString("id") ?: "",
                 type = backStackEntry.arguments?.getString("type") ?: "",
+                onBack = { navController.popBackStack() },
+            )
+        }
+
+        // AI Class
+        composable(Routes.AICLASS_HOME) {
+            AiClassHomeScreen(
                 onBack = { navController.popBackStack() },
             )
         }

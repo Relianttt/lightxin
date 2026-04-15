@@ -104,6 +104,11 @@ fun HomeScreen(
                             launchSingleTop = true
                         }
                     },
+                    onNavigateAiClass = {
+                        navController.navigate(Routes.AICLASS_HOME) {
+                            launchSingleTop = true
+                        }
+                    },
                     onLogout = {
                         navController.navigate(Routes.LOGIN) {
                             popUpTo(Routes.HOME) { inclusive = true }
