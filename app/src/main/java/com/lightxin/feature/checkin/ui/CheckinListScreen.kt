@@ -29,7 +29,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -39,10 +38,8 @@ import com.lightxin.core.designsystem.component.LxEmpty
 import com.lightxin.core.designsystem.component.LxError
 import com.lightxin.core.designsystem.component.LxLoading
 import com.lightxin.core.designsystem.component.LxTopBar
+import com.lightxin.core.designsystem.theme.LxSuccess
 import com.lightxin.feature.checkin.domain.CheckinTask
-
-private val signedColor = Color(0xFF4CAF7A)
-private val unsignedColor = Color(0xFFE8734A)
 
 @Composable
 fun CheckinListScreen(
@@ -122,6 +119,7 @@ private fun TaskList(
             TaskCard(
                 task = task,
                 onClick = { if (!task.isSigned) onTaskClick(task.taskDateId) },
+                modifier = Modifier.animateItem(),
             )
         }
 
@@ -145,8 +143,9 @@ private fun TaskList(
 private fun TaskCard(
     task: CheckinTask,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    LxCard(onClick = onClick) {
+    LxCard(onClick = onClick, modifier = modifier) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(16.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -186,7 +185,7 @@ private fun TaskCard(
 
 @Composable
 private fun StatusBadge(isSigned: Boolean) {
-    val color = if (isSigned) signedColor else unsignedColor
+    val color = if (isSigned) LxSuccess else MaterialTheme.colorScheme.secondary
     val text = if (isSigned) "已签到" else "未签到"
 
     Box(

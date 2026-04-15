@@ -1,5 +1,10 @@
 package com.lightxin.navigation
 
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -46,8 +51,24 @@ fun LightXinNavHost(
     NavHost(
         navController = navController,
         startDestination = startRoute,
+        enterTransition = {
+            fadeIn(tween(300)) + slideInHorizontally(tween(300)) { it / 4 }
+        },
+        exitTransition = {
+            fadeOut(tween(200))
+        },
+        popEnterTransition = {
+            fadeIn(tween(300)) + slideInHorizontally(tween(300)) { -it / 4 }
+        },
+        popExitTransition = {
+            fadeOut(tween(200)) + slideOutHorizontally(tween(200)) { it / 4 }
+        },
     ) {
-        composable(Routes.LOGIN) {
+        composable(
+            Routes.LOGIN,
+            enterTransition = { fadeIn(tween(400)) },
+            exitTransition = { fadeOut(tween(300)) },
+        ) {
             LoginScreen(
                 onLoginSuccess = {
                     navController.navigate(Routes.HOME) {
@@ -57,7 +78,11 @@ fun LightXinNavHost(
             )
         }
 
-        composable(Routes.HOME) {
+        composable(
+            Routes.HOME,
+            enterTransition = { fadeIn(tween(400)) },
+            exitTransition = { fadeOut(tween(200)) },
+        ) {
             HomeScreen(navController = navController)
         }
 

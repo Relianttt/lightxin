@@ -39,17 +39,9 @@ import com.lightxin.core.designsystem.component.LxCard
 import com.lightxin.core.designsystem.component.LxError
 import com.lightxin.core.designsystem.component.LxLoading
 import com.lightxin.core.designsystem.component.LxTopBar
+import com.lightxin.core.designsystem.theme.LxCategoryColors
 import com.lightxin.feature.labor.domain.ActivityRecord
 import com.lightxin.feature.labor.domain.HoursSummary
-
-// 志愿时长类型色板
-private val hoursColors = listOf(
-    Color(0xFF5B7FD3), // 志愿 - 蓝
-    Color(0xFFE8734A), // 暑期 - 橙
-    Color(0xFF4CAF7A), // 劳动 - 绿
-    Color(0xFFAB6FD1), // 社区 - 紫
-    Color(0xFFE0A145), // 其他 - 黄
-)
 
 @Composable
 fun LaborSummaryScreen(
@@ -92,16 +84,16 @@ private fun LaborContent(
     val listState = rememberLazyListState()
 
     // 触底加载更多
-    val shouldLoadMore by remember {
+    val reachedBottom by remember {
         derivedStateOf {
             val lastVisible = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
             val totalItems = listState.layoutInfo.totalItemsCount
-            lastVisible >= totalItems - 3 && uiState.hasMore && !uiState.isLoadingMore
+            lastVisible >= totalItems - 3
         }
     }
 
-    LaunchedEffect(shouldLoadMore) {
-        if (shouldLoadMore) onLoadMore()
+    LaunchedEffect(reachedBottom, uiState.hasMore, uiState.isLoadingMore) {
+        if (reachedBottom && uiState.hasMore && !uiState.isLoadingMore) onLoadMore()
     }
 
     LazyColumn(
@@ -137,6 +129,7 @@ private fun LaborContent(
             ActivityCard(
                 record = record,
                 onClick = { onActivityClick(record.id, record.type) },
+                modifier = Modifier.animateItem(),
             )
         }
 
@@ -162,11 +155,11 @@ private fun LaborContent(
 @Composable
 private fun HoursSummaryCard(summary: HoursSummary) {
     val items = listOf(
-        Triple("志愿服务", summary.voluntaryTimes, hoursColors[0]),
-        Triple("暑期实践", summary.summerTimes, hoursColors[1]),
-        Triple("劳动实践", summary.laborTimes, hoursColors[2]),
-        Triple("社区服务", summary.socialTimes, hoursColors[3]),
-        Triple("其他", summary.otherTimes, hoursColors[4]),
+        Triple("志愿服务", summary.voluntaryTimes, LxCategoryColors[0]),
+        Triple("暑期实践", summary.summerTimes, LxCategoryColors[1]),
+        Triple("劳动实践", summary.laborTimes, LxCategoryColors[2]),
+        Triple("社区服务", summary.socialTimes, LxCategoryColors[3]),
+        Triple("其他", summary.otherTimes, LxCategoryColors[4]),
     )
     val maxHours = items.maxOf { it.second }.coerceAtLeast(1.0)
 
@@ -266,8 +259,9 @@ private fun HoursBarRow(
 private fun ActivityCard(
     record: ActivityRecord,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    LxCard(onClick = onClick) {
+    LxCard(onClick = onClick, modifier = modifier) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()

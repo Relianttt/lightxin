@@ -73,19 +73,21 @@ class LaborViewModel @Inject constructor(
     fun loadMore() {
         val state = _uiState.value
         if (state.isLoadingMore || !state.hasMore) return
+        _uiState.update { it.copy(isLoadingMore = true) }
 
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoadingMore = true) }
             val nextPage = state.currentPage + 1
 
             repository.getActivities(page = nextPage).fold(
                 onSuccess = { list ->
                     _uiState.update {
+                        val existingIds = it.activities.mapTo(mutableSetOf()) { r -> r.id }
+                        val newRecords = list.filter { r -> r.id !in existingIds }
                         it.copy(
-                            activities = it.activities + list,
+                            activities = it.activities + newRecords,
                             isLoadingMore = false,
                             currentPage = nextPage,
-                            hasMore = list.size >= 10,
+                            hasMore = newRecords.isNotEmpty() && list.size >= 10,
                         )
                     }
                 },

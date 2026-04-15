@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.lightxin.core.designsystem.component.LxButton
 import com.lightxin.core.designsystem.component.LxCard
+import com.lightxin.core.designsystem.component.LxDetailRow
 import com.lightxin.core.designsystem.component.LxEmpty
 import com.lightxin.core.designsystem.component.LxOutlinedButton
 import com.lightxin.core.designsystem.component.LxTopBar
@@ -122,39 +123,12 @@ private fun ResultMetricsCard(result: RunningResult) {
                 fontWeight = FontWeight.Bold,
             )
             Spacer(modifier = Modifier.height(14.dp))
-            ResultRow("开始时间", result.startDate)
-            Spacer(modifier = Modifier.height(10.dp))
-            ResultRow("结束时间", result.endDate)
-            Spacer(modifier = Modifier.height(10.dp))
-            ResultRow("距离", String.format("%.2f km", result.distanceKm))
-            Spacer(modifier = Modifier.height(10.dp))
-            ResultRow("时长", result.durationSeconds.toString() + " 秒")
-            Spacer(modifier = Modifier.height(10.dp))
-            ResultRow("速度", String.format("%.2f km/h", result.speedKmh))
-            Spacer(modifier = Modifier.height(10.dp))
-            ResultRow("轨迹点", "${result.pointCount} 个")
+            LxDetailRow(label = "开始时间", value = result.startDate, showDivider = false)
+            LxDetailRow(label = "结束时间", value = result.endDate, showDivider = false)
+            LxDetailRow(label = "距离", value = String.format("%.2f km", result.distanceKm), showDivider = false)
+            LxDetailRow(label = "时长", value = "${result.durationSeconds} 秒", showDivider = false)
+            LxDetailRow(label = "速度", value = String.format("%.2f km/h", result.speedKmh), showDivider = false)
+            LxDetailRow(label = "轨迹点", value = "${result.pointCount} 个", showDivider = false)
         }
-    }
-}
-
-@Composable
-private fun ResultRow(
-    label: String,
-    value: String,
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Text(
-            text = value,
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.Medium,
-        )
     }
 }

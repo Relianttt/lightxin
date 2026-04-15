@@ -38,6 +38,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.compose.ui.platform.LocalContext
 import com.lightxin.core.designsystem.component.LxButton
 import com.lightxin.core.designsystem.component.LxCard
+import com.lightxin.core.designsystem.component.LxDetailRow
 import com.lightxin.core.designsystem.component.LxError
 import com.lightxin.core.designsystem.component.LxLoading
 import com.lightxin.core.designsystem.component.LxOutlinedButton
@@ -155,7 +156,7 @@ private fun RunningHomeContent(
                 text = if (isActive) {
                     "当前会话仍在保留，$trackerLabel"
                 } else {
-                    "保持原有视觉语言，但把重心放在数据和操作上。"
+                    "查看运动任务进度，开始或继续你的跑步记录"
                 },
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -278,22 +279,25 @@ private fun InsightCard(dashboard: RunningDashboard?) {
             )
             Spacer(modifier = Modifier.height(14.dp))
 
-            InsightRow(
+            LxDetailRow(
                 label = "学生类型",
                 value = dashboard?.studentTypeLabel?.ifBlank { "未知" } ?: "未知",
+                labelWidth = 76.dp,
+                showDivider = false,
             )
-            Spacer(modifier = Modifier.height(10.dp))
-            InsightRow(
+            LxDetailRow(
                 label = "单次达标",
                 value = if (singleRunTargetKm > 0.0) formatKm(singleRunTargetKm, 0) else "待确认",
+                labelWidth = 76.dp,
+                showDivider = false,
             )
-            Spacer(modifier = Modifier.height(10.dp))
-            InsightRow(
+            LxDetailRow(
                 label = "剩余里程",
                 value = formatKm(leftKm, 2),
+                labelWidth = 76.dp,
+                showDivider = false,
             )
-            Spacer(modifier = Modifier.height(10.dp))
-            InsightRow(
+            LxDetailRow(
                 label = "最高单次",
                 value = if (maxKm > 0.0) {
                     buildString {
@@ -306,36 +310,16 @@ private fun InsightCard(dashboard: RunningDashboard?) {
                 } else {
                     "暂无记录"
                 },
+                labelWidth = 76.dp,
+                showDivider = false,
             )
-            Spacer(modifier = Modifier.height(10.dp))
-            InsightRow(
+            LxDetailRow(
                 label = "任务状态",
                 value = if (dashboard?.dsFlag == true) "当前阶段需要完成" else "暂无强制任务",
+                labelWidth = 76.dp,
+                showDivider = false,
             )
         }
-    }
-}
-
-@Composable
-private fun InsightRow(
-    label: String,
-    value: String,
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.width(76.dp),
-        )
-        Text(
-            text = value,
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.Medium,
-        )
     }
 }
 

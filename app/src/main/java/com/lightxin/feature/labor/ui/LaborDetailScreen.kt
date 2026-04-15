@@ -20,6 +20,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.lightxin.core.designsystem.component.LxCard
+import com.lightxin.core.designsystem.component.LxDetailRow
 import com.lightxin.core.designsystem.component.LxError
 import com.lightxin.core.designsystem.component.LxLoading
 import com.lightxin.core.designsystem.component.LxTopBar
@@ -78,47 +79,13 @@ private fun DetailContent(
         // 详情卡片
         LxCard {
             Column(modifier = Modifier.padding(20.dp)) {
-                DetailRow(label = "活动类型", value = detail.activityType)
-                DetailRow(label = "活动级别", value = detail.activityLevel)
-                DetailRow(label = "主办方", value = detail.organizer)
-                DetailRow(label = "志愿时长", value = "%.1f".format(detail.serviceTimes))
-                DetailRow(label = "日期", value = detail.createDate, showDivider = false)
+                LxDetailRow(label = "活动类型", value = detail.activityType)
+                LxDetailRow(label = "活动级别", value = detail.activityLevel)
+                LxDetailRow(label = "主办方", value = detail.organizer)
+                LxDetailRow(label = "志愿时长", value = "%.1f".format(detail.serviceTimes))
+                LxDetailRow(label = "日期", value = detail.createDate, showDivider = false)
             }
         }
     }
 }
 
-@Composable
-private fun DetailRow(
-    label: String,
-    value: String,
-    showDivider: Boolean = true,
-) {
-    if (value.isBlank()) return
-
-    Column {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 10.dp),
-        ) {
-            Text(
-                text = label,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.width(72.dp),
-            )
-            Text(
-                text = value,
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Medium,
-            )
-        }
-
-        if (showDivider) {
-            androidx.compose.material3.HorizontalDivider(
-                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
-            )
-        }
-    }
-}

@@ -42,7 +42,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -52,10 +51,12 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import coil3.compose.AsyncImage
 import com.lightxin.core.designsystem.component.LxButton
 import com.lightxin.core.designsystem.component.LxCard
+import com.lightxin.core.designsystem.component.LxDetailRow
 import com.lightxin.core.designsystem.component.LxError
 import com.lightxin.core.designsystem.component.LxLoading
 import com.lightxin.core.designsystem.component.LxOutlinedButton
 import com.lightxin.core.designsystem.component.LxTopBar
+import com.lightxin.core.designsystem.theme.LxSuccess
 import com.lightxin.feature.checkin.domain.TaskDetail
 import java.io.File
 
@@ -170,7 +171,7 @@ private fun DetailContent(
                     Icon(
                         imageVector = Icons.Default.CheckCircle,
                         contentDescription = null,
-                        tint = Color(0xFF4CAF7A),
+                        tint = LxSuccess,
                         modifier = Modifier.size(24.dp),
                     )
                     Spacer(modifier = Modifier.width(8.dp))
@@ -178,7 +179,7 @@ private fun DetailContent(
                         text = "已完成签到",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold,
-                        color = Color(0xFF4CAF7A),
+                        color = LxSuccess,
                     )
                 }
             }
@@ -245,49 +246,17 @@ private fun TaskInfoCard(detail: TaskDetail) {
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            InfoRow(label = "签到时间", value = "${detail.startTime} ~ ${detail.endTime}")
+            LxDetailRow(label = "签到时间", value = "${detail.startTime} ~ ${detail.endTime}")
             if (detail.address.isNotBlank()) {
-                InfoRow(label = "签到地点", value = detail.address)
+                LxDetailRow(label = "签到地点", value = detail.address)
             }
             if (detail.locationRange > 0) {
-                InfoRow(label = "签到范围", value = "${detail.locationRange.toInt()}米")
+                LxDetailRow(label = "签到范围", value = "${detail.locationRange.toInt()}米")
             }
-            InfoRow(
+            LxDetailRow(
                 label = "需要拍照",
                 value = if (detail.needPhoto) "是" else "否",
                 showDivider = false,
-            )
-        }
-    }
-}
-
-@Composable
-private fun InfoRow(
-    label: String,
-    value: String,
-    showDivider: Boolean = true,
-) {
-    if (value.isBlank()) return
-
-    Column {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
-        ) {
-            Text(
-                text = label,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.width(72.dp),
-            )
-            Text(
-                text = value,
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Medium,
-            )
-        }
-        if (showDivider) {
-            androidx.compose.material3.HorizontalDivider(
-                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
             )
         }
     }
@@ -382,7 +351,7 @@ private fun LocationSection(
                     LocationStatus.SUCCESS -> Icon(
                         imageVector = Icons.Default.CheckCircle,
                         contentDescription = null,
-                        tint = Color(0xFF4CAF7A),
+                        tint = LxSuccess,
                         modifier = Modifier.size(20.dp),
                     )
                     LocationStatus.LOCATING -> CircularProgressIndicator(

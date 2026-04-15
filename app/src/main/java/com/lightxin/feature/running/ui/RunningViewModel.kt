@@ -132,7 +132,18 @@ class RunningViewModel @Inject constructor(
     }
 
     fun updateSimDurationMinutes(value: String) {
-        _uiState.update { it.copy(simDurationMinutes = value.filter(Char::isDigit)) }
+        val filtered = value.filter(Char::isDigit)
+        val minutes = filtered.toIntOrNull()
+        _uiState.update {
+            it.copy(
+                simDurationMinutes = filtered,
+                simStartTimeMillis = if (minutes != null && minutes > 0) {
+                    System.currentTimeMillis() - minutes * 60_000L
+                } else {
+                    it.simStartTimeMillis
+                },
+            )
+        }
     }
 
     fun updateSimStartTime(timeMillis: Long) {

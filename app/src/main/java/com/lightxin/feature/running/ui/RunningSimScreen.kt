@@ -2,16 +2,19 @@ package com.lightxin.feature.running.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -34,8 +37,8 @@ import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
-import androidx.compose.foundation.text.KeyboardOptions
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun RunningSimScreen(
     onBack: () -> Unit,
@@ -73,6 +76,7 @@ fun RunningSimScreen(
                 )
             }
 
+            // 卡片1: 跑步参数 + 建议时间
             item {
                 LxCard {
                     Column(modifier = Modifier.padding(20.dp)) {
@@ -82,6 +86,7 @@ fun RunningSimScreen(
                             fontWeight = FontWeight.Bold,
                         )
                         Spacer(modifier = Modifier.height(14.dp))
+
                         LxTextField(
                             value = uiState.simDistance,
                             onValueChange = viewModel::updateSimDistance,
@@ -89,37 +94,27 @@ fun RunningSimScreen(
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                         )
                         Spacer(modifier = Modifier.height(12.dp))
+
                         LxTextField(
                             value = uiState.simDurationMinutes,
                             onValueChange = viewModel::updateSimDurationMinutes,
                             label = "时长（分钟）",
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         )
-                    }
-                }
-            }
+                        Spacer(modifier = Modifier.height(12.dp))
 
-            item {
-                LxCard {
-                    Column(modifier = Modifier.padding(20.dp)) {
-                        Text(
-                            text = "开始时间",
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Bold,
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = formatTime(uiState.simStartTimeMillis),
-                            style = MaterialTheme.typography.bodyMedium,
-                        )
-                        Spacer(modifier = Modifier.height(14.dp))
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            listOf(20L, 30L, 45L).forEach { minutes ->
-                                val targetTime = System.currentTimeMillis() - minutes * 60_000L
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            listOf(20, 30, 45).forEach { minutes ->
                                 FilterChip(
-                                    selected = uiState.simStartTimeMillis == targetTime,
-                                    onClick = { viewModel.updateSimStartTime(targetTime) },
-                                    label = { Text("前推 ${minutes} 分钟") },
+                                    selected = false,
+                                    onClick = {
+                                        val targetTime = System.currentTimeMillis() - minutes * 60_000L
+                                        viewModel.updateSimStartTime(targetTime)
+                                    },
+                                    label = { Text("前推 $minutes 分钟") },
                                     colors = FilterChipDefaults.filterChipColors(
                                         selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
                                     ),
@@ -130,26 +125,55 @@ fun RunningSimScreen(
                 }
             }
 
+            // 卡片2: 开始时间 + 校验
             item {
-                val speed = viewModel.simulationSpeedKmh()
                 LxCard {
                     Column(modifier = Modifier.padding(20.dp)) {
                         Text(
-                            text = "校验结果",
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Bold,
+                            text = "开始时间",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
-                        Spacer(modifier = Modifier.height(10.dp))
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = formatTime(uiState.simStartTimeMillis),
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Medium,
+                        )
+
+                        Spacer(modifier = Modifier.height(16.dp))
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                        Spacer(modifier = Modifier.height(14.dp))
+
+                        val speed = viewModel.simulationSpeedKmh()
+                        Text(
+                            text = "校验",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
                         Text(
                             text = if (speed == null) {
-                                "请先输入距离与时长"
+                                "请输入距离与时长"
                             } else {
-                                String.format(Locale.US, "预估平均速度 %.1f km/h，建议保持在 6-15 km/h。", speed)
+                                val inRange = speed in 6.0..15.0
+                                String.format(
+                                    Locale.US,
+                                    "预估速度 %.1f km/h %s",
+                                    speed,
+                                    if (inRange) "✓" else "（建议 6-15 km/h）",
+                                )
                             },
                             style = MaterialTheme.typography.bodyMedium,
+                            color = if (speed != null && speed in 6.0..15.0) {
+                                MaterialTheme.colorScheme.onSurface
+                            } else {
+                                MaterialTheme.colorScheme.error
+                            },
                         )
+
                         if (!uiState.startError.isNullOrBlank()) {
-                            Spacer(modifier = Modifier.height(10.dp))
+                            Spacer(modifier = Modifier.height(8.dp))
                             Text(
                                 text = uiState.startError!!,
                                 style = MaterialTheme.typography.bodySmall,

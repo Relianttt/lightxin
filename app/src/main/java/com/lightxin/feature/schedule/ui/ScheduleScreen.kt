@@ -43,9 +43,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.lightxin.core.designsystem.component.LxDetailRow
 import com.lightxin.core.designsystem.component.LxEmpty
 import com.lightxin.core.designsystem.component.LxError
 import com.lightxin.core.designsystem.component.LxLoading
+import com.lightxin.core.designsystem.theme.LxCategoryColors
 import com.lightxin.feature.schedule.domain.Course
 import java.time.LocalDate
 
@@ -55,21 +57,9 @@ private val CELL_HEIGHT = 64.dp
 private val CELL_WIDTH = 52.dp
 private val SECTION_LABEL_WIDTH = 28.dp
 
-// 柔和的课程色板
-private val courseColors = listOf(
-    Color(0xFF5B7FD3), // 蓝
-    Color(0xFFE8734A), // 橙
-    Color(0xFF4CAF7A), // 绿
-    Color(0xFFAB6FD1), // 紫
-    Color(0xFFE0A145), // 黄
-    Color(0xFF49A7C4), // 青
-    Color(0xFFD36B7E), // 粉红
-    Color(0xFF7B8FA0), // 灰蓝
-)
-
 private fun courseColor(name: String): Color {
-    val index = (name.hashCode() and 0x7FFFFFFF) % courseColors.size
-    return courseColors[index]
+    val index = (name.hashCode() and 0x7FFFFFFF) % LxCategoryColors.size
+    return LxCategoryColors[index]
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -322,35 +312,19 @@ private fun CourseDetail(course: Course) {
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        DetailRow("时间", "星期${DAY_LABELS[course.dayOfWeek - 1]}  第${course.startSection}-${course.endSection}节")
+        LxDetailRow(
+            label = "时间",
+            value = "星期${DAY_LABELS[course.dayOfWeek - 1]}  第${course.startSection}-${course.endSection}节",
+            labelWidth = 48.dp,
+            showDivider = false,
+        )
 
         if (course.room.isNotBlank()) {
-            DetailRow("教室", course.room)
+            LxDetailRow(label = "教室", value = course.room, labelWidth = 48.dp, showDivider = false)
         }
 
         if (course.teacher.isNotBlank()) {
-            DetailRow("教师", course.teacher)
+            LxDetailRow(label = "教师", value = course.teacher, labelWidth = 48.dp, showDivider = false)
         }
-    }
-}
-
-@Composable
-private fun DetailRow(label: String, value: String) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 6.dp),
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.width(48.dp),
-        )
-        Text(
-            text = value,
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.Medium,
-        )
     }
 }
