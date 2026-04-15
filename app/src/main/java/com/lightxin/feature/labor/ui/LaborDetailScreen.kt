@@ -81,7 +81,7 @@ private fun DetailContent(
                 DetailRow(label = "活动类型", value = detail.activityType)
                 DetailRow(label = "活动级别", value = detail.activityLevel)
                 DetailRow(label = "主办方", value = detail.organizer)
-                DetailRow(label = "工时", value = "%.1f".format(detail.serviceTimes))
+                DetailRow(label = "志愿时长", value = "%.1f".format(detail.serviceTimes))
                 DetailRow(label = "日期", value = detail.createDate, showDivider = false)
             }
         }

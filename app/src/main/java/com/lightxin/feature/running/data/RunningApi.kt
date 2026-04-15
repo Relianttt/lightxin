@@ -1,0 +1,56 @@
+package com.lightxin.feature.running.data
+
+import com.google.gson.JsonObject
+import com.lightxin.core.network.SportsRetrofit
+import dagger.Module
+import dagger.Provides
+import dagger.hilt.InstallIn
+import dagger.hilt.components.SingletonComponent
+import okhttp3.ResponseBody
+import retrofit2.Retrofit
+import retrofit2.http.Field
+import retrofit2.http.FieldMap
+import retrofit2.http.FormUrlEncoded
+import retrofit2.http.GET
+import retrofit2.http.POST
+import javax.inject.Singleton
+
+interface RunningApi {
+
+    @FormUrlEncoded
+    @POST("mobile/sportApp/startIndex.do")
+    suspend fun getStartIndex(
+        @FieldMap params: Map<String, String>,
+    ): JsonObject
+
+    @FormUrlEncoded
+    @POST("mobile/sportApp/checkDsStudent.do")
+    suspend fun checkDsStudent(
+        @FieldMap params: Map<String, String>,
+    ): JsonObject
+
+    @FormUrlEncoded
+    @POST("mobile/sportApp/startRunning.do")
+    suspend fun startRunning(
+        @FieldMap params: Map<String, String>,
+    ): JsonObject
+
+    @GET("mobile/time/getServerTime.do")
+    suspend fun getServerTime(): ResponseBody
+
+    @FormUrlEncoded
+    @POST("mobile/extra/addExtraCheckNew.do")
+    suspend fun uploadRunningRecord(
+        @Field("list") list: String,
+    ): JsonObject
+}
+
+@Module
+@InstallIn(SingletonComponent::class)
+object RunningModule {
+
+    @Provides
+    @Singleton
+    fun provideRunningApi(@SportsRetrofit retrofit: Retrofit): RunningApi =
+        retrofit.create(RunningApi::class.java)
+}

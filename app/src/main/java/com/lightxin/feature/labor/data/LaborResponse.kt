@@ -4,8 +4,13 @@ package com.lightxin.feature.labor.data
  * queryPersonalTimesTotal.do 响应
  */
 data class HoursTotalResponse(
-    val data: HoursTotalData?,
+    val data: NestedData<HoursTotalData>?,
     val flag: Boolean?,
+    val result: String?,
+)
+
+data class NestedData<T>(
+    val data: T?,
 )
 
 data class HoursTotalData(
@@ -20,14 +25,10 @@ data class HoursTotalData(
  * queryTimesDetailsPage.do 响应
  */
 data class ActivityPageResponse(
-    val data: ActivityPageData?,
+    val rows: List<ActivityRow>?,
+    val total: Int?,
     val flag: Boolean?,
-)
-
-data class ActivityPageData(
-    val list: List<ActivityRow>?,
-    val totalPage: Int?,
-    val totalCount: Int?,
+    val result: String?,
 )
 
 data class ActivityRow(
@@ -43,8 +44,9 @@ data class ActivityRow(
  * queryTimesDetails.do 响应
  */
 data class ActivityDetailResponse(
-    val data: ActivityDetailData?,
+    val data: NestedData<ActivityDetailData>?,
     val flag: Boolean?,
+    val result: String?,
 )
 
 data class ActivityDetailData(

@@ -14,6 +14,7 @@ data class HoursSummary(
 data class ActivityRecord(
     val id: String,
     val projectTypeName: String,
+    val type: String,
     val activityName: String,
     val serviceTimes: Double,
     val createDate: String,

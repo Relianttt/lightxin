@@ -32,8 +32,8 @@ class LaborRepository @Inject constructor(
             if (userCode.isBlank()) return Result.failure(Exception("登录信息已失效，请重新登录"))
 
             val response = api.queryHoursTotal(userCode, xh, token)
-            val data = response.data
-                ?: return Result.failure(Exception("获取工时数据失败"))
+            val data = response.data?.data
+                ?: return Result.failure(Exception(response.result ?: "获取工时数据失败"))
 
             Result.success(
                 HoursSummary(
@@ -55,13 +55,14 @@ class LaborRepository @Inject constructor(
             if (userCode.isBlank()) return Result.failure(Exception("登录信息已失效，请重新登录"))
 
             val response = api.queryActivities(userCode, xh, token, page.toString(), pageSize.toString())
-            val list = response.data?.list.orEmpty()
+            val list = response.rows.orEmpty()
 
             Result.success(
                 list.map { row ->
                     ActivityRecord(
                         id = row.id ?: "",
                         projectTypeName = row.projectTypeName ?: "",
+                        type = row.type ?: "",
                         activityName = row.activityName ?: "",
                         serviceTimes = row.serviceTimes?.toDoubleOrNull() ?: 0.0,
                         createDate = row.createDate ?: "",
@@ -79,8 +80,8 @@ class LaborRepository @Inject constructor(
             if (userCode.isBlank()) return Result.failure(Exception("登录信息已失效，请重新登录"))
 
             val response = api.queryActivityDetail(userCode, xh, token, id, type)
-            val data = response.data
-                ?: return Result.failure(Exception("获取活动详情失败"))
+            val data = response.data?.data
+                ?: return Result.failure(Exception(response.result ?: "获取活动详情失败"))
 
             Result.success(
                 ActivityDetail(

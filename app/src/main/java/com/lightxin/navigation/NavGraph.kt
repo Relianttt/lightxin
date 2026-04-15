@@ -3,6 +3,7 @@ package com.lightxin.navigation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
@@ -18,6 +19,11 @@ import com.lightxin.feature.home.ui.HomeScreen
 import com.lightxin.feature.labor.ui.LaborDetailScreen
 import com.lightxin.feature.labor.ui.LaborSummaryScreen
 import com.lightxin.feature.login.ui.LoginScreen
+import com.lightxin.feature.running.ui.RunningActiveScreen
+import com.lightxin.feature.running.ui.RunningHomeScreen
+import com.lightxin.feature.running.ui.RunningResultScreen
+import com.lightxin.feature.running.ui.RunningSimScreen
+import com.lightxin.feature.running.ui.RunningViewModel
 
 @Composable
 fun LightXinNavHost(
@@ -87,16 +93,72 @@ fun LightXinNavHost(
 
         // Running
         composable(Routes.RUNNING_HOME) {
-            // TODO: Phase 6
+            val homeEntry = remember(navController) { navController.getBackStackEntry(Routes.HOME) }
+            val runningViewModel: RunningViewModel = hiltViewModel(homeEntry)
+            RunningHomeScreen(
+                viewModel = runningViewModel,
+                onBack = { navController.popBackStack() },
+                onOpenActive = {
+                    navController.navigate(Routes.RUNNING_ACTIVE) {
+                        launchSingleTop = true
+                    }
+                },
+                onOpenSim = {
+                    navController.navigate(Routes.RUNNING_SIM) {
+                        launchSingleTop = true
+                    }
+                },
+            )
         }
         composable(Routes.RUNNING_ACTIVE) {
-            // TODO: Phase 6
+            val homeEntry = remember(navController) { navController.getBackStackEntry(Routes.HOME) }
+            val runningViewModel: RunningViewModel = hiltViewModel(homeEntry)
+            RunningActiveScreen(
+                viewModel = runningViewModel,
+                onBack = { navController.popBackStack() },
+                onNavigateResult = {
+                    navController.navigate(Routes.RUNNING_RESULT) {
+                        launchSingleTop = true
+                    }
+                },
+            )
         }
         composable(Routes.RUNNING_SIM) {
-            // TODO: Phase 6
+            val homeEntry = remember(navController) { navController.getBackStackEntry(Routes.HOME) }
+            val runningViewModel: RunningViewModel = hiltViewModel(homeEntry)
+            RunningSimScreen(
+                viewModel = runningViewModel,
+                onBack = { navController.popBackStack() },
+                onNavigateResult = {
+                    navController.navigate(Routes.RUNNING_RESULT) {
+                        launchSingleTop = true
+                    }
+                },
+            )
         }
         composable(Routes.RUNNING_RESULT) {
-            // TODO: Phase 6
+            val homeEntry = remember(navController) { navController.getBackStackEntry(Routes.HOME) }
+            val runningViewModel: RunningViewModel = hiltViewModel(homeEntry)
+            RunningResultScreen(
+                viewModel = runningViewModel,
+                onBack = {
+                    navController.navigate(Routes.RUNNING_HOME) {
+                        popUpTo(Routes.RUNNING_HOME) { inclusive = true }
+                    }
+                },
+                onBackToRunning = {
+                    navController.navigate(Routes.RUNNING_HOME) {
+                        popUpTo(Routes.RUNNING_HOME) { inclusive = true }
+                        launchSingleTop = true
+                    }
+                },
+                onBackToHome = {
+                    navController.navigate(Routes.HOME) {
+                        popUpTo(Routes.HOME) { inclusive = false }
+                        launchSingleTop = true
+                    }
+                },
+            )
         }
 
         // Labor

@@ -42,7 +42,7 @@ import com.lightxin.core.designsystem.component.LxTopBar
 import com.lightxin.feature.labor.domain.ActivityRecord
 import com.lightxin.feature.labor.domain.HoursSummary
 
-// 工时类型色板
+// 志愿时长类型色板
 private val hoursColors = listOf(
     Color(0xFF5B7FD3), // 志愿 - 蓝
     Color(0xFFE8734A), // 暑期 - 橙
@@ -113,7 +113,7 @@ private fun LaborContent(
         ),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        // 工时总览卡片
+        // 志愿时长总览卡片
         uiState.hoursSummary?.let { summary ->
             item(key = "hours_summary") {
                 HoursSummaryCard(summary = summary)
@@ -136,7 +136,7 @@ private fun LaborContent(
         items(uiState.activities, key = { it.id }) { record ->
             ActivityCard(
                 record = record,
-                onClick = { onActivityClick(record.id, record.projectTypeName) },
+                onClick = { onActivityClick(record.id, record.type) },
             )
         }
 
@@ -178,12 +178,12 @@ private fun HoursSummaryCard(summary: HoursSummary) {
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    text = "工时总览",
+                    text = "志愿时长总览",
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold,
                 )
                 Text(
-                    text = "共 ${"%.1f".format(summary.totalTimes)} 工时",
+                    text = "共 ${"%.1f".format(summary.totalTimes)} 志愿时长",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.primary,
                     fontWeight = FontWeight.SemiBold,
@@ -299,7 +299,7 @@ private fun ActivityCard(
 
             Spacer(modifier = Modifier.width(12.dp))
 
-            // 工时徽章
+            // 志愿时长徽章
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
                     text = "%.1f".format(record.serviceTimes),
@@ -308,7 +308,7 @@ private fun ActivityCard(
                     color = MaterialTheme.colorScheme.primary,
                 )
                 Text(
-                    text = "工时",
+                    text = "志愿时长",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

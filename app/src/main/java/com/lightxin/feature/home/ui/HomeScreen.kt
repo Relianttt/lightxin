@@ -20,7 +20,10 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
+import com.lightxin.feature.running.ui.RunningHomeScreen
+import com.lightxin.feature.running.ui.RunningViewModel
 import com.lightxin.feature.schedule.ui.ScheduleScreen
 
 private data class TabItem(
@@ -36,7 +39,10 @@ private val tabs = listOf(
 )
 
 @Composable
-fun HomeScreen(navController: NavHostController) {
+fun HomeScreen(
+    navController: NavHostController,
+    runningViewModel: RunningViewModel = hiltViewModel(),
+) {
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
 
     Scaffold(
@@ -68,7 +74,20 @@ fun HomeScreen(navController: NavHostController) {
                 onTabSelected = { selectedTab = it },
             )
             1 -> ScheduleScreen(modifier = Modifier.padding(padding))
-            2 -> RunningPlaceholder(modifier = Modifier.padding(padding))
+            2 -> RunningHomeScreen(
+                modifier = Modifier.padding(padding),
+                viewModel = runningViewModel,
+                onOpenActive = {
+                    navController.navigate(com.lightxin.navigation.Routes.RUNNING_ACTIVE) {
+                        launchSingleTop = true
+                    }
+                },
+                onOpenSim = {
+                    navController.navigate(com.lightxin.navigation.Routes.RUNNING_SIM) {
+                        launchSingleTop = true
+                    }
+                },
+            )
             3 -> ProfilePlaceholder(modifier = Modifier.padding(padding))
         }
     }

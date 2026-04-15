@@ -33,9 +33,20 @@ class AuthInterceptor @Inject constructor(
 
             // 运动接口: header注入 studentCode
             host.contains("sports.aiit.edu.cn") -> {
+                val token = runBlocking { tokenManager.getAccessToken() } ?: ""
                 val userCode = runBlocking { tokenManager.getUserCode() } ?: ""
+                val userType = runBlocking { tokenManager.getUserType() } ?: "1"
                 original.newBuilder()
                     .header("studentCode", userCode)
+                    .header("accessToken", token)
+                    .header("access_token", token)
+                    .header("userCode", userCode)
+                    .header("xh", userCode)
+                    .header("_userCode", userCode)
+                    .header("_userType", userType)
+                    .header("X-Requested-With", "XMLHttpRequest")
+                    .header("Origin", "http://sports.aiit.edu.cn:8082")
+                    .header("Referer", "http://sports.aiit.edu.cn:8082/dist/")
                     .build()
             }
 
