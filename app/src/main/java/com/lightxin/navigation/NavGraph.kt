@@ -11,18 +11,31 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.lightxin.core.auth.SessionManager
+import com.lightxin.core.designsystem.component.LxLoading
 import com.lightxin.feature.home.ui.HomeScreen
 import com.lightxin.feature.login.ui.LoginScreen
-import javax.inject.Inject
 
 @Composable
 fun LightXinNavHost(
+    sessionManager: SessionManager,
     navController: NavHostController = rememberNavController(),
 ) {
-    // TODO: 根据登录状态决定起始页面（Phase 2完成后改为动态判断）
+    // 收集登录状态，决定起始页面
+    val isLoggedIn by sessionManager.isLoggedIn.collectAsState(initial = null)
+
+    // 首次加载时等待 DataStore 读取
+    val startRoute = when (isLoggedIn) {
+        null -> {
+            LxLoading()
+            return
+        }
+        true -> Routes.HOME
+        false -> Routes.LOGIN
+    }
+
     NavHost(
         navController = navController,
-        startDestination = Routes.LOGIN,
+        startDestination = startRoute,
     ) {
         composable(Routes.LOGIN) {
             LoginScreen(

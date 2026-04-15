@@ -9,6 +9,8 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.CAMERA" />
 
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+
     <application
         android:name=".LightXinApp"
         android:allowBackup="false"
@@ -26,11 +28,6 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-
-        <service
-            android:name=".feature.running.service.RunTrackingService"
-            android:foregroundServiceType="location"
-            android:exported="false" />
 
         <provider
             android:name="androidx.core.content.FileProvider"

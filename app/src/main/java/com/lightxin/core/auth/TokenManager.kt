@@ -69,13 +69,5 @@ class TokenManager @Inject constructor(
         context.dataStore.edit { it.clear() }
     }
 
-    /**
-     * 用 refresh_token 刷新 access_token。
-     * 实际的HTTP调用在 LoginRepository 中完成，此处由其回调写入。
-     * 返回值表示是否刷新成功。
-     */
-    suspend fun refreshToken(): Boolean {
-        // TODO: Phase 2 实现 - 调用 refresh.do 接口
-        return false
-    }
+
 }
