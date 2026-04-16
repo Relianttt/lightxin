@@ -3,5 +3,7 @@
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowLightStatusBar">true</item>
+        <!-- 禁止系统（如 MIUI/HyperOS）对应用强制应用深色滤镜，保证暖色 token 不被反色 -->
+        <item name="android:forceDarkAllowed">false</item>
     </style>
 </resources>

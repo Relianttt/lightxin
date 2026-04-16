@@ -1,6 +1,5 @@
 package com.lightxin.core.designsystem.theme
 
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
@@ -53,7 +52,9 @@ private val DarkColorScheme = darkColorScheme(
 
 @Composable
 fun LightXinTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
+    // 当前原型仅提供 Light 主题（暖色 token），Dark 主题待后续独立设计。
+    // 保留参数签名以便后续启用时无需改调用方。
+    darkTheme: Boolean = false,
     content: @Composable () -> Unit,
 ) {
     val colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme

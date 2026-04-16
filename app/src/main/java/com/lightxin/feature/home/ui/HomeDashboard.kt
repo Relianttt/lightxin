@@ -59,14 +59,11 @@ import androidx.navigation.NavHostController
 import com.lightxin.core.designsystem.component.LxCard
 import com.lightxin.core.designsystem.component.LxShimmerCard
 import com.lightxin.core.designsystem.theme.LxAmber
-import com.lightxin.core.designsystem.theme.LxAmberSoft
 import com.lightxin.core.designsystem.theme.LxCategoryColors
 import com.lightxin.core.designsystem.theme.LxInkMuted
 import com.lightxin.core.designsystem.theme.LxInkSoft
 import com.lightxin.core.designsystem.theme.LxPlum
-import com.lightxin.core.designsystem.theme.LxPlumSoft
 import com.lightxin.core.designsystem.theme.LxSage
-import com.lightxin.core.designsystem.theme.LxSageSoft
 import com.lightxin.core.designsystem.theme.LxSand
 import com.lightxin.core.designsystem.theme.LxTerra
 import com.lightxin.core.designsystem.theme.LxTerraSoft
@@ -256,7 +253,6 @@ private fun TodayCourseCard(
 ) {
     DashboardCard(
         icon = Icons.Default.CalendarMonth,
-        iconBg = LxTerraSoft,
         iconTint = LxTerra,
         title = "今日课程",
         badge = if (currentWeek > 0) "第${currentWeek}周" else null,
@@ -320,7 +316,6 @@ private fun TodayCourseCard(
 private fun CheckinCard(task: CheckinTask?, error: String?, onClick: () -> Unit) {
     DashboardCard(
         icon = Icons.Default.Bed,
-        iconBg = LxAmberSoft,
         iconTint = LxAmber,
         title = "查寝签到",
         onClick = onClick,
@@ -378,7 +373,6 @@ private fun PulseDot(color: Color) {
 private fun RunningCard(dashboard: RunningDashboard?, error: String?, onClick: () -> Unit) {
     DashboardCard(
         icon = Icons.Default.DirectionsRun,
-        iconBg = LxSageSoft,
         iconTint = LxSage,
         title = "运动进度",
         onClick = onClick,
@@ -504,7 +498,6 @@ private fun TotalProgressBar(completedKm: Double, targetKm: Double) {
 private fun LaborCard(hours: HoursSummary?, error: String?, onClick: () -> Unit) {
     DashboardCard(
         icon = Icons.Default.WorkHistory,
-        iconBg = LxPlumSoft,
         iconTint = LxPlum,
         title = "劳动教育",
         badge = hours?.let { "共 ${formatHours(it.totalTimes)} h" },
@@ -561,7 +554,6 @@ private fun LaborCard(hours: HoursSummary?, error: String?, onClick: () -> Unit)
 @Composable
 private fun DashboardCard(
     icon: ImageVector,
-    iconBg: Color,
     iconTint: Color,
     title: String,
     badge: String? = null,
@@ -576,21 +568,12 @@ private fun DashboardCard(
                     .padding(bottom = 14.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                // 32×32 圆角 8dp 语义色方块
-                Box(
-                    modifier = Modifier
-                        .size(30.dp)
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(iconBg),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        imageVector = icon,
-                        contentDescription = null,
-                        tint = iconTint,
-                        modifier = Modifier.size(16.dp),
-                    )
-                }
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = iconTint,
+                    modifier = Modifier.size(32.dp),
+                )
                 Spacer(modifier = Modifier.width(10.dp))
                 Text(
                     text = title,
