@@ -1,5 +1,6 @@
 package com.lightxin.feature.aiclass.data
 
+import android.util.Log
 import com.lightxin.core.network.ApiConstants
 import com.lightxin.core.network.FifOkHttpClient
 import com.lightxin.core.network.FifRetrofit
@@ -20,6 +21,8 @@ import retrofit2.Retrofit
 import java.io.IOException
 import javax.inject.Inject
 import javax.inject.Singleton
+
+private const val REPOSITORY_LOG_TAG = "AiClassRepo"
 
 @Singleton
 class AiClassRepository @Inject constructor(
@@ -75,7 +78,7 @@ class AiClassRepository @Inject constructor(
             val auth = ensureSession()
             val studentId = fifSession.getStudentId().orEmpty()
             val resp = api.getWorkingCourseRecord(studentId, auth)
-            val data = resp.data
+            val data = resp.data.orEmpty().firstOrNull()
 
             if (data?.courseRecordId.isNullOrBlank()) {
                 Result.success(null)
@@ -85,7 +88,9 @@ class AiClassRepository @Inject constructor(
                         courseRecordId = data!!.courseRecordId!!,
                         courseName = data.courseName.orEmpty(),
                         courseItemName = data.courseItemName.orEmpty(),
-                        teachClassId = data.teachClassId.orEmpty(),
+                        teachClassId = data.teachClassId
+                            ?.takeIf { it.isNotBlank() }
+                            ?: data.courseId.orEmpty(),
                     ),
                 )
             }
@@ -141,6 +146,10 @@ class AiClassRepository @Inject constructor(
      */
     suspend fun submitQrCode(token: String): Result<String> = withContext(Dispatchers.IO) {
         try {
+            Log.i(
+                REPOSITORY_LOG_TAG,
+                "submitQrCode start, token=${token.previewForLog()}, length=${token.length}",
+            )
             val auth = ensureSession()
             val url = ApiConstants.BASE_FIF +
                 "/coursecenter-interaction/qrcodeV2/qrcodeHandler?token=$token&openTheWay=2"
@@ -162,14 +171,22 @@ class AiClassRepository @Inject constructor(
             val location = response.header("Location").orEmpty()
             response.close()
 
-            if (code == 302 && location.contains("signSuccess")) {
+            Log.i(
+                REPOSITORY_LOG_TAG,
+                "qrcodeHandler finished, httpCode=$code, location=${location.previewForLog(96)}",
+            )
+
+            if (code == 302 && location.contains("codeExpired", ignoreCase = true)) {
+                Result.failure(Exception("二维码已过期"))
+            } else if (code == 302 && location.contains("signSuccess", ignoreCase = true)) {
                 Result.success("扫码签到成功")
             } else if (code == 302) {
-                Result.success("签到已处理")
+                Result.failure(Exception("暂不支持该课堂二维码"))
             } else {
                 Result.failure(Exception("签到失败（HTTP $code）"))
             }
         } catch (e: Exception) {
+            Log.e(REPOSITORY_LOG_TAG, "submitQrCode failed", e)
             Result.failure(Exception(mapError("扫码签到", e), e))
         }
     }
@@ -185,6 +202,11 @@ class AiClassRepository @Inject constructor(
             else -> error.message ?: "${action}失败"
         }
     }
+}
+
+private fun String.previewForLog(maxLen: Int = 16): String {
+    if (isBlank()) return "<blank>"
+    return if (length <= maxLen) this else take(maxLen) + "..."
 }
 
 @Module

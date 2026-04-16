@@ -1,5 +1,6 @@
 package com.lightxin.feature.aiclass.ui
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.lightxin.core.network.FifSessionManager
@@ -12,6 +13,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+
+private const val VIEWMODEL_LOG_TAG = "AiClassVM"
 
 data class AiClassUiState(
     val courses: List<AiCourse> = emptyList(),
@@ -122,8 +125,16 @@ class AiClassViewModel @Inject constructor(
     /** 扫码签到 */
     fun submitQrCode(token: String) {
         viewModelScope.launch {
+            Log.i(
+                VIEWMODEL_LOG_TAG,
+                "submitQrCode called, token=${token.previewForLog()}, length=${token.length}",
+            )
             _uiState.update { it.copy(isSigningIn = true, signResult = null) }
             val result = repository.submitQrCode(token)
+            Log.i(
+                VIEWMODEL_LOG_TAG,
+                "submitQrCode finished, success=${result.isSuccess}, message=${result.getOrNull() ?: result.exceptionOrNull()?.message}",
+            )
             _uiState.update {
                 it.copy(
                     isSigningIn = false,
@@ -136,4 +147,9 @@ class AiClassViewModel @Inject constructor(
     fun retry() {
         load()
     }
+}
+
+private fun String.previewForLog(maxLen: Int = 16): String {
+    if (isBlank()) return "<blank>"
+    return if (length <= maxLen) this else take(maxLen) + "..."
 }

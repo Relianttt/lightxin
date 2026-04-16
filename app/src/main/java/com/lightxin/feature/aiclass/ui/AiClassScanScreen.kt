@@ -1,6 +1,7 @@
 package com.lightxin.feature.aiclass.ui
 
 import android.Manifest
+import android.net.Uri
 import android.util.Log
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
@@ -11,6 +12,7 @@ import androidx.camera.view.PreviewView
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.border
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,7 +23,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Error
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -37,16 +38,19 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import com.google.mlkit.vision.barcode.BarcodeScanning
-import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.common.InputImage
 import com.lightxin.core.designsystem.component.LxTopBar
-import kotlinx.coroutines.delay
+import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
+
+private const val SCAN_LOG_TAG = "AiClassScan"
 
 @Composable
 fun AiClassScanScreen(
@@ -92,10 +96,23 @@ fun AiClassScanScreen(
                 CameraPreview(
                     onQrCodeDetected = { rawValue ->
                         if (scanState is ScanState.Scanning) {
+                            Log.i(
+                                SCAN_LOG_TAG,
+                                "QR raw detected, preview=${rawValue.previewForLog()}",
+                            )
                             val token = extractToken(rawValue)
                             if (token != null) {
+                                Log.i(
+                                    SCAN_LOG_TAG,
+                                    "Token extracted, preview=${token.previewForLog()}, length=${token.length}",
+                                )
                                 scanState = ScanState.Success
                                 onScanResult(token)
+                            } else {
+                                Log.w(
+                                    SCAN_LOG_TAG,
+                                    "QR detected but token extraction failed, preview=${rawValue.previewForLog()}",
+                                )
                             }
                         }
                     },
@@ -103,6 +120,15 @@ fun AiClassScanScreen(
             }
 
             // 扫描提示
+            AnimatedVisibility(
+                visible = scanState is ScanState.Scanning,
+                enter = fadeIn(),
+                exit = fadeOut(),
+                modifier = Modifier.fillMaxSize(),
+            ) {
+                ScanOverlay()
+            }
+
             AnimatedVisibility(
                 visible = scanState is ScanState.Scanning,
                 enter = fadeIn(),
@@ -159,10 +185,21 @@ private fun CameraPreview(
     val context = LocalContext.current
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
     val executor = remember { Executors.newSingleThreadExecutor() }
+    val scanner = remember { BarcodeScanning.getClient() }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            executor.shutdown()
+            scanner.close()
+        }
+    }
 
     AndroidView(
         factory = { ctx ->
-            val previewView = PreviewView(ctx)
+            val previewView = PreviewView(ctx).apply {
+                implementationMode = PreviewView.ImplementationMode.COMPATIBLE
+                scaleType = PreviewView.ScaleType.FILL_CENTER
+            }
             val cameraProviderFuture = ProcessCameraProvider.getInstance(ctx)
 
             cameraProviderFuture.addListener({
@@ -172,7 +209,6 @@ private fun CameraPreview(
                     it.surfaceProvider = previewView.surfaceProvider
                 }
 
-                val scanner = BarcodeScanning.getClient()
                 val analysis = ImageAnalysis.Builder()
                     .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                     .build()
@@ -193,7 +229,7 @@ private fun CameraPreview(
                         analysis,
                     )
                 } catch (e: Exception) {
-                    Log.e("AiClassScan", "Camera bind failed", e)
+                    Log.e(SCAN_LOG_TAG, "Camera bind failed", e)
                 }
             }, ContextCompat.getMainExecutor(ctx))
 
@@ -201,6 +237,39 @@ private fun CameraPreview(
         },
         modifier = Modifier.fillMaxSize(),
     )
+}
+
+@Composable
+private fun ScanOverlay(
+    frameSize: Dp = 240.dp,
+) {
+    Box(modifier = Modifier.fillMaxSize()) {
+        Box(
+            modifier = Modifier
+                .align(Alignment.Center)
+                .size(frameSize)
+                .border(
+                    width = 2.dp,
+                    color = Color.White.copy(alpha = 0.92f),
+                    shape = MaterialTheme.shapes.large,
+                ),
+        )
+
+        Text(
+            text = "二维码放入框内自动识别",
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.Medium,
+            color = Color.White,
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .padding(top = 36.dp)
+                .background(
+                    Color.Black.copy(alpha = 0.45f),
+                    MaterialTheme.shapes.medium,
+                )
+                .padding(horizontal = 14.dp, vertical = 8.dp),
+        )
+    }
 }
 
 @androidx.annotation.OptIn(androidx.camera.core.ExperimentalGetImage::class)
@@ -218,11 +287,11 @@ private fun processImage(
     val inputImage = InputImage.fromMediaImage(mediaImage, imageProxy.imageInfo.rotationDegrees)
     scanner.process(inputImage)
         .addOnSuccessListener { barcodes ->
-            for (barcode in barcodes) {
-                if (barcode.valueType == Barcode.TYPE_URL || barcode.valueType == Barcode.TYPE_TEXT) {
-                    barcode.rawValue?.let { onResult(it) }
-                    break
-                }
+            barcodes.firstNotNullOfOrNull { barcode ->
+                barcode.rawValue?.trim()?.takeIf { it.isNotBlank() }
+            }?.let {
+                Log.i(SCAN_LOG_TAG, "MLKit recognized QR content, preview=${it.previewForLog()}")
+                onResult(it)
             }
         }
         .addOnCompleteListener {
@@ -235,15 +304,28 @@ private fun processImage(
  * 二维码可能是完整 URL（含 token 参数）或直接是 token 字符串。
  */
 private fun extractToken(rawValue: String): String? {
-    // 尝试从 URL 提取 token 参数
-    if (rawValue.contains("token=")) {
-        return Regex("[?&]token=([^&]+)").find(rawValue)?.groupValues?.get(1)
+    val trimmed = rawValue.trim()
+
+    runCatching { Uri.parse(trimmed) }.getOrNull()?.let { uri ->
+        uri.getQueryParameter("token")
+            ?.takeIf { it.isNotBlank() }
+            ?.let { return it }
     }
-    // 如果是纯 hex token 字符串
-    if (rawValue.matches(Regex("^[a-fA-F0-9]{20,}$"))) {
-        return rawValue
+
+    if (trimmed.contains("token=")) {
+        return Regex("[?&]token=([^&#]+)").find(trimmed)?.groupValues?.getOrNull(1)
     }
+
+    if (trimmed.matches(Regex("^[A-Za-z0-9_-]{20,}$"))) {
+        return trimmed
+    }
+
     return null
+}
+
+private fun String.previewForLog(maxLen: Int = 48): String {
+    if (isBlank()) return "<blank>"
+    return if (length <= maxLen) this else take(maxLen) + "..."
 }
 
 @Composable

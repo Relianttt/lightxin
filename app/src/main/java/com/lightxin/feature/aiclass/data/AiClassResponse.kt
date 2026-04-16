@@ -66,12 +66,13 @@ data class AiClassSignInInfoResponse(
 data class AiClassWorkingRecordResponse(
     val status: String?,
     val message: String?,
-    val data: WorkingRecordData?,
+    val data: List<WorkingRecordData>?,
 ) {
     data class WorkingRecordData(
         val courseRecordId: String?,
         val courseName: String?,
         @SerializedName("courseItemName") val courseItemName: String?,
+        val courseId: String?,
         val teachClassId: String?,
     )
 }
