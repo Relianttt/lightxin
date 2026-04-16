@@ -1,0 +1,128 @@
+
+<style>
+  .wrap { display: flex; gap: 20px; justify-content: center; padding: 1.5rem 0; flex-wrap: wrap; }
+  .phone { width: 168px; background: #F4F0E8; border-radius: 28px; border: 1.5px solid #D6CFC0; overflow: hidden; display: flex; flex-direction: column; }
+  .phone-bar { background: #F4F0E8; height: 36px; display: flex; align-items: center; justify-content: center; }
+  .pill { width: 52px; height: 10px; background: #2C2C2A; border-radius: 6px; }
+  .phone-body { flex: 1; padding: 16px 14px 20px; display: flex; flex-direction: column; align-items: center; }
+  .label { font-size: 11px; color: #888780; text-align: center; margin-top: 10px; letter-spacing: 0.04em; }
+
+  .inp { width: 100%; background: #fff; border: 0.5px solid #D3D1C7; border-radius: 8px; height: 34px; margin-bottom: 8px; display: flex; align-items: center; padding: 0 10px; box-sizing: border-box; }
+  .inp-text { font-size: 11px; color: #B4B2A9; }
+  .inp-dot { display: flex; gap: 3px; }
+  .dot { width: 5px; height: 5px; border-radius: 50%; background: #B4B2A9; }
+  .btn { width: 100%; height: 34px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 500; margin-top: 4px; }
+  .btn-warm { background: #7A5C3A; color: #F4F0E8; }
+  .terms { font-size: 9px; color: #B4B2A9; margin-top: 8px; text-align: center; line-height: 1.4; }
+
+  .icon-wrap { width: 56px; height: 56px; background: #fff; border-radius: 14px; border: 0.5px solid #D3D1C7; display: flex; align-items: center; justify-content: center; margin-bottom: 16px; }
+
+  .brand { font-size: 22px; font-weight: 500; color: #5C3D1E; letter-spacing: -0.01em; margin-bottom: 4px; }
+  .brand-sub { font-size: 10px; color: #B4B2A9; margin-bottom: 20px; letter-spacing: 0.08em; }
+
+  .illus { width: 110px; height: 68px; margin-bottom: 14px; border-radius: 10px; background: #EDE8DF; display: flex; align-items: center; justify-content: center; gap: 6px; }
+  .ill-card { background: #fff; border-radius: 6px; border: 0.5px solid #D3D1C7; padding: 5px 6px; display: flex; flex-direction: column; gap: 3px; }
+  .ill-line { height: 3px; border-radius: 2px; }
+  .ill-dot-row { display: flex; gap: 2px; }
+  .ill-mini-dot { width: 6px; height: 6px; border-radius: 50%; }
+
+  .option-tag { font-size: 10px; font-weight: 500; color: #7A5C3A; background: #EDE8DF; border-radius: 4px; padding: 2px 7px; margin-bottom: 8px; }
+
+  .divider { width: 100%; height: 0.5px; background: #D3D1C7; margin: 6px 0; }
+</style>
+
+<div class="wrap">
+
+  <div style="display:flex;flex-direction:column;align-items:center;gap:8px;">
+    <span style="font-size:11px;font-weight:500;color:#5F5E5A;letter-spacing:0.04em;">方案 A · 纯图标</span>
+    <div class="phone">
+      <div class="phone-bar"><div class="pill"></div></div>
+      <div class="phone-body">
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;">
+          <div class="icon-wrap">
+            <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+              <rect x="4" y="7" width="24" height="18" rx="4" fill="#EDE8DF" stroke="#C4B99A" stroke-width="1"/>
+              <rect x="8" y="11" width="10" height="2" rx="1" fill="#7A5C3A"/>
+              <rect x="8" y="15" width="7" height="2" rx="1" fill="#B4A48A"/>
+              <rect x="8" y="19" width="8" height="2" rx="1" fill="#B4A48A"/>
+              <circle cx="24" cy="9" r="4" fill="#D85A30"/>
+              <text x="24" y="12" text-anchor="middle" font-size="5" fill="white" font-weight="bold">!</text>
+            </svg>
+          </div>
+          <div class="inp"><span class="inp-text">学号</span></div>
+          <div class="inp" style="margin-bottom:12px;"><div class="inp-dot"><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div></div></div>
+          <div class="btn btn-warm">登录</div>
+          <p class="terms">登录即表示同意用户协议与隐私政策</p>
+        </div>
+      </div>
+    </div>
+    <p style="font-size:11px;color:#888780;text-align:center;max-width:140px;line-height:1.5;">最克制，专注功能，icon 即品牌载体</p>
+  </div>
+
+  <div style="display:flex;flex-direction:column;align-items:center;gap:8px;">
+    <span style="font-size:11px;font-weight:500;color:#5F5E5A;letter-spacing:0.04em;">方案 B · 微插画</span>
+    <div class="phone">
+      <div class="phone-bar"><div class="pill"></div></div>
+      <div class="phone-body">
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;">
+          <div class="illus">
+            <div class="ill-card" style="width:30px;">
+              <div class="ill-line" style="width:22px;background:#7A5C3A;"></div>
+              <div class="ill-line" style="width:16px;background:#C4B99A;"></div>
+              <div class="ill-line" style="width:18px;background:#C4B99A;"></div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:3px;">
+              <div class="ill-card" style="padding:4px 5px;">
+                <div style="display:flex;gap:2px;align-items:center;">
+                  <div style="width:6px;height:6px;border-radius:50%;background:#D85A30;"></div>
+                  <div class="ill-line" style="width:14px;background:#C4B99A;"></div>
+                </div>
+              </div>
+              <div class="ill-card" style="padding:4px 5px;">
+                <div style="display:flex;gap:2px;align-items:center;">
+                  <div style="width:6px;height:6px;border-radius:2px;background:#5DCAA5;"></div>
+                  <div class="ill-line" style="width:14px;background:#C4B99A;"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <p style="font-size:13px;font-weight:500;color:#5C3D1E;margin:0 0 16px;text-align:center;line-height:1.4;">轻小信</p>
+          <div class="inp"><span class="inp-text">学号</span></div>
+          <div class="inp" style="margin-bottom:12px;"><div class="inp-dot"><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div></div></div>
+          <div class="btn btn-warm">登录</div>
+          <p class="terms">登录即表示同意用户协议与隐私政策</p>
+        </div>
+      </div>
+    </div>
+    <p style="font-size:11px;color:#888780;text-align:center;max-width:140px;line-height:1.5;">用微型插画暗示课程/宿舍/运动三大功能，有品牌叙事</p>
+  </div>
+
+  <div style="display:flex;flex-direction:column;align-items:center;gap:8px;">
+    <span style="font-size:11px;font-weight:500;color:#5F5E5A;letter-spacing:0.04em;">方案 C · 图标 + 文字</span>
+    <div class="phone">
+      <div class="phone-bar"><div class="pill"></div></div>
+      <div class="phone-body">
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;">
+          <div class="icon-wrap" style="margin-bottom:10px;">
+            <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+              <rect x="4" y="7" width="24" height="18" rx="4" fill="#EDE8DF" stroke="#C4B99A" stroke-width="1"/>
+              <rect x="8" y="11" width="10" height="2" rx="1" fill="#7A5C3A"/>
+              <rect x="8" y="15" width="7" height="2" rx="1" fill="#B4A48A"/>
+              <rect x="8" y="19" width="8" height="2" rx="1" fill="#B4A48A"/>
+              <circle cx="24" cy="9" r="4" fill="#D85A30"/>
+              <text x="24" y="12" text-anchor="middle" font-size="5" fill="white" font-weight="bold">!</text>
+            </svg>
+          </div>
+          <p style="font-size:18px;font-weight:500;color:#5C3D1E;margin:0 0 2px;">轻小信</p>
+          <p style="font-size:10px;color:#B4A48A;margin:0 0 20px;letter-spacing:0.1em;">校园生活助手</p>
+          <div class="inp"><span class="inp-text">学号</span></div>
+          <div class="inp" style="margin-bottom:12px;"><div class="inp-dot"><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div></div></div>
+          <div class="btn btn-warm">登录</div>
+          <p class="terms">登录即表示同意用户协议与隐私政策</p>
+        </div>
+      </div>
+    </div>
+    <p style="font-size:11px;color:#888780;text-align:center;max-width:140px;line-height:1.5;">icon + 名称 + 一句定位语，最通用的 App 登录范式</p>
+  </div>
+
+</div>

@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>轻小信 — Anthropic Aesthetic v2</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;0,6..72,500;1,6..72,400&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --parchment: #F5F0E8;
+      --cream:     #FAF7F2;
+      --sand:      #EDE7DB;
+      --sand-deep: #DDD5C5;
+      --ink:       #2D2A26;
+      --ink-soft:  #4A4640;
+      --ink-muted: #8A847A;
+      --ink-faint: #B5AFA5;
+      --ink-ghost: #D4CFC6;
+      --terra:     #C4704B;
+      --terra-soft:rgba(196,112,75,.12);
+      --terra-glow:rgba(196,112,75,.06);
+      --sage:      #6B8F71;
+      --sage-soft: rgba(107,143,113,.10);
+      --slate:     #6B7C8A;
+      --slate-soft:rgba(107,124,138,.10);
+      --plum:      #8B6B8A;
+      --plum-soft: rgba(139,107,138,.10);
+      --amber:     #C49A4B;
+      --amber-soft:rgba(196,154,75,.10);
+      --rose:      #B5645A;
+      --card:      #FFFDF9;
+      --card-border:rgba(45,42,38,.06);
+      --serif: 'Newsreader','Noto Serif SC','Songti SC',Georgia,serif;
+      --sans:  'Outfit','PingFang SC','Microsoft YaHei',sans-serif;
+      --r-sm:8px; --r-md:12px; --r-lg:16px;
+    }
+    *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+    html{font-size:16px;-webkit-font-smoothing:antialiased}
+    body{
+      font-family:var(--sans);background:#26241F;color:var(--ink);
+      overflow:hidden;display:flex;justify-content:center;align-items:center;
+      min-height:100vh;padding:20px;
+    }
+
+    /* ── PHONE FRAMES ── */
+    .shell{display:flex;gap:28px;flex-wrap:wrap;justify-content:center;align-items:flex-start;max-width:2200px}
+    .wrap{display:flex;flex-direction:column;align-items:center;gap:14px}
+    .tag{font-family:var(--sans);font-size:12px;font-weight:500;color:#9A9488;letter-spacing:1.5px;text-transform:uppercase}
+    .phone{
+      width:390px;height:844px;background:var(--parchment);border-radius:50px;overflow:hidden;position:relative;
+      box-shadow:0 0 0 2.5px #3A3730,0 0 0 5px #26241F,0 24px 80px rgba(0,0,0,.45),0 6px 20px rgba(0,0,0,.2);
+    }
+    .notch{width:126px;height:36px;background:#000;border-radius:20px;position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:20}
+    .home-bar{width:134px;height:5px;background:rgba(45,42,38,.2);border-radius:3px;position:absolute;bottom:8px;left:50%;transform:translateX(-50%);z-index:20}
+    .sbar{height:54px;display:flex;justify-content:space-between;align-items:flex-end;padding:0 32px 8px;font-size:15px;font-weight:600;color:var(--ink);position:relative;z-index:10;font-family:var(--sans)}
+    .sbar .t{font-variant-numeric:tabular-nums}
+    .sbar .i{display:flex;gap:5px;align-items:center}
+    .scr{position:absolute;inset:0;display:flex;flex-direction:column;overflow:hidden}
+    .scr-body{flex:1;overflow-y:auto;overflow-x:hidden;scrollbar-width:none}
+    .scr-body::-webkit-scrollbar{display:none}
+
+    /* ── TAB BAR ── */
+    .tabs{display:flex;justify-content:space-around;align-items:center;height:78px;padding:4px 0 0;background:rgba(245,240,232,.92);backdrop-filter:blur(16px) saturate(140%);-webkit-backdrop-filter:blur(16px) saturate(140%);border-top:1px solid var(--card-border);flex-shrink:0}
+    .tab{display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;padding:2px 14px;color:var(--ink-faint);transition:color .2s}
+    .tab.on{color:var(--terra)}
+    .tab svg{width:22px;height:22px}
+    .tab span{font-size:10px;font-weight:500;letter-spacing:.3px}
+
+    /* ── SHARED COMPONENTS ── */
+    .wcard{background:var(--card);border:1px solid var(--card-border);border-radius:var(--r-lg);margin:0 20px 14px;padding:18px 20px;cursor:pointer;transition:background .15s}
+    .wcard:active{background:var(--cream)}
+    .sec-label{font-family:var(--sans);font-size:11px;font-weight:500;letter-spacing:1.8px;text-transform:uppercase;color:var(--ink-muted);padding:0 24px 8px}
+    .glist{background:var(--card);border:1px solid var(--card-border);border-radius:var(--r-md);margin:0 20px 16px;overflow:hidden}
+    .grow{display:flex;align-items:center;gap:14px;padding:14px 18px;cursor:pointer;transition:background .12s;position:relative}
+    .grow:active{background:var(--cream)}
+    .grow+.grow::before{content:'';position:absolute;top:0;left:50px;right:18px;height:1px;background:var(--sand)}
+    .grow .gl-icon{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+    .grow .gl-icon svg{width:16px;height:16px}
+    .grow .gl-text{flex:1;font-size:15px;font-weight:400;color:var(--ink)}
+    .grow .gl-hint{font-size:13px;color:var(--ink-muted);flex-shrink:0}
+    .grow .gl-arr{color:var(--ink-ghost);font-size:15px;flex-shrink:0;font-weight:300}
+
+    /* ── STAGGER ANIMATION ── */
+    @keyframes rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+    .stag>*{opacity:0;animation:rise .5s cubic-bezier(.22,.9,.36,1) forwards}
+    .stag>*:nth-child(1){animation-delay:.04s}.stag>*:nth-child(2){animation-delay:.09s}
+    .stag>*:nth-child(3){animation-delay:.14s}.stag>*:nth-child(4){animation-delay:.19s}
+    .stag>*:nth-child(5){animation-delay:.24s}.stag>*:nth-child(6){animation-delay:.29s}
+    .stag>*:nth-child(7){animation-delay:.34s}.stag>*:nth-child(8){animation-delay:.39s}
+    .stag>*:nth-child(9){animation-delay:.44s}.stag>*:nth-child(10){animation-delay:.49s}
+
+    /* ── ILLUSTRATION ANIMATIONS ── */
+    @keyframes sunFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+    @keyframes rayPulse{0%,100%{opacity:.3}50%{opacity:.85}}
+    @keyframes cloudDrift{0%,100%{transform:translateX(0)}50%{transform:translateX(14px)}}
+    @keyframes cloudDrift2{0%,100%{transform:translateX(0)}50%{transform:translateX(-10px)}}
+    @keyframes winGlow{0%,100%{opacity:.5}50%{opacity:.9}}
+    @keyframes treeSway{0%,100%{transform:rotate(0deg)}33%{transform:rotate(1.2deg)}66%{transform:rotate(-.9deg)}}
+    @keyframes cardFloat1{0%,100%{transform:translateY(0) rotate(-4.5deg)}50%{transform:translateY(-9px) rotate(-4.5deg)}}
+    @keyframes cardFloat2{0%,100%{transform:translateY(-5px) rotate(3deg)}50%{transform:translateY(5px) rotate(3deg)}}
+    @keyframes cardFloat3{0%,100%{transform:translateY(4px) rotate(-2deg)}50%{transform:translateY(-6px) rotate(-2deg)}}
+    @keyframes clockFloat{0%,100%{transform:translateY(-4px) rotate(2deg)}50%{transform:translateY(6px) rotate(2deg)}}
+    @keyframes secondSpin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+    @keyframes ringFillAnim{from{stroke-dashoffset:113}to{stroke-dashoffset:25}}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+    @keyframes walkUp{0%{transform:translate(0,0);opacity:0}8%{opacity:.85}90%{opacity:.85}100%{transform:translate(-6px,-78px);opacity:0}}
+    @keyframes walkUp2{0%{transform:translate(0,0);opacity:0}10%{opacity:.75}92%{opacity:.75}100%{transform:translate(4px,-70px);opacity:0}}
+    @keyframes dawnShift{0%,100%{opacity:.06}50%{opacity:.22}}
+
+    /* ── RESPONSIVE ── */
+    @media(max-width:1600px){
+      .shell{flex-wrap:nowrap;overflow-x:auto;justify-content:flex-start;padding-bottom:20px;scrollbar-width:thin}
+      body{align-items:flex-start;padding-top:40px}
+    }
+
+    /* ═══════════════════════════════
+       SCREEN 0 — ONBOARDING
+       首次启动触发，退出登录不触发
+       逻辑: localStorage.getItem('lxin_onboarded')
+       ═══════════════════════════════ */
+    .ob-illus{width:100%;display:block;flex-shrink:0}
+    .ob-content{flex:1;display:flex;flex-direction:column;padding:22px 28px 32px}
+    .ob-tagline{font-family:var(--serif);font-size:22px;font-weight:500;color:var(--terra);letter-spacing:-.2px;margin-bottom:14px;line-height:1.3}
+    .ob-desc{font-size:13.5px;font-weight:400;color:var(--ink-muted);line-height:1.8;flex:1}
+    .ob-actions{display:flex;flex-direction:column;gap:10px;margin-top:22px}
+    .ob-btn{width:100%;height:52px;border:none;border-radius:var(--r-lg);font-family:var(--sans);font-size:15px;font-weight:500;cursor:pointer;letter-spacing:.2px;transition:opacity .12s, transform .12s}
+    .ob-btn:active{opacity:.8;transform:scale(.985)}
+    .ob-btn-primary{background:var(--terra);color:#fff}
+    .ob-btn-secondary{background:var(--sand);color:var(--ink-muted)}
+
+    /* ═══════════════════════════════
+       SCREEN 1 — LOGIN
+       ═══════════════════════════════ */
+    .login-illus-frame{margin:56px 28px 0;background:var(--cream);border:1px solid var(--card-border);border-radius:var(--r-lg);overflow:hidden}
+    .login-illus{width:100%;display:block}
+    .login-body{flex:1;display:flex;flex-direction:column;justify-content:flex-start;align-items:center;padding:38px 28px 32px}
+    .login-card{width:100%;background:var(--card);border:1px solid var(--card-border);border-radius:var(--r-lg);padding:24px 24px 22px}
+    .login-form{display:flex;flex-direction:column;gap:12px}
+    .field{width:100%;height:48px;padding:0 16px;border:1px solid var(--sand-deep);border-radius:var(--r-md);background:var(--cream);font-family:var(--sans);font-size:15px;font-weight:400;color:var(--ink);outline:none;transition:border-color .25s,background .25s}
+    .field::placeholder{color:var(--ink-faint)}
+    .field:focus{border-color:var(--terra);background:var(--card)}
+    .login-btn{width:100%;height:48px;border:none;border-radius:var(--r-md);background:var(--terra);color:#fff;font-family:var(--sans);font-size:15px;font-weight:500;letter-spacing:.3px;cursor:pointer;margin-top:6px;transition:opacity .12s,transform .12s}
+    .login-btn:active{opacity:.85;transform:scale(.985)}
+    .login-foot{font-size:12px;color:var(--ink-faint);margin-top:20px;text-align:center;line-height:1.7}
+    .login-foot a{color:var(--terra);text-decoration:none}
+
+    /* ═══════════════════════════════
+       SCREEN 2 — HOME
+       ═══════════════════════════════ */
+    .greeting{font-family:var(--serif);font-size:30px;font-weight:500;line-height:1.2;padding:2px 24px 0;color:var(--ink);letter-spacing:-.3px}
+    .greeting-sub{font-family:var(--sans);font-size:14px;font-weight:400;color:var(--ink-muted);padding:5px 24px 0}
+    .dcard-head{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+    .dcard-icon{width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+    .dcard-icon svg{width:16px;height:16px}
+    .dcard-title{font-family:var(--serif);font-size:16px;font-weight:500;color:var(--ink);flex:1}
+    .dcard-badge{font-family:var(--sans);font-size:11px;font-weight:500;letter-spacing:.6px;color:var(--terra);background:var(--terra-soft);padding:4px 10px;border-radius:20px}
+    .c-row{display:flex;align-items:flex-start;gap:12px;padding:5px 0}
+    .c-bar{width:3px;height:36px;border-radius:2px;flex-shrink:0;margin-top:2px}
+    .c-name{font-size:14.5px;font-weight:500;color:var(--ink);line-height:1.3}
+    .c-meta{font-size:12px;color:var(--ink-muted);margin-top:1px}
+    .ck-row{display:flex;align-items:center;gap:10px}
+    .ck-pulse{width:8px;height:8px;border-radius:50%;background:var(--amber);animation:pulse 2.5s ease-in-out infinite}
+    .ck-name{font-size:14.5px;font-weight:500}
+    .ck-time{font-size:12px;color:var(--ink-muted);margin-top:1px}
+
+    /* Exercise — dual progress display */
+    .run-today{display:flex;align-items:center;gap:16px;margin-bottom:14px}
+    .ring-wrap{position:relative;width:54px;height:54px;flex-shrink:0}
+    .ring-wrap svg{width:54px;height:54px;transform:rotate(-90deg)}
+    .ring-track{fill:none;stroke:var(--sand);stroke-width:4.5}
+    .ring-fill{fill:none;stroke:var(--sage);stroke-width:4.5;stroke-linecap:round}
+    .ring-fill.done{stroke:var(--sage)}
+    .ring-txt{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:var(--sans);font-size:13px;font-weight:600;color:var(--ink);line-height:1;font-variant-numeric:tabular-nums;padding-left:1px}
+    .run-info{display:flex;flex-direction:column;justify-content:center;min-height:54px}
+    .run-info .run-main{font-size:15px;font-weight:500;color:var(--ink);line-height:1.25}
+    .run-info .run-sub{font-size:12px;color:var(--ink-muted);margin-top:4px;line-height:1.35}
+    .run-total{display:flex;align-items:center;gap:10px;padding-top:14px}
+    .run-bar-lbl{font-size:12px;color:var(--ink-muted);white-space:nowrap;flex-shrink:0}
+    .run-bar-track{flex:1;height:9px;background:var(--sand);border-radius:5px;overflow:hidden}
+    .run-bar-fill{height:100%;border-radius:5px;background:var(--sage)}
+    .run-bar-val{font-size:12px;font-weight:500;color:var(--ink);white-space:nowrap;flex-shrink:0}
+
+    /* Labor */
+    .lab-item{display:flex;align-items:baseline;justify-content:space-between;padding:5px 0}
+    .lab-item+.lab-item{border-top:1px solid var(--sand)}
+    .lab-lbl{font-size:14px;color:var(--ink-soft)}
+    .lab-val{font-size:14px;font-weight:500;color:var(--ink);font-variant-numeric:tabular-nums}
+
+    /* ═══════════════════════════════
+       SCREEN 3 — SCHEDULE
+       ═══════════════════════════════ */
+    .wk-sel{display:flex;gap:8px;padding:6px 16px 10px;overflow-x:auto;scrollbar-width:none}
+    .wk-sel::-webkit-scrollbar{display:none}
+    .wk{flex-shrink:0;padding:5px 14px;border-radius:20px;font-size:13px;font-weight:400;background:transparent;color:var(--ink-muted);border:1px solid transparent;cursor:pointer;transition:all .2s;font-family:var(--sans)}
+    .wk.on{background:var(--ink);color:var(--cream)}
+    .wk.cur{border-color:var(--ink-muted);color:var(--ink-soft);font-weight:500}
+    .wk.on.cur{border-color:transparent}
+    .tt{flex:1;overflow:auto;padding:0 4px}
+    .tt-hd{display:grid;grid-template-columns:26px repeat(7,1fr);position:sticky;top:0;z-index:5;background:var(--parchment);padding-bottom:4px}
+    .tt-hc{text-align:center;font-size:12px;font-weight:400;color:var(--ink-muted);padding:4px 0;font-family:var(--sans)}
+    .tt-hc.td{color:var(--terra);font-weight:600}
+    .tt-hc.td::after{content:'';display:block;width:4px;height:4px;background:var(--terra);border-radius:50%;margin:3px auto 0}
+    .tt-bd{display:grid;grid-template-columns:26px repeat(7,1fr);gap:2px}
+    .tt-sn{font-size:10px;color:var(--ink-faint);text-align:center;height:58px;display:flex;align-items:center;justify-content:center;font-family:var(--sans)}
+    .tt-c{height:58px;background:rgba(255,253,249,.5);border-radius:5px;position:relative}
+    .tt-c.td-col{background:var(--terra-glow)}
+    .tt-co{position:absolute;inset:1px;border-radius:6px;padding:4px 5px;overflow:hidden;cursor:pointer;transition:transform .1s;z-index:2}
+    .tt-co:active{transform:scale(.95)}
+    .tt-cn{font-size:10px;font-weight:500;line-height:1.25;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;font-family:var(--sans);color:#fff}
+    .tt-cr{font-size:9px;margin-top:1px;color:rgba(255,255,255,.7)}
+
+    /* ═══════════════════════════════
+       SCREEN 4 — PROFILE
+       ═══════════════════════════════ */
+    .prof-card{background:var(--card);border:1px solid var(--card-border);border-radius:var(--r-lg);margin:0 20px 20px;padding:22px 20px;display:flex;align-items:center;gap:16px}
+    .avatar-ring{width:56px;height:56px;border-radius:50%;background:var(--sand);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+    .avatar-char{font-family:var(--serif);font-size:24px;font-weight:500;color:var(--terra)}
+    .prof-name{font-family:var(--serif);font-size:20px;font-weight:500;color:var(--ink)}
+    .prof-code{font-size:13px;color:var(--ink-muted);margin-top:2px}
+    .logout{display:block;margin:20px 20px 28px;padding:14px;text-align:center;font-size:15px;font-weight:400;color:var(--rose);background:var(--card);border:1px solid var(--card-border);border-radius:var(--r-md);cursor:pointer;transition:background .12s;font-family:var(--sans)}
+    .logout:active{background:rgba(181,100,90,.04)}
+    .divider{width:40px;height:1.5px;background:var(--sand-deep);margin:0 auto;border-radius:1px}
+  </style>
+</head>
+<body>
+<div class="shell">
+
+  <!-- ██ ONBOARDING ██ -->
+  <div class="wrap">
+    <div class="tag">Onboarding</div>
+    <div class="phone">
+      <div class="notch"></div>
+      <div class="scr" style="background:var(--cream)">
+        <div class="sbar" style="position:relative;z-index:10"><span class="t">9:41</span><span class="i">
+        <svg width="16" height="12" viewBox="0 0 16 12"><path d="M1 8.5h2v3H1zM5 6h2v5.5H5zM9 3.5h2v8H9zM13 1h2v10.5h-2z" fill="currentColor"/></svg>
+        <svg width="15" height="12" viewBox="0 0 15 12"><path d="M7.5 3.5C9.5 3.5 11.3 4.3 12.6 5.6l-1.4 1.4C10.2 6 8.9 5.5 7.5 5.5S4.8 6 3.8 7l-1.4-1.4C3.7 4.3 5.5 3.5 7.5 3.5zM7.5 0C10.3 0 12.8 1.1 14.7 2.9l-1.4 1.4C11.6 2.7 9.7 1.8 7.5 1.8S3.4 2.7 1.7 4.3L.3 2.9C2.2 1.1 4.7 0 7.5 0zM9.2 9.3c-.5-.5-1.1-.8-1.7-.8s-1.2.3-1.7.8L7.5 11l1.7-1.7z" fill="currentColor"/></svg>
+        <svg width="27" height="13" viewBox="0 0 27 13"><rect x="0" y="1" width="22" height="11" rx="2.5" stroke="currentColor" fill="none" stroke-width="1"/><rect x="23" y="4" width="2" height="5" rx="1" fill="currentColor" opacity=".4"/><rect x="1.5" y="2.5" width="16" height="8" rx="1.5" fill="currentColor"/></svg>
+      </span></div>
+
+        <!-- Campus morning illustration -->
+        <svg class="ob-illus" viewBox="0 0 390 280" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <!-- Sky -->
+          <rect width="390" height="280" fill="#FAF7F2"/>
+          <!-- Horizon glow (breathing to hint time-of-day) -->
+          <ellipse cx="195" cy="192" rx="280" ry="30" fill="#FAC775" style="animation:dawnShift 14s ease-in-out infinite"/>
+          <!-- Ground -->
+          <rect y="192" width="390" height="88" fill="#EDE7DB"/>
+          <!-- Path -->
+          <path d="M177 192L213 192L220 280L170 280Z" fill="#D4CEC4" opacity=".55"/>
+          <!-- Path edge lines -->
+          <line x1="177" y1="192" x2="170" y2="280" stroke="#C4B99A" stroke-width=".5" opacity=".4"/>
+          <line x1="213" y1="192" x2="220" y2="280" stroke="#C4B99A" stroke-width=".5" opacity=".4"/>
+
+          <!-- Cloud 1 -->
+          <g style="animation:cloudDrift 16s ease-in-out infinite">
+            <ellipse cx="248" cy="58" rx="38" ry="15" fill="#EDE7DB" opacity=".75"/>
+            <ellipse cx="270" cy="48" rx="24" ry="13" fill="#EDE7DB" opacity=".75"/>
+            <ellipse cx="228" cy="55" rx="18" ry="11" fill="#EDE7DB" opacity=".65"/>
+          </g>
+          <!-- Cloud 2 -->
+          <g style="animation:cloudDrift2 11s ease-in-out infinite">
+            <ellipse cx="340" cy="82" rx="26" ry="11" fill="#EDE7DB" opacity=".55"/>
+            <ellipse cx="357" cy="75" rx="16" ry="9" fill="#EDE7DB" opacity=".5"/>
+          </g>
+
+          <!-- Sun group (rays + disc float together) -->
+          <g style="animation:sunFloat 7s ease-in-out infinite">
+            <!-- Rays -->
+            <g style="animation:rayPulse 3.5s ease-in-out infinite">
+              <line x1="64" y1="70" x2="64" y2="57" stroke="#FAC775" stroke-width="2.2" stroke-linecap="round"/>
+              <line x1="64" y1="114" x2="64" y2="127" stroke="#FAC775" stroke-width="2.2" stroke-linecap="round"/>
+              <line x1="20" y1="92" x2="7"  y2="92"  stroke="#FAC775" stroke-width="2.2" stroke-linecap="round"/>
+              <line x1="108" y1="92" x2="121" y2="92" stroke="#FAC775" stroke-width="2.2" stroke-linecap="round"/>
+              <line x1="33" y1="79" x2="24" y2="70" stroke="#FAC775" stroke-width="1.6" stroke-linecap="round"/>
+              <line x1="95" y1="79" x2="104" y2="70" stroke="#FAC775" stroke-width="1.6" stroke-linecap="round"/>
+              <line x1="33" y1="105" x2="24" y2="114" stroke="#FAC775" stroke-width="1.6" stroke-linecap="round"/>
+              <line x1="95" y1="105" x2="104" y2="114" stroke="#FAC775" stroke-width="1.6" stroke-linecap="round"/>
+            </g>
+            <!-- Sun disc -->
+            <circle cx="64" cy="92" r="22" fill="#FAC775" opacity=".88"/>
+            <circle cx="64" cy="92" r="16" fill="#FAC775" opacity=".3"/>
+          </g>
+
+          <!-- Small birds -->
+          <path d="M138 46 Q141 43 144 46" stroke="#B4A48A" stroke-width="1.5" fill="none" stroke-linecap="round" opacity=".55"/>
+          <path d="M150 39 Q153 36 156 39" stroke="#B4A48A" stroke-width="1.5" fill="none" stroke-linecap="round" opacity=".5"/>
+          <path d="M165 52 Q168 49 171 52" stroke="#B4A48A" stroke-width="1.3" fill="none" stroke-linecap="round" opacity=".4"/>
+
+          <!-- Left building (dorm) -->
+          <rect x="36" y="126" width="76" height="66" fill="#DDD5C5" rx="2"/>
+          <rect x="30" y="118" width="88" height="11" fill="#C4BDB0" rx="2"/>
+          <!-- Windows row 1 -->
+          <rect x="44"  y="135" width="13" height="11" rx="1.5" fill="#A8C4D8" style="animation:winGlow 5.2s ease-in-out infinite;animation-delay:0s"   opacity=".6"/>
+          <rect x="63"  y="135" width="13" height="11" rx="1.5" fill="#FAC775" style="animation:winGlow 4.6s ease-in-out infinite;animation-delay:.9s"  opacity=".68"/>
+          <rect x="82"  y="135" width="13" height="11" rx="1.5" fill="#A8C4D8" style="animation:winGlow 6s   ease-in-out infinite;animation-delay:1.7s" opacity=".55"/>
+          <!-- Windows row 2 -->
+          <rect x="44"  y="153" width="13" height="11" rx="1.5" fill="#FAC775" style="animation:winGlow 4.1s ease-in-out infinite;animation-delay:.4s"  opacity=".7"/>
+          <rect x="63"  y="153" width="13" height="11" rx="1.5" fill="#A8C4D8" style="animation:winGlow 5.7s ease-in-out infinite;animation-delay:1.3s" opacity=".5"/>
+          <rect x="82"  y="153" width="13" height="11" rx="1.5" fill="#FAC775" style="animation:winGlow 4.9s ease-in-out infinite;animation-delay:2.1s" opacity=".62"/>
+          <!-- Door -->
+          <rect x="63"  y="172" width="16" height="20" rx="2" fill="#C4B99A"/>
+
+          <!-- Center main building -->
+          <rect x="148" y="82" width="94" height="110" fill="#DDD5C5" rx="2"/>
+          <rect x="141" y="73" width="108" height="13" fill="#C4BDB0" rx="2"/>
+          <!-- Pillar accents -->
+          <rect x="156" y="86" width="3.5" height="106" fill="rgba(0,0,0,.04)"/>
+          <rect x="230" y="86" width="3.5" height="106" fill="rgba(0,0,0,.04)"/>
+          <!-- Windows r1 -->
+          <rect x="158" y="95"  width="17" height="14" rx="1.5" fill="#A8C4D8" style="animation:winGlow 5s   ease-in-out infinite;animation-delay:.3s"  opacity=".62"/>
+          <rect x="181" y="95"  width="17" height="14" rx="1.5" fill="#FAC775" style="animation:winGlow 4.5s ease-in-out infinite;animation-delay:1.1s" opacity=".7"/>
+          <rect x="204" y="95"  width="17" height="14" rx="1.5" fill="#A8C4D8" style="animation:winGlow 6.1s ease-in-out infinite;animation-delay:.6s"  opacity=".55"/>
+          <!-- Windows r2 -->
+          <rect x="158" y="117" width="17" height="14" rx="1.5" fill="#FAC775" style="animation:winGlow 4.8s ease-in-out infinite;animation-delay:1.5s" opacity=".65"/>
+          <rect x="181" y="117" width="17" height="14" rx="1.5" fill="#A8C4D8" style="animation:winGlow 5.4s ease-in-out infinite;animation-delay:.2s"  opacity=".6"/>
+          <rect x="204" y="117" width="17" height="14" rx="1.5" fill="#FAC775" style="animation:winGlow 4.3s ease-in-out infinite;animation-delay:1.9s" opacity=".7"/>
+          <!-- Windows r3 -->
+          <rect x="158" y="139" width="17" height="14" rx="1.5" fill="#A8C4D8" style="animation:winGlow 5.6s ease-in-out infinite;animation-delay:.8s"  opacity=".5"/>
+          <rect x="181" y="139" width="17" height="14" rx="1.5" fill="#FAC775" style="animation:winGlow 4.7s ease-in-out infinite;animation-delay:1.6s" opacity=".62"/>
+          <rect x="204" y="139" width="17" height="14" rx="1.5" fill="#A8C4D8" style="animation:winGlow 5.2s ease-in-out infinite;animation-delay:.5s"  opacity=".55"/>
+          <!-- Main door -->
+          <rect x="178" y="164" width="24" height="28" rx="2" fill="#C4B99A"/>
+          <line x1="190" y1="164" x2="190" y2="192" stroke="rgba(0,0,0,.08)" stroke-width="1"/>
+
+          <!-- Right building -->
+          <rect x="284" y="104" width="78" height="88" fill="#DDD5C5" rx="2"/>
+          <rect x="278" y="96"  width="90" height="11" fill="#C4BDB0" rx="2"/>
+          <rect x="292" y="114" width="14" height="12" rx="1.5" fill="#FAC775" style="animation:winGlow 5.1s ease-in-out infinite;animation-delay:.7s"  opacity=".66"/>
+          <rect x="312" y="114" width="14" height="12" rx="1.5" fill="#A8C4D8" style="animation:winGlow 4.4s ease-in-out infinite;animation-delay:1.4s" opacity=".55"/>
+          <rect x="332" y="114" width="14" height="12" rx="1.5" fill="#FAC775" style="animation:winGlow 6.2s ease-in-out infinite;animation-delay:.1s"  opacity=".6"/>
+          <rect x="292" y="133" width="14" height="12" rx="1.5" fill="#A8C4D8" style="animation:winGlow 5s   ease-in-out infinite;animation-delay:2.2s" opacity=".5"/>
+          <rect x="312" y="133" width="14" height="12" rx="1.5" fill="#FAC775" style="animation:winGlow 4.6s ease-in-out infinite;animation-delay:1.6s" opacity=".65"/>
+          <rect x="332" y="133" width="14" height="12" rx="1.5" fill="#A8C4D8" style="animation:winGlow 5.5s ease-in-out infinite;animation-delay:.4s"  opacity=".55"/>
+          <rect x="310" y="158" width="18" height="34" rx="2" fill="#C4B99A"/>
+
+          <!-- Tree L1 — sways from base -->
+          <g style="transform-box:fill-box;transform-origin:50% 100%;animation:treeSway 5.8s ease-in-out infinite">
+            <rect x="119" y="157" width="5" height="35" rx="2" fill="#B4A48A"/>
+            <ellipse cx="121.5" cy="150" rx="16" ry="17" fill="#7A9A6E" opacity=".82"/>
+            <ellipse cx="121.5" cy="142" rx="10" ry="11" fill="#6B8F71" opacity=".4"/>
+          </g>
+          <!-- Tree L2 -->
+          <g style="transform-box:fill-box;transform-origin:50% 100%;animation:treeSway 6.4s ease-in-out infinite;animation-delay:.7s">
+            <rect x="252" y="162" width="4" height="30" rx="2" fill="#B4A48A"/>
+            <ellipse cx="254" cy="156" rx="14" ry="15" fill="#6B8F71" opacity=".78"/>
+          </g>
+          <!-- Hedge clusters -->
+          <ellipse cx="138" cy="193" rx="18" ry="10" fill="#7A9A6E" opacity=".45"/>
+          <ellipse cx="252" cy="193" rx="16" ry="9"  fill="#6B8F71" opacity=".4"/>
+          <ellipse cx="280" cy="193" rx="12" ry="8"  fill="#7A9A6E" opacity=".35"/>
+
+          <!-- Figure 1 walking up the path -->
+          <g style="animation:walkUp 18s linear infinite">
+            <circle cx="198" cy="270" r="2.2" fill="#5A4832"/>
+            <ellipse cx="198" cy="276" rx="2.4" ry="3.4" fill="#C4704B" opacity=".9"/>
+          </g>
+          <!-- Figure 2 — delayed, offset -->
+          <g style="animation:walkUp2 22s linear infinite;animation-delay:5.5s">
+            <circle cx="190" cy="274" r="2" fill="#5A4832"/>
+            <ellipse cx="190" cy="279" rx="2.2" ry="3.1" fill="#6B8F71" opacity=".88"/>
+          </g>
+        </svg>
+
+        <!-- Content area -->
+        <div class="ob-content stag">
+          <div class="ob-tagline">更轻量，更舒适的校园体验</div>
+          <div class="ob-desc">
+            轻小信基于安小信重新设计，去掉繁琐，保留核心。整合课程、运动与宿舍提醒，让校园日常更自然、更从容地流动。
+          </div>
+          <div class="ob-actions">
+            <button class="ob-btn ob-btn-primary">我已知晓</button>
+            <button class="ob-btn ob-btn-secondary">暂不进入</button>
+          </div>
+        </div>
+      </div>
+      <div class="home-bar"></div>
+    </div>
+  </div>
+
+  <!-- ██ LOGIN ██ -->
+  <div class="wrap">
+    <div class="tag">Login</div>
+    <div class="phone">
+      <div class="notch"></div>
+      <div class="scr" style="background:var(--parchment)">
+        <div class="sbar"><span class="t">9:41</span><span class="i">
+        <svg width="16" height="12" viewBox="0 0 16 12"><path d="M1 8.5h2v3H1zM5 6h2v5.5H5zM9 3.5h2v8H9zM13 1h2v10.5h-2z" fill="currentColor"/></svg>
+        <svg width="15" height="12" viewBox="0 0 15 12"><path d="M7.5 3.5C9.5 3.5 11.3 4.3 12.6 5.6l-1.4 1.4C10.2 6 8.9 5.5 7.5 5.5S4.8 6 3.8 7l-1.4-1.4C3.7 4.3 5.5 3.5 7.5 3.5zM7.5 0C10.3 0 12.8 1.1 14.7 2.9l-1.4 1.4C11.6 2.7 9.7 1.8 7.5 1.8S3.4 2.7 1.7 4.3L.3 2.9C2.2 1.1 4.7 0 7.5 0zM9.2 9.3c-.5-.5-1.1-.8-1.7-.8s-1.2.3-1.7.8L7.5 11l1.7-1.7z" fill="currentColor"/></svg>
+        <svg width="27" height="13" viewBox="0 0 27 13"><rect x="0" y="1" width="22" height="11" rx="2.5" stroke="currentColor" fill="none" stroke-width="1"/><rect x="23" y="4" width="2" height="5" rx="1" fill="currentColor" opacity=".4"/><rect x="1.5" y="2.5" width="16" height="8" rx="1.5" fill="currentColor"/></svg>
+      </span></div>
+
+        <!-- Desk flatlay micro-illustration (framed) -->
+        <div class="login-illus-frame">
+        <svg class="login-illus" viewBox="0 0 390 220" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect width="390" height="220" fill="#FAF7F2"/>
+
+          <!-- Card 1: Course list — rotated left, floats gently -->
+          <g style="animation:cardFloat1 6.5s ease-in-out infinite;transform-origin:80px 100px">
+            <rect x="28" y="36" width="124" height="104" rx="11" fill="#FFFDF9" stroke="#E8E2D8" stroke-width="1"/>
+            <rect x="28" y="36" width="124" height="30" rx="11" fill="#F0EBE1"/>
+            <rect x="28" y="55"  width="124" height="11" fill="#F0EBE1"/>
+            <rect x="40" y="46" width="9" height="9" rx="2" fill="#C4704B" opacity=".75"/>
+            <rect x="53" y="47" width="36" height="4" rx="2" fill="#7A5C3A"/>
+            <rect x="40"  y="78"  width="3" height="16" rx="1.5" fill="#7B9EC9"/>
+            <rect x="48"  y="80"  width="48" height="4"  rx="2"   fill="#4A4640"/>
+            <rect x="48"  y="87"  width="34" height="3"  rx="1.5" fill="#B5AFA5"/>
+            <rect x="40"  y="100" width="3" height="16" rx="1.5" fill="#C4704B"/>
+            <rect x="48"  y="102" width="40" height="4"  rx="2"   fill="#4A4640"/>
+            <rect x="48"  y="109" width="28" height="3"  rx="1.5" fill="#B5AFA5"/>
+            <rect x="40"  y="122" width="3" height="16" rx="1.5" fill="#6B8F71"/>
+            <rect x="48"  y="124" width="54" height="4"  rx="2"   fill="#4A4640"/>
+            <rect x="48"  y="131" width="36" height="3"  rx="1.5" fill="#B5AFA5"/>
+          </g>
+
+          <!-- Decorative organic curve — terra squiggle threading behind elements -->
+          <path d="M 14 178 C 60 150, 110 200, 168 172 S 260 150, 308 178 S 370 166, 384 184"
+                stroke="#C4704B" stroke-width="2" fill="none" stroke-linecap="round" opacity=".32"/>
+
+          <!-- Card 2 replaced: Round clock (smaller) — 10:10 pose, gentle float -->
+          <g style="animation:clockFloat 8.2s ease-in-out infinite;transform-origin:310px 56px">
+            <!-- Outer ring -->
+            <circle cx="310" cy="56" r="32" fill="#FFFDF9" stroke="#E8E2D8" stroke-width="1"/>
+            <circle cx="310" cy="56" r="28" fill="none" stroke="#F0EBE1" stroke-width="1"/>
+            <!-- Cardinal tick marks -->
+            <rect x="308.7" y="27"  width="2.6" height="6" rx="1.2" fill="#C4704B" opacity=".8"/>
+            <rect x="308.7" y="79"  width="2.6" height="6" rx="1.2" fill="#B5AFA5"/>
+            <rect x="281"   y="54.7" width="6"   height="2.6" rx="1.2" fill="#B5AFA5"/>
+            <rect x="333"   y="54.7" width="6"   height="2.6" rx="1.2" fill="#B5AFA5"/>
+            <!-- Minor tick dots (hours 1,2,4,5,7,8,10,11) -->
+            <circle cx="325" cy="31"  r="1.1" fill="#D4CFC6"/>
+            <circle cx="335" cy="41"  r="1.1" fill="#D4CFC6"/>
+            <circle cx="335" cy="71"  r="1.1" fill="#D4CFC6"/>
+            <circle cx="325" cy="81"  r="1.1" fill="#D4CFC6"/>
+            <circle cx="295" cy="81"  r="1.1" fill="#D4CFC6"/>
+            <circle cx="285" cy="71"  r="1.1" fill="#D4CFC6"/>
+            <circle cx="285" cy="41"  r="1.1" fill="#D4CFC6"/>
+            <circle cx="295" cy="31"  r="1.1" fill="#D4CFC6"/>
+            <!-- Hour hand pointing to 10 -->
+            <line x1="310" y1="56" x2="298" y2="49" stroke="#4A4640" stroke-width="2.4" stroke-linecap="round"/>
+            <!-- Minute hand pointing to 2 -->
+            <line x1="310" y1="56" x2="326" y2="47" stroke="#4A4640" stroke-width="2" stroke-linecap="round"/>
+            <!-- Second hand (slow rotate around clock center) -->
+            <g transform="translate(310 56)">
+              <g style="animation:secondSpin 60s linear infinite;transform-origin:0 0">
+                <line x1="0" y1="0" x2="0" y2="-24" stroke="#C4704B" stroke-width="1.1" stroke-linecap="round" opacity=".85"/>
+              </g>
+            </g>
+            <!-- Center cap -->
+            <circle cx="310" cy="56" r="2.4" fill="#4A4640"/>
+            <circle cx="310" cy="56" r="1.1" fill="#FFFDF9"/>
+          </g>
+
+          <!-- Card 4 (new): notification pill — middle-right -->
+          <g style="animation:cardFloat2 7.4s ease-in-out infinite;transform-origin:268px 118px">
+            <rect x="194" y="94" width="148" height="52" rx="14" fill="#FFFDF9" stroke="#E8E2D8" stroke-width="1"/>
+            <!-- icon tile -->
+            <rect x="206" y="106" width="28" height="28" rx="8" fill="#F0EBE1"/>
+            <rect x="214" y="114" width="12" height="12" rx="3" fill="#C49A4B" opacity=".85"/>
+            <!-- text placeholders -->
+            <rect x="244" y="108" width="70" height="4"   rx="2"   fill="#4A4640"/>
+            <rect x="244" y="118" width="54" height="3"   rx="1.5" fill="#B5AFA5"/>
+            <rect x="244" y="127" width="40" height="3"   rx="1.5" fill="#B5AFA5" opacity=".55"/>
+          </g>
+
+          <!-- Card 3: Exercise card — consistent header + ring + placeholder bars -->
+          <g style="animation:cardFloat3 7.1s ease-in-out infinite;transform-origin:140px 184px">
+            <rect x="64" y="152" width="152" height="64" rx="11" fill="#FFFDF9" stroke="#E8E2D8" stroke-width="1"/>
+            <rect x="64" y="152" width="152" height="18" rx="11" fill="#F0EBE1"/>
+            <rect x="64" y="163" width="152" height="7" fill="#F0EBE1"/>
+            <!-- header icon + title placeholder -->
+            <rect x="74" y="157" width="8" height="8" rx="2" fill="#6B8F71" opacity=".8"/>
+            <rect x="87" y="158.5" width="34" height="4" rx="2" fill="#7A5C3A"/>
+            <!-- Ring -->
+            <g transform="translate(90,194)">
+              <circle cx="0" cy="0" r="12" fill="none" stroke="#EDE7DB" stroke-width="3.2"/>
+              <circle cx="0" cy="0" r="12" fill="none" stroke="#6B8F71" stroke-width="3.2"
+                      stroke-dasharray="75" stroke-dashoffset="75" stroke-linecap="round"
+                      transform="rotate(-90)"
+                      style="animation:ringFillAnim 2.2s cubic-bezier(.4,0,.2,1) .6s forwards"/>
+            </g>
+            <!-- Placeholder text rows (matching card 1 style) -->
+            <rect x="114" y="182" width="50" height="4" rx="2" fill="#4A4640"/>
+            <rect x="114" y="190" width="34" height="3" rx="1.5" fill="#B5AFA5"/>
+            <!-- Mini total bar -->
+            <rect x="114" y="201" width="86" height="3.5" rx="1.7" fill="#EDE7DB"/>
+            <rect x="114" y="201" width="60" height="3.5" rx="1.7" fill="#6B8F71" opacity=".75"/>
+          </g>
+        </svg>
+        </div>
+
+        <!-- Login form -->
+        <div class="login-body stag">
+          <div class="login-card">
+            <div class="login-form">
+              <input class="field" type="text"     placeholder="学号"  value="2022001234">
+              <input class="field" type="password" placeholder="密码"  value="••••••••">
+              <button class="login-btn">登 录</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="home-bar"></div>
+    </div>
+  </div>
+
+  <!-- ██ HOME ██ -->
+  <div class="wrap">
+    <div class="tag">Home</div>
+    <div class="phone">
+      <div class="notch"></div>
+      <div class="scr">
+        <div class="sbar"><span class="t">9:41</span><span class="i">
+        <svg width="16" height="12" viewBox="0 0 16 12"><path d="M1 8.5h2v3H1zM5 6h2v5.5H5zM9 3.5h2v8H9zM13 1h2v10.5h-2z" fill="currentColor"/></svg>
+        <svg width="15" height="12" viewBox="0 0 15 12"><path d="M7.5 3.5C9.5 3.5 11.3 4.3 12.6 5.6l-1.4 1.4C10.2 6 8.9 5.5 7.5 5.5S4.8 6 3.8 7l-1.4-1.4C3.7 4.3 5.5 3.5 7.5 3.5zM7.5 0C10.3 0 12.8 1.1 14.7 2.9l-1.4 1.4C11.6 2.7 9.7 1.8 7.5 1.8S3.4 2.7 1.7 4.3L.3 2.9C2.2 1.1 4.7 0 7.5 0zM9.2 9.3c-.5-.5-1.1-.8-1.7-.8s-1.2.3-1.7.8L7.5 11l1.7-1.7z" fill="currentColor"/></svg>
+        <svg width="27" height="13" viewBox="0 0 27 13"><rect x="0" y="1" width="22" height="11" rx="2.5" stroke="currentColor" fill="none" stroke-width="1"/><rect x="23" y="4" width="2" height="5" rx="1" fill="currentColor" opacity=".4"/><rect x="1.5" y="2.5" width="16" height="8" rx="1.5" fill="currentColor"/></svg>
+      </span></div>
+
+        <div class="scr-body">
+          <div class="stag">
+            <div style="height:2px"></div>
+            <div class="greeting">下午好，小明</div>
+            <div class="greeting-sub">今天课不少，加油撑住</div>
+            <div style="height:22px"></div>
+
+            <!-- 今日课程 -->
+            <div class="wcard">
+              <div class="dcard-head">
+                <div class="dcard-icon" style="background:var(--terra-soft);color:var(--terra)">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/></svg>
+                </div>
+                <div class="dcard-title">今日课程</div>
+                <div class="dcard-badge">第12周</div>
+              </div>
+              <div class="c-row">
+                <div class="c-bar" style="background:#7B9EC9"></div>
+                <div><div class="c-name">高等数学 (A)</div><div class="c-meta">第1-2节 · 教学楼A301</div></div>
+              </div>
+              <div class="c-row">
+                <div class="c-bar" style="background:var(--terra)"></div>
+                <div><div class="c-name">大学英语 III</div><div class="c-meta">第3-4节 · 外语楼B205</div></div>
+              </div>
+              <div class="c-row">
+                <div class="c-bar" style="background:var(--sage)"></div>
+                <div><div class="c-name">数据结构与算法</div><div class="c-meta">第7-8节 · 计算机楼C102</div></div>
+              </div>
+            </div>
+
+            <!-- 查寝签到 -->
+            <div class="wcard">
+              <div class="dcard-head">
+                <div class="dcard-icon" style="background:var(--amber-soft);color:var(--amber)">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7v11a3 3 0 003 3h12a3 3 0 003-3V7"/><rect x="2" y="4" width="20" height="3" rx="1"/></svg>
+                </div>
+                <div class="dcard-title">查寝签到</div>
+              </div>
+              <div class="ck-row">
+                <div class="ck-pulse"></div>
+                <div><div class="ck-name">晚间查寝</div><div class="ck-time">22:00 ~ 23:00</div></div>
+              </div>
+            </div>
+
+            <!-- 运动进度 — ring (today) + bar (total) -->
+            <div class="wcard">
+              <div class="dcard-head">
+                <div class="dcard-icon" style="background:var(--sage-soft);color:var(--sage)">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="5" r="3"/><path d="M7 21l2-7 3 2 3-2 2 7"/><path d="M9.5 14L7 11l3-1"/><path d="M14.5 14L17 11l-3-1"/></svg>
+                </div>
+                <div class="dcard-title">运动进度</div>
+              </div>
+              <!-- Today ring -->
+              <div class="run-today">
+                <div class="ring-wrap">
+                  <svg viewBox="0 0 54 54">
+                    <circle class="ring-track" cx="27" cy="27" r="22"/>
+                    <!-- progress: 2.35/3.0 = 78% → dashoffset = 138×0.217 = 30 -->
+                    <circle class="ring-fill" cx="27" cy="27" r="22" stroke-dasharray="138" stroke-dashoffset="30"/>
+                  </svg>
+                  <!-- When ≥ 3km: swap ring-txt for ring-check with SVG checkmark -->
+                  <div class="ring-txt">78%</div>
+                </div>
+                <div class="run-info">
+                  <div class="run-main">今日 2.35 km</div>
+                  <div class="run-sub">目标 3 km · 离完成还差 0.65 km</div>
+                </div>
+              </div>
+              <!-- Total bar: 42/60 km = 70% -->
+              <div class="run-total">
+                <span class="run-bar-lbl">总进度</span>
+                <div class="run-bar-track"><div class="run-bar-fill" style="width:70%"></div></div>
+                <span class="run-bar-val">42 / 60 km</span>
+              </div>
+            </div>
+
+            <!-- 劳动教育 — simple list, no bars -->
+            <div class="wcard">
+              <div class="dcard-head">
+                <div class="dcard-icon" style="background:var(--plum-soft);color:var(--plum)">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a7 7 0 017 7c0 5-7 13-7 13S5 14 5 9a7 7 0 017-7z"/><circle cx="12" cy="9" r="2.5"/></svg>
+                </div>
+                <div class="dcard-title">劳动教育</div>
+                <div class="dcard-badge">共 12.5 h</div>
+              </div>
+              <div class="lab-item"><span class="lab-lbl">志愿</span><span class="lab-val">4.0 h</span></div>
+              <div class="lab-item"><span class="lab-lbl">暑期</span><span class="lab-val">3.0 h</span></div>
+              <div class="lab-item"><span class="lab-lbl">劳动</span><span class="lab-val">2.5 h</span></div>
+              <div class="lab-item"><span class="lab-lbl">社区</span><span class="lab-val">2.0 h</span></div>
+              <div class="lab-item"><span class="lab-lbl">其他</span><span class="lab-val">1.0 h</span></div>
+            </div>
+
+            <div style="height:6px"></div>
+          </div>
+        </div>
+
+        <div class="tabs">
+          <div class="tab on">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3L4 9v12h5.5v-6.5h5V21H20V9z"/></svg>
+            <span>首页</span>
+          </div>
+          <div class="tab">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="4" width="18" height="18" rx="2.5"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/></svg>
+            <span>课程表</span>
+          </div>
+          <div class="tab">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 0 0-16 0"/></svg>
+            <span>我的</span>
+          </div>
+        </div>
+      </div>
+      <div class="home-bar"></div>
+    </div>
+  </div>
+
+  <!-- ██ SCHEDULE ██ -->
+  <div class="wrap">
+    <div class="tag">Schedule</div>
+    <div class="phone">
+      <div class="notch"></div>
+      <div class="scr">
+        <div class="sbar"><span class="t">9:41</span><span class="i">
+        <svg width="16" height="12" viewBox="0 0 16 12"><path d="M1 8.5h2v3H1zM5 6h2v5.5H5zM9 3.5h2v8H9zM13 1h2v10.5h-2z" fill="currentColor"/></svg>
+        <svg width="15" height="12" viewBox="0 0 15 12"><path d="M7.5 3.5C9.5 3.5 11.3 4.3 12.6 5.6l-1.4 1.4C10.2 6 8.9 5.5 7.5 5.5S4.8 6 3.8 7l-1.4-1.4C3.7 4.3 5.5 3.5 7.5 3.5zM7.5 0C10.3 0 12.8 1.1 14.7 2.9l-1.4 1.4C11.6 2.7 9.7 1.8 7.5 1.8S3.4 2.7 1.7 4.3L.3 2.9C2.2 1.1 4.7 0 7.5 0zM9.2 9.3c-.5-.5-1.1-.8-1.7-.8s-1.2.3-1.7.8L7.5 11l1.7-1.7z" fill="currentColor"/></svg>
+        <svg width="27" height="13" viewBox="0 0 27 13"><rect x="0" y="1" width="22" height="11" rx="2.5" stroke="currentColor" fill="none" stroke-width="1"/><rect x="23" y="4" width="2" height="5" rx="1" fill="currentColor" opacity=".4"/><rect x="1.5" y="2.5" width="16" height="8" rx="1.5" fill="currentColor"/></svg>
+      </span></div>
+
+        <div class="scr-body" style="display:flex;flex-direction:column">
+          <div class="wk-sel">
+            <div class="wk">第10周</div>
+            <div class="wk">第11周</div>
+            <div class="wk on cur">第12周</div>
+            <div class="wk">第13周</div>
+            <div class="wk">第14周</div>
+            <div class="wk">第15周</div>
+            <div class="wk">第16周</div>
+          </div>
+          <div class="tt">
+            <div class="tt-hd">
+              <div class="tt-hc"></div>
+              <div class="tt-hc">一</div>
+              <div class="tt-hc">二</div>
+              <div class="tt-hc td">三</div>
+              <div class="tt-hc">四</div>
+              <div class="tt-hc">五</div>
+              <div class="tt-hc">六</div>
+              <div class="tt-hc">日</div>
+            </div>
+            <div class="tt-bd" id="ttBody"></div>
+          </div>
+        </div>
+
+        <div class="tabs">
+          <div class="tab">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 3L4 9v12h5.5v-6.5h5V21H20V9z"/></svg>
+            <span>首页</span>
+          </div>
+          <div class="tab on">
+            <svg viewBox="0 0 24 24" fill="currentColor"><rect x="3" y="4" width="18" height="18" rx="2.5"/><rect x="3" y="4" width="18" height="6" rx="2.5" opacity=".25"/><line x1="8" y1="2" x2="8" y2="6" stroke="var(--parchment)" stroke-width="1.6"/><line x1="16" y1="2" x2="16" y2="6" stroke="var(--parchment)" stroke-width="1.6"/></svg>
+            <span>课程表</span>
+          </div>
+          <div class="tab">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 0 0-16 0"/></svg>
+            <span>我的</span>
+          </div>
+        </div>
+      </div>
+      <div class="home-bar"></div>
+    </div>
+  </div>
+
+  <!-- ██ PROFILE ██ -->
+  <div class="wrap">
+    <div class="tag">Profile</div>
+    <div class="phone">
+      <div class="notch"></div>
+      <div class="scr">
+        <div class="sbar"><span class="t">9:41</span><span class="i">
+        <svg width="16" height="12" viewBox="0 0 16 12"><path d="M1 8.5h2v3H1zM5 6h2v5.5H5zM9 3.5h2v8H9zM13 1h2v10.5h-2z" fill="currentColor"/></svg>
+        <svg width="15" height="12" viewBox="0 0 15 12"><path d="M7.5 3.5C9.5 3.5 11.3 4.3 12.6 5.6l-1.4 1.4C10.2 6 8.9 5.5 7.5 5.5S4.8 6 3.8 7l-1.4-1.4C3.7 4.3 5.5 3.5 7.5 3.5zM7.5 0C10.3 0 12.8 1.1 14.7 2.9l-1.4 1.4C11.6 2.7 9.7 1.8 7.5 1.8S3.4 2.7 1.7 4.3L.3 2.9C2.2 1.1 4.7 0 7.5 0zM9.2 9.3c-.5-.5-1.1-.8-1.7-.8s-1.2.3-1.7.8L7.5 11l1.7-1.7z" fill="currentColor"/></svg>
+        <svg width="27" height="13" viewBox="0 0 27 13"><rect x="0" y="1" width="22" height="11" rx="2.5" stroke="currentColor" fill="none" stroke-width="1"/><rect x="23" y="4" width="2" height="5" rx="1" fill="currentColor" opacity=".4"/><rect x="1.5" y="2.5" width="16" height="8" rx="1.5" fill="currentColor"/></svg>
+      </span></div>
+
+        <div class="scr-body">
+          <div class="stag">
+            <div style="height:2px"></div>
+            <div class="greeting" style="font-size:28px">我的</div>
+            <div style="height:18px"></div>
+            <div class="prof-card">
+              <div class="avatar-ring"><span class="avatar-char">明</span></div>
+              <div><div class="prof-name">小明</div><div class="prof-code">2022001234</div></div>
+            </div>
+            <div class="sec-label">功能</div>
+            <div class="glist">
+              <div class="grow">
+                <div class="gl-icon" style="background:var(--amber-soft);color:var(--amber)">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7v11a3 3 0 003 3h12a3 3 0 003-3V7"/><rect x="2" y="4" width="20" height="3" rx="1"/></svg>
+                </div>
+                <span class="gl-text">查寝签到</span><span class="gl-arr">&rsaquo;</span>
+              </div>
+              <div class="grow">
+                <div class="gl-icon" style="background:var(--plum-soft);color:var(--plum)">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+                </div>
+                <span class="gl-text">劳动教育</span><span class="gl-arr">&rsaquo;</span>
+              </div>
+              <div class="grow">
+                <div class="gl-icon" style="background:var(--sage-soft);color:var(--sage)">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c0 2 3 3 6 3s6-1 6-3v-5"/></svg>
+                </div>
+                <span class="gl-text">AI课堂</span><span class="gl-arr">&rsaquo;</span>
+              </div>
+            </div>
+            <div class="sec-label">其他</div>
+            <div class="glist">
+              <div class="grow">
+                <div class="gl-icon" style="background:var(--slate-soft);color:var(--slate)">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><circle cx="12" cy="8" r=".5" fill="currentColor"/></svg>
+                </div>
+                <span class="gl-text">关于轻小信</span>
+                <span class="gl-hint">v1.0.0</span><span class="gl-arr">&rsaquo;</span>
+              </div>
+            </div>
+            <div class="logout">退出登录</div>
+            <div style="text-align:center;padding-bottom:20px"><div class="divider"></div></div>
+          </div>
+        </div>
+
+        <div class="tabs">
+          <div class="tab">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 3L4 9v12h5.5v-6.5h5V21H20V9z"/></svg>
+            <span>首页</span>
+          </div>
+          <div class="tab">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="4" width="18" height="18" rx="2.5"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/></svg>
+            <span>课程表</span>
+          </div>
+          <div class="tab on">
+            <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 0 0-16 0"/></svg>
+            <span>我的</span>
+          </div>
+        </div>
+      </div>
+      <div class="home-bar"></div>
+    </div>
+  </div>
+
+</div><!-- end .shell -->
+
+<script>
+  const courses = [
+    { name:'高等数学(A)',   room:'A301',  day:1, s:1, e:2, c:'#7B9EC9' },
+    { name:'大学英语III',   room:'B205',  day:1, s:5, e:6, c:'#C4704B' },
+    { name:'线性代数',      room:'A205',  day:2, s:3, e:4, c:'#6B8F71' },
+    { name:'高等数学(A)',   room:'A301',  day:3, s:1, e:2, c:'#7B9EC9' },
+    { name:'大学英语III',   room:'B205',  day:3, s:3, e:4, c:'#C4704B' },
+    { name:'数据结构',      room:'C102',  day:3, s:7, e:8, c:'#8B6B8A' },
+    { name:'思想政治',      room:'D401',  day:4, s:1, e:2, c:'#C49A4B' },
+    { name:'体育',          room:'体育馆', day:4, s:5, e:6, c:'#B5645A' },
+    { name:'数据结构',      room:'C102',  day:5, s:3, e:4, c:'#8B6B8A' },
+    { name:'概率论',        room:'A301',  day:5, s:7, e:8, c:'#6B7C8A' },
+  ];
+
+  const bd = document.getElementById('ttBody');
+  const TD = 3;
+
+  for (let sec = 1; sec <= 10; sec++) {
+    const sn = document.createElement('div');
+    sn.className = 'tt-sn';
+    sn.textContent = sec;
+    bd.appendChild(sn);
+
+    for (let day = 1; day <= 7; day++) {
+      const cell = document.createElement('div');
+      cell.className = 'tt-c' + (day === TD ? ' td-col' : '');
+
+      const co = courses.find(c => c.day === day && c.s === sec);
+      if (co) {
+        const span = co.e - co.s + 1;
+        const el = document.createElement('div');
+        el.className = 'tt-co';
+        el.style.height = (span * 60 - 4) + 'px';
+        el.style.background = co.c;   /* solid color — matches Anthropic design philosophy */
+        el.innerHTML = `<div class="tt-cn">${co.name}</div><div class="tt-cr">${co.room}</div>`;
+        cell.appendChild(el);
+      }
+      bd.appendChild(cell);
+    }
+  }
+</script>
+</body>
+</html>

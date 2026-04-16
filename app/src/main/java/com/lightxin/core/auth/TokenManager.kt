@@ -3,6 +3,7 @@ package com.lightxin.core.auth
 import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -26,10 +27,25 @@ class TokenManager @Inject constructor(
         private val KEY_USER_NAME = stringPreferencesKey("user_name")
         private val KEY_USER_TYPE = stringPreferencesKey("user_type")
         private val KEY_FILE_ADDRESS = stringPreferencesKey("file_address")
+        private val KEY_ONBOARDED = booleanPreferencesKey("lxin_onboarded")
+
+        // 退出登录时应被清除的 key（排除 KEY_ONBOARDED —— 欢迎页只在首启触发）
+        private val SESSION_KEYS = listOf(
+            KEY_ACCESS_TOKEN,
+            KEY_REFRESH_TOKEN,
+            KEY_USER_CODE,
+            KEY_USER_NAME,
+            KEY_USER_TYPE,
+            KEY_FILE_ADDRESS,
+        )
     }
 
     val isLoggedIn: Flow<Boolean> = context.dataStore.data.map { prefs ->
         prefs[KEY_ACCESS_TOKEN]?.isNotBlank() == true
+    }
+
+    val isOnboarded: Flow<Boolean> = context.dataStore.data.map { prefs ->
+        prefs[KEY_ONBOARDED] == true
     }
 
     suspend fun saveLoginData(
@@ -50,6 +66,12 @@ class TokenManager @Inject constructor(
         }
     }
 
+    suspend fun markOnboarded() {
+        context.dataStore.edit { prefs ->
+            prefs[KEY_ONBOARDED] = true
+        }
+    }
+
     suspend fun getAccessToken(): String? =
         context.dataStore.data.first()[KEY_ACCESS_TOKEN]
 
@@ -65,9 +87,10 @@ class TokenManager @Inject constructor(
     suspend fun getUserType(): String? =
         context.dataStore.data.first()[KEY_USER_TYPE]
 
+    /** 仅清除会话相关 key；onboarded 标志保留，避免退出登录后重现欢迎页。 */
     suspend fun clear() {
-        context.dataStore.edit { it.clear() }
+        context.dataStore.edit { prefs ->
+            SESSION_KEYS.forEach { prefs.remove(it) }
+        }
     }
-
-
 }

@@ -9,6 +9,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
@@ -18,41 +19,50 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.lightxin.core.auth.SessionManager
 import com.lightxin.core.designsystem.component.LxLoading
+import com.lightxin.feature.aiclass.ui.AiClassHomeScreen
+import com.lightxin.feature.aiclass.ui.AiClassScanScreen
 import com.lightxin.feature.checkin.ui.CheckinDetailScreen
 import com.lightxin.feature.checkin.ui.CheckinListScreen
 import com.lightxin.feature.home.ui.HomeScreen
 import com.lightxin.feature.labor.ui.LaborDetailScreen
 import com.lightxin.feature.labor.ui.LaborSummaryScreen
 import com.lightxin.feature.login.ui.LoginScreen
+import com.lightxin.feature.onboarding.ui.OnboardingScreen
 import com.lightxin.feature.running.ui.RunningActiveScreen
 import com.lightxin.feature.running.ui.RunningHomeScreen
 import com.lightxin.feature.running.ui.RunningResultScreen
 import com.lightxin.feature.running.ui.RunningSimScreen
 import com.lightxin.feature.running.ui.RunningViewModel
-import com.lightxin.feature.aiclass.ui.AiClassHomeScreen
-import com.lightxin.feature.aiclass.ui.AiClassScanScreen
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.launch
 
 @Composable
 fun LightXinNavHost(
     sessionManager: SessionManager,
     navController: NavHostController = rememberNavController(),
 ) {
-    // 收集登录状态，决定起始页面
-    val isLoggedIn by sessionManager.isLoggedIn.collectAsState(initial = null)
-
-    // 首次加载时等待 DataStore 读取
-    val startRoute = when (isLoggedIn) {
-        null -> {
-            LxLoading()
-            return
+    // 合并 onboarded + loggedIn 两态决定起始页
+    val startStateFlow = remember(sessionManager) {
+        combine(sessionManager.isOnboarded, sessionManager.isLoggedIn) { onboarded, loggedIn ->
+            when {
+                !onboarded -> Routes.ONBOARDING
+                !loggedIn -> Routes.LOGIN
+                else -> Routes.HOME
+            }
         }
-        true -> Routes.HOME
-        false -> Routes.LOGIN
     }
+    val startRoute by startStateFlow.collectAsState(initial = null)
+
+    if (startRoute == null) {
+        LxLoading()
+        return
+    }
+
+    val scope = rememberCoroutineScope()
 
     NavHost(
         navController = navController,
-        startDestination = startRoute,
+        startDestination = startRoute!!,
         enterTransition = {
             fadeIn(tween(300)) + slideInHorizontally(tween(300)) { it / 4 }
         },
@@ -66,6 +76,28 @@ fun LightXinNavHost(
             fadeOut(tween(200)) + slideOutHorizontally(tween(200)) { it / 4 }
         },
     ) {
+        composable(
+            Routes.ONBOARDING,
+            enterTransition = { fadeIn(tween(400)) },
+            exitTransition = { fadeOut(tween(300)) },
+        ) {
+            OnboardingScreen(
+                onAcknowledge = {
+                    scope.launch {
+                        sessionManager.markOnboarded()
+                        navController.navigate(Routes.LOGIN) {
+                            popUpTo(Routes.ONBOARDING) { inclusive = true }
+                        }
+                    }
+                },
+                onDismiss = {
+                    navController.navigate(Routes.LOGIN) {
+                        popUpTo(Routes.ONBOARDING) { inclusive = true }
+                    }
+                },
+            )
+        }
+
         composable(
             Routes.LOGIN,
             enterTransition = { fadeIn(tween(400)) },

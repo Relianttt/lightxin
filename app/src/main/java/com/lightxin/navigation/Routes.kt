@@ -3,6 +3,7 @@ package com.lightxin.navigation
 import kotlinx.serialization.Serializable
 
 object Routes {
+    const val ONBOARDING = "onboarding"
     const val LOGIN = "login"
     const val HOME = "home"
 

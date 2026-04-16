@@ -25,9 +25,12 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
+import com.lightxin.core.designsystem.theme.LxInkFaint
+import com.lightxin.core.designsystem.theme.LxParchment
 import com.lightxin.feature.schedule.ui.ScheduleScreen
 import com.lightxin.navigation.Routes
 
@@ -53,7 +56,7 @@ fun HomeScreen(
         containerColor = MaterialTheme.colorScheme.background,
         bottomBar = {
             NavigationBar(
-                containerColor = MaterialTheme.colorScheme.surface,
+                containerColor = LxParchment.copy(alpha = 0.92f),
             ) {
                 tabs.forEachIndexed { index, tab ->
                     NavigationBarItem(
@@ -64,7 +67,9 @@ fun HomeScreen(
                         colors = NavigationBarItemDefaults.colors(
                             selectedIconColor = MaterialTheme.colorScheme.primary,
                             selectedTextColor = MaterialTheme.colorScheme.primary,
-                            indicatorColor = MaterialTheme.colorScheme.primaryContainer,
+                            unselectedIconColor = LxInkFaint,
+                            unselectedTextColor = LxInkFaint,
+                            indicatorColor = Color.Transparent,
                         ),
                     )
                 }

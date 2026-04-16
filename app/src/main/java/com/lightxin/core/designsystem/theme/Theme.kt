@@ -5,22 +5,33 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.graphics.Color
 
 private val LightColorScheme = lightColorScheme(
-    primary = LxPrimary,
-    onPrimary = LxSurface,
-    primaryContainer = LxPrimaryContainer,
-    secondary = LxSecondary,
-    onSecondary = LxSurface,
-    secondaryContainer = LxSecondaryContainer,
-    background = LxBackground,
-    onBackground = LxOnBackground,
-    surface = LxSurface,
-    onSurface = LxOnSurface,
-    surfaceVariant = LxSurfaceVariant,
-    onSurfaceVariant = LxOnSurfaceVariant,
-    outline = LxOutline,
-    error = LxError,
+    primary = LxTerra,
+    onPrimary = Color.White,
+    primaryContainer = LxTerraSoft,
+    onPrimaryContainer = LxTerra,
+    secondary = LxSage,
+    onSecondary = Color.White,
+    secondaryContainer = LxSageSoft,
+    onSecondaryContainer = LxSage,
+    tertiary = LxAmber,
+    onTertiary = Color.White,
+    tertiaryContainer = LxAmberSoft,
+    onTertiaryContainer = LxAmber,
+    background = LxParchment,
+    onBackground = LxInk,
+    surface = LxCard,
+    onSurface = LxInk,
+    surfaceVariant = LxSand,
+    onSurfaceVariant = LxInkMuted,
+    outline = LxSandDeep,
+    outlineVariant = LxSand,
+    error = LxRose,
+    onError = Color.White,
+    errorContainer = LxRose.copy(alpha = 0.12f),
+    onErrorContainer = LxRose,
 )
 
 private val DarkColorScheme = darkColorScheme(
@@ -50,6 +61,7 @@ fun LightXinTheme(
     MaterialTheme(
         colorScheme = colorScheme,
         typography = LightXinTypography,
+        shapes = LightXinShapes,
         content = content,
     )
 }
