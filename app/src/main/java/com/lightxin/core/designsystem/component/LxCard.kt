@@ -1,6 +1,5 @@
 package com.lightxin.core.designsystem.component
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.ColumnScope
@@ -14,7 +13,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.lightxin.core.designsystem.theme.LxCard
-import com.lightxin.core.designsystem.theme.LxCardBorder
 import com.lightxin.core.designsystem.theme.LxCream
 
 @Composable
@@ -23,8 +21,7 @@ fun LxCard(
     onClick: (() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    val shape = MaterialTheme.shapes.medium // RLg = 16dp
-    val border = BorderStroke(1.dp, LxCardBorder)
+    val shape = MaterialTheme.shapes.medium // 16dp
 
     if (onClick != null) {
         val interactionSource = remember { MutableInteractionSource() }
@@ -37,7 +34,6 @@ fun LxCard(
             shape = shape,
             colors = CardDefaults.cardColors(containerColor = bg),
             elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-            border = border,
             interactionSource = interactionSource,
             content = content,
         )
@@ -47,7 +43,6 @@ fun LxCard(
             shape = shape,
             colors = CardDefaults.cardColors(containerColor = LxCard),
             elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-            border = border,
             content = content,
         )
     }

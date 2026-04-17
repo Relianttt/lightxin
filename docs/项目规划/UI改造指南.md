@@ -6,6 +6,14 @@
 >
 > 本指南同时沉淀设计评审过程中明确的细节决策，避免二次返工。
 
+## 实施状态
+
+| 阶段 | 内容 | 状态 |
+|---|---|---|
+| Phase 9A (P0+P1) | 暖色 Token + 登录/欢迎/首页（初版） | ✅ 已落地（commit `ba8b2b6`） |
+| Phase 9B (P2) | 课表三态周次 + 我的页合并卡 + 强制 Light + 图标去底色 | ✅ 已落地（commit `d9c9f41`） |
+| Phase 9C 精炼 | 字体 fallback + 首页叙事架构 + 我的页精简 + Tab bar 线性化 | ✅ 已落地（详见 §9） |
+
 ---
 
 ## 0. 执行顺序建议
@@ -17,7 +25,7 @@
 
 ---
 
-## 1. 设计 Token（必须先做）
+## 1. 设计 Token ✅（Phase 9A 已落地）
 
 ### 1.1 色板（`core/designsystem/theme/Color.kt` 全量替换）
 
@@ -60,7 +68,9 @@
 
 ---
 
-## 2. 通用组件改造
+## 2. 通用组件改造 ✅（Phase 9A / 9C）
+
+> Phase 9C 决策：`LxCard` 的 1dp 暖色细边框已移除（视觉差≈0，6% 透明度肉眼不可见）。
 
 ### `LxCard`
 - 圆角 16dp、无阴影、1dp 暖色细边框、`#FFFDF9` 底色
@@ -80,7 +90,7 @@
 
 ## 3. 页面层改造清单
 
-### 3.1 登录页（`feature/login/ui/LoginScreen.kt`）
+### 3.1 登录页（`feature/login/ui/LoginScreen.kt`）✅ Phase 9A
 
 **当前现状：** 无插画；显示「轻小信」大字 + 「LightXin」副标题 + 两输入框 + 登录按钮。
 
@@ -97,7 +107,7 @@
 - [ ] **表单卡**：水平 margin 28dp、justify-content flex-start、`padding-top 38.dp`（整体下移避免下部留白过多）
 - [ ] 品牌字/脚注的位置**全部让给插画**——登录页不再承载品牌记忆，由欢迎页承担
 
-### 3.2 欢迎页（**新建**）
+### 3.2 欢迎页（**新建**）✅ Phase 9A
 
 **当前现状：** 项目中**完全不存在** Onboarding/欢迎页，也无首启判断逻辑。
 
@@ -117,7 +127,9 @@
   - 两枚按钮：「我已知晓」`terra` 主按钮 + 「暂不进入」`sand` 次按钮（52dp 高）
 - [ ] Stagger 淡入（参考 `StaggeredCard`，每项延迟 50ms）
 
-### 3.3 首页（`feature/home/ui/HomeDashboard.kt`）
+### 3.3 首页（`feature/home/ui/HomeDashboard.kt`）✅ Phase 9A 初版 → **Phase 9C 叙事架构重构**
+
+> ⚠️ 本节为 Phase 9A 初版规划。Phase 9C 重新定义了首页：从 "4 卡 dashboard" 改为 "此刻我该做什么"叙事结构（**删除劳动卡、新增"下一节" headline、查寝条件渲染、运动卡删总进度条、Badge 去胶囊**）。以下原初版细节与 §9 冲突处以 **§9 为准**。
 
 **当前现状：** 4 卡结构已就位（今日课程/查寝/运动/劳动），问候语、StaggeredCard 动画齐全。
 
@@ -142,7 +154,7 @@
 - [ ] **劳动卡**：改成 `5 行 label-value` 简列（志愿/暑期/劳动/社区/其他），底色横条移除。数值右对齐、`font-variant-numeric tabular-nums`
 - [ ] **问候语** `headlineLarge` 改用 Newsreader 30sp、副标题 14sp / `ink-muted`；智能副标题逻辑 `buildSmartSubtitle` 保留原样
 
-### 3.4 课表（`feature/schedule/ui/ScheduleScreen.kt`）
+### 3.4 课表（`feature/schedule/ui/ScheduleScreen.kt`）✅ Phase 9B
 
 **当前现状：** `FilterChip` 周选择器；课程色块是**半透明背景 + 彩色文字**（15% alpha）；今日列 `primaryContainer.copy(.15f)` 高亮。
 
@@ -161,7 +173,9 @@
 - [ ] **表头今日标签**：字色 `terra` + bold + 下方 4dp 圆点指示符
 - [ ] 课程详情 BottomSheet 背景 `card`、圆角 `r-lg`
 
-### 3.5 我的页（`feature/home/ui/ProfileScreen.kt`）
+### 3.5 我的页（`feature/home/ui/ProfileScreen.kt`）✅ Phase 9B → **Phase 9C 精简**
+
+> Phase 9C 追加：删除 `功能`/`其他` 两个 section label（改用 22dp spacer 自然分组）；菜单图标改 22×22 `Icons.Outlined.*` + `LxInkSoft`，取消四色底块；退出登录改为**陶土轮廓按钮**（与登录的实心陶土做视觉区分）。详见 §9。
 
 **当前现状：** 每个 MenuRow 被包成独立 `LxCard`，视觉过重。
 
@@ -204,17 +218,17 @@
 
 ## 6. 工作量估算
 
-| 模块 | 工作量 | 优先级 |
-|---|---|---|
-| 色板替换（Color.kt + Theme.kt） | S | P0 |
-| 字体接入（Newsreader + Outfit） | M | P0 |
-| 通用组件（LxCard/Button/TextField）重做 | M | P0 |
-| 登录页插画 + 框 + 表单重排 | L | P1 |
-| 欢迎页（从零新建 + Onboarding 路由） | L | P1 |
-| 首页 4 卡片视觉细节 | M | P1 |
-| 课表三态周选择器 + 实色块 + 今日指示 | M | P2 |
-| 我的页合并列表卡 | S | P2 |
-| 图标统一替换 |  | 最后 |
+| 模块 | 工作量 | 优先级 | 状态 |
+|---|---|---|---|
+| 色板替换（Color.kt + Theme.kt） | S | P0 | ✅ 9A |
+| 字体接入（Newsreader + Outfit + Noto Serif SC） | M | P0 | ✅ 9A/9C |
+| 通用组件（LxCard/Button/TextField）重做 | M | P0 | ✅ 9A/9C |
+| 登录页插画 + 框 + 表单重排 | L | P1 | ✅ 9A |
+| 欢迎页（从零新建 + Onboarding 路由） | L | P1 | ✅ 9A |
+| 首页 4 卡片视觉细节 | M | P1 | ✅ 9A → 9C 重构叙事架构 |
+| 课表三态周选择器 + 实色块 + 今日指示 | M | P2 | ✅ 9B |
+| 我的页合并列表卡 | S | P2 | ✅ 9B → 9C 精简 |
+| 图标统一替换 |  | 最后 | ⏳ 由用户自行替换 |
 
 S ≤ 0.5d，M ≤ 1d，L ≤ 2d。总估算 1 周内可完成 P0+P1。
 
@@ -244,3 +258,97 @@ S ≤ 0.5d，M ≤ 1d，L ≤ 2d。总估算 1 周内可完成 P0+P1。
 - 定稿原型：`prototype/anthropic-redesign.html`
 - 前端色板/字体参考：文件头部 `:root` CSS 变量（所有 token 值与本指南第 1 节一一对应）
 - 动画参考：文件中 `@keyframes` 段
+
+---
+
+## 9. Phase 9C — 首页 / 我的页 精炼补遗 ✅ 已落地
+
+> 本节（原独立文件 `Phase9C-首页我的页精炼补遗.md`，已并入本指南）只记录 Phase 9C 评审新增的决策与容易踩坑的点，不复述 §1–§7 已定稿内容。
+>
+> 适用范围：首页（HomeDashboard.kt）与我的页（ProfileScreen.kt）的 Phase 9C 精炼，以及全局字体/Tab bar 细节。
+
+### 9.1 字体（最高优先级踩坑点）✅
+
+- **中文衬线必须加 fallback**。`Newsreader` 只覆盖拉丁字形，中文字符会 fallback 到系统黑体——这是首页 "字体没改" 的根因。
+- 方案：在 `NewsreaderDisplay / NewsreaderLarge / NewsreaderSmall` 的 `FontFamily` 链里追加 **`Noto Serif SC Regular (400)`**（`res/font/notoserifsc_regular.ttf`）。
+- **字重只下 Regular，不要下 Medium**。中文笔画密度远高于拉丁，Regular 中文配 Medium Newsreader 才视觉对齐；两边都 Medium 会让中文 "黑一块"。实现上把同一个 Regular TTF 注册为 `FontWeight.Normal` + `FontWeight.Medium` 两条 `Font` 条目以兜底。
+- 需要强调时**加大字号**，不要加字重。
+- Claude.ai 其实只用系统黑体（PingFang / YaHei）——我们走得比它更远，这是有意为之。
+
+### 9.2 首页叙事架构（核心改变）✅
+
+**首页不是 dashboard，是回答 "此刻我该做什么"。** 结构：
+
+```
+问候（陶土衬线）
+副标（衬线 italic 墨灰）
+—— 陶土横线 ——
+"下一节" headline（叙事主角 · 非卡片）
+今日课程卡
+运动进度卡
+(查寝签到卡 — 仅时段内显示)
+```
+
+- **删除劳动教育卡**——低频数据，移至 "我的" 即可（已在其中）。
+- **查寝签到做成条件渲染**：只在查寝窗口临近（开始前 4 小时内）才出现。
+- **"下一节" headline 与今日课程卡会有信息重叠**（比如下一节也出现在课程列表中），**这是有意的冗余**——headline 回答 "此刻"，卡片给 "全貌"。
+
+### 9.3 陶土色使用准则 ✅
+
+- **一屏最多 2 次**：首页 = 问候主标 + 横线；我的页 = "我的" 标题 + 头像陶土字。再多就稀释了。
+- **实心陶土 = 主 CTA**（比如登录按钮）；**轮廓陶土 = 次级/确认/destructive**（比如退出登录）。不要混用。
+- Badge / Icon / 小 badge 都**不用**陶土色——交给墨灰或真分类色。
+
+### 9.4 图标色块 = 最后一个 Material 残留 ✅
+
+- **首页卡头全部去掉 30×30 彩色圆角 icon chip**，卡头只剩 `[serif 标题] ────── [墨灰副数据 badge]`。
+- **我的页菜单图标同上**：22×22 墨灰线性图标（`tint = LxInkSoft`），取消 amber/plum/sage/slate 四种底色。
+- **唯一保留的彩色**：今日课程条目左侧 3dp 色条——这个和课表页的块色联动，保留能维持 "分类" 语义。
+
+### 9.5 Badge 的正确用法 ✅
+
+- **去掉胶囊背景**，纯 12sp 墨灰 sans 小字。
+- **只承载卡片内没有的信息**。示例：
+  - 今日课程 badge: `第 N 周 · 星期六`（课数在列表里可见，所以放星期）
+  - 运动进度 badge: `目标 3 km`（body 写 "离完成还差 X km"，互补不重复）
+- 反例：`今日 2.35 km` + body `今日 2.35 km` —— 重复。
+
+### 9.6 分段横线（Section Rule）✅
+
+- `1dp` 高、`LxTerra.copy(alpha = 0.18f)`、水平 padding 与文本齐（24dp），不要内缩 40dp 否则突兀。
+- **只在叙事切换时用**：问候 → 下一节。不要往每张卡之间都加。
+
+### 9.7 主 / 副标题字族必须统一 ✅
+
+- **副标题也要衬线**：`greeting-sub` 从 `Outfit sans` 改成 `NewsreaderLarge` + `FontStyle.Italic` + `color = LxInkMuted`。
+- 否则主标陶土衬线 + 副标灰色黑体会有明显 "字体栈割裂" 感。
+
+### 9.8 我的页关键差异 ✅
+
+- **删除 `功能` / `其他` 两个 section label**（Material uppercase 间距 1.8sp 的样式）。两个列表卡之间用 22dp spacer 自然分组。
+- **退出登录 = 陶土轮廓按钮**（非实心）。实心陶土是登录按钮的视觉语言，退出不能和登录长得一样。1dp `LxTerra .55` 边框 + 16dp 圆角 + 52dp 高 + 陶土字，按压态切浅陶土填充 `alpha .06`。
+- **头像保留沙色圆底 + 陶土字**（原型中尝试过 "衬线大字落款" 方案，用户否决，保持克制）。
+
+### 9.9 卡片精简原则 ✅
+
+- **等权重卡片堆叠 = dashboard**，按使用频率筛选：保留高频，删低频（或移位）。
+- **每张卡只承载一个核心信息**。示例：运动卡原本有 "今日环 + 学期总进度 bar" 两重量级元素 → **只留今日**，学期放详情页。
+
+### 9.10 其他细节 ✅
+
+- **状态栏与页标题之间留 24dp**（原来 2dp 过紧）。首页、我的页都适用。
+- **卡片 border**（`1dp solid rgba(45,42,38,.06)`）已在原型中移除。实际视觉差 ≈ 0（本来就 6% 透明度肉眼不可见），搬到 Kotlin 时 `LxCard` 也同步去 border 了。
+- **Tab bar** 所有图标统一用**线性**版（`Icons.Outlined.*`），选中态靠**陶土色 + `FontWeight.SemiBold`** 区分，而不是切换成 `Icons.Filled.*`。避免顶部 Newsreader 衬线 vs. 底部 Material filled 的冲突。
+
+### 9.11 查寝条件渲染具体实现 ✅
+
+- 解析 `CheckinTask.startTime`（字符串 `HH:mm`），与当前 `LocalTime.now()` 比较分钟差。
+- 显示窗口：`[start - 4h, start + 4h]`（简化版，覆盖 "临近" + "进行中" 两种场景；已签到的任务在 repo 侧已过滤）。
+
+---
+
+## 10. 落地后真机验证建议
+
+- Phase 9C 后必须**上真机验证一遍**再决定是否继续打磨。Compose 真机字体渲染、动画手感与浏览器有差异（尤其是 Noto Serif SC 的 fallback 行为）。
+- 所有 "已删除" 的 Compose 元素（卡片图标色块、sec-label、运动卡学期 bar、劳动教育卡）**直接从代码移除**，不保留占位。
+

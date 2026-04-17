@@ -25,14 +25,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Bed
-import androidx.compose.material.icons.filled.CalendarMonth
-import androidx.compose.material.icons.filled.DirectionsRun
-import androidx.compose.material.icons.filled.WorkHistory
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -49,9 +43,8 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -60,15 +53,13 @@ import com.lightxin.core.designsystem.component.LxCard
 import com.lightxin.core.designsystem.component.LxShimmerCard
 import com.lightxin.core.designsystem.theme.LxAmber
 import com.lightxin.core.designsystem.theme.LxCategoryColors
+import com.lightxin.core.designsystem.theme.LxInk
 import com.lightxin.core.designsystem.theme.LxInkMuted
-import com.lightxin.core.designsystem.theme.LxInkSoft
-import com.lightxin.core.designsystem.theme.LxPlum
 import com.lightxin.core.designsystem.theme.LxSage
 import com.lightxin.core.designsystem.theme.LxSand
 import com.lightxin.core.designsystem.theme.LxTerra
-import com.lightxin.core.designsystem.theme.LxTerraSoft
+import com.lightxin.core.designsystem.theme.NewsreaderLarge
 import com.lightxin.feature.checkin.domain.CheckinTask
-import com.lightxin.feature.labor.domain.HoursSummary
 import com.lightxin.feature.running.domain.RunningDashboard
 import com.lightxin.feature.schedule.domain.Course
 import com.lightxin.navigation.Routes
@@ -79,6 +70,13 @@ import kotlin.math.max
 
 // 日目标固定值（当前数据模型无专用字段；若后端后续提供，改读该字段）
 private const val DAILY_TARGET_KM = 3.0
+
+// 查寝签到条件渲染窗口：开始前 4 小时内才出现在首页
+private const val CHECKIN_VISIBLE_HOURS_BEFORE = 4
+
+// 节次 → 近似起止小时：以 8 点为第 1 节起点，每节约 45 分钟 + 休息
+private fun sectionStartHour(section: Int): Int = 8 + (section - 1)
+private fun sectionEndHour(section: Int): Int = 8 + section
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -99,64 +97,88 @@ fun HomeDashboard(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp, vertical = 16.dp),
+                .padding(top = 24.dp, bottom = 16.dp), // 状态栏与页标题之间 24dp
         ) {
+            // ── 问候 + 副标 ──
             GreetingSection(
                 userName = uiState.userName,
                 dashboardData = uiState.dashboardData,
+                modifier = Modifier.padding(horizontal = 24.dp),
             )
 
             Spacer(modifier = Modifier.height(22.dp))
 
+            // ── 陶土横线（叙事切换：问候 → 下一节）──
+            SectionRule()
+
+            Spacer(modifier = Modifier.height(22.dp))
+
             if (uiState.isLoading) {
-                repeat(4) {
-                    LxShimmerCard()
-                    Spacer(modifier = Modifier.height(14.dp))
+                // "下一节" headline 占位
+                Box(modifier = Modifier.padding(horizontal = 24.dp)) {
+                    Text(
+                        text = "正在加载…",
+                        fontFamily = NewsreaderLarge,
+                        fontWeight = FontWeight.Medium,
+                        fontSize = 22.sp,
+                        color = LxInkMuted,
+                    )
+                }
+                Spacer(modifier = Modifier.height(18.dp))
+                Column(
+                    modifier = Modifier.padding(horizontal = 20.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp),
+                ) {
+                    repeat(2) { LxShimmerCard() }
                 }
             } else {
                 val data = uiState.dashboardData
                 val errors = uiState.errors
 
+                // ── "下一节" headline（非卡片，叙事主角）──
                 StaggeredCard(index = 0) {
-                    TodayCourseCard(
+                    NextClassHeadline(
                         courses = data.todayCourses,
-                        currentWeek = data.currentWeek,
-                        error = errors["schedule"],
-                        onClick = { onTabSelected(1) },
+                        tomorrowFirstSection = data.tomorrowFirstSection,
+                        modifier = Modifier.padding(horizontal = 24.dp),
                     )
                 }
-                Spacer(modifier = Modifier.height(14.dp))
 
-                StaggeredCard(index = 1) {
-                    CheckinCard(
-                        task = data.nextCheckin,
-                        error = errors["checkin"],
-                        onClick = {
-                            navController.navigate(Routes.CHECKIN_LIST) { launchSingleTop = true }
-                        },
-                    )
-                }
-                Spacer(modifier = Modifier.height(14.dp))
+                Spacer(modifier = Modifier.height(18.dp))
 
-                StaggeredCard(index = 2) {
-                    RunningCard(
-                        dashboard = data.runningProgress,
-                        error = errors["running"],
-                        onClick = {
-                            navController.navigate(Routes.RUNNING_HOME) { launchSingleTop = true }
-                        },
-                    )
-                }
-                Spacer(modifier = Modifier.height(14.dp))
+                Column(
+                    modifier = Modifier.padding(horizontal = 20.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp),
+                ) {
+                    StaggeredCard(index = 1) {
+                        TodayCourseCard(
+                            courses = data.todayCourses,
+                            currentWeek = data.currentWeek,
+                            error = errors["schedule"],
+                            onClick = { onTabSelected(1) },
+                        )
+                    }
 
-                StaggeredCard(index = 3) {
-                    LaborCard(
-                        hours = data.laborHours,
-                        error = errors["labor"],
-                        onClick = {
-                            navController.navigate(Routes.LABOR_SUMMARY) { launchSingleTop = true }
-                        },
-                    )
+                    StaggeredCard(index = 2) {
+                        RunningCard(
+                            dashboard = data.runningProgress,
+                            error = errors["running"],
+                            onClick = {
+                                navController.navigate(Routes.RUNNING_HOME) { launchSingleTop = true }
+                            },
+                        )
+                    }
+
+                    if (shouldShowCheckin(data.nextCheckin)) {
+                        StaggeredCard(index = 3) {
+                            CheckinCard(
+                                task = data.nextCheckin!!,
+                                onClick = {
+                                    navController.navigate(Routes.CHECKIN_LIST) { launchSingleTop = true }
+                                },
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -166,7 +188,11 @@ fun HomeDashboard(
 // ═══════════════ 问候区 ═══════════════
 
 @Composable
-private fun GreetingSection(userName: String, dashboardData: HomeDashboardData) {
+private fun GreetingSection(
+    userName: String,
+    dashboardData: HomeDashboardData,
+    modifier: Modifier = Modifier,
+) {
     val hour = remember { LocalTime.now().hour }
     val greeting = remember(hour) {
         when (hour) {
@@ -177,22 +203,31 @@ private fun GreetingSection(userName: String, dashboardData: HomeDashboardData) 
         }
     }
 
-    Text(
-        text = if (userName.isNotBlank()) "$greeting，$userName" else greeting,
-        style = MaterialTheme.typography.headlineLarge, // Newsreader 30sp Medium
-    )
+    Column(modifier = modifier) {
+        // 陶土衬线主标（陶土色用法 1/2）
+        Text(
+            text = if (userName.isNotBlank()) "$greeting，$userName" else greeting,
+            style = MaterialTheme.typography.headlineLarge,
+            color = LxTerra,
+        )
 
-    Spacer(modifier = Modifier.height(5.dp))
+        Spacer(modifier = Modifier.height(5.dp))
 
-    val subtitle = remember(dashboardData, hour) {
-        buildSmartSubtitle(dashboardData, hour)
+        val subtitle = remember(dashboardData, hour) {
+            buildSmartSubtitle(dashboardData, hour)
+        }
+
+        // 副标：衬线 italic + 墨灰（与主标同字族，避免字体栈割裂）
+        Text(
+            text = subtitle,
+            fontFamily = NewsreaderLarge,
+            fontStyle = FontStyle.Italic,
+            fontWeight = FontWeight.Normal,
+            fontSize = 15.sp,
+            lineHeight = 21.sp,
+            color = LxInkMuted,
+        )
     }
-
-    Text(
-        text = subtitle,
-        style = MaterialTheme.typography.bodyMedium,
-        color = LxInkMuted,
-    )
 }
 
 private fun buildSmartSubtitle(data: HomeDashboardData, hour: Int): String {
@@ -215,7 +250,7 @@ private fun buildSmartSubtitle(data: HomeDashboardData, hour: Int): String {
     }
     if (data.todayCourses.isNotEmpty()) {
         val lastSection = data.todayCourses.maxOf { it.endSection }
-        val approximateEndHour = 8 + lastSection
+        val approximateEndHour = sectionEndHour(lastSection)
         if (hour >= approximateEndHour) return "今天的课结束了，辛苦啦"
     }
     return when (hour) {
@@ -228,6 +263,75 @@ private fun buildSmartSubtitle(data: HomeDashboardData, hour: Int): String {
         else -> "轻小信，陪你度过每一天"
     }
 }
+
+// ═══════════════ 陶土横线 ═══════════════
+
+@Composable
+private fun SectionRule() {
+    // 陶土色用法 2/2：1px 陶土 0.18 透明，与文本同水平（左右 24dp）
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp)
+            .height(1.dp)
+            .background(LxTerra.copy(alpha = 0.18f)),
+    )
+}
+
+// ═══════════════ "下一节" headline ═══════════════
+
+@Composable
+private fun NextClassHeadline(
+    courses: List<Course>,
+    tomorrowFirstSection: Int?,
+    modifier: Modifier = Modifier,
+) {
+    val hour = remember { LocalTime.now().hour }
+    val headline = remember(courses, tomorrowFirstSection, hour) {
+        buildNextClassHeadline(courses, tomorrowFirstSection, hour)
+    }
+    Text(
+        text = headline,
+        modifier = modifier,
+        fontFamily = NewsreaderLarge,
+        fontWeight = FontWeight.Medium,
+        fontSize = 22.sp,
+        lineHeight = 30.sp,
+        color = LxInk,
+    )
+}
+
+private fun buildNextClassHeadline(
+    courses: List<Course>,
+    tomorrowFirstSection: Int?,
+    hour: Int,
+): String {
+    if (courses.isEmpty()) {
+        return if (tomorrowFirstSection != null) {
+            "明天第 $tomorrowFirstSection 节开课"
+        } else {
+            "今天没有课程安排"
+        }
+    }
+    val current = courses.firstOrNull { c ->
+        hour in sectionStartHour(c.startSection) until sectionEndHour(c.endSection)
+    }
+    if (current != null) {
+        return "正在上 · ${current.name} · ${current.room}"
+    }
+    val next = courses.firstOrNull { c -> hour < sectionStartHour(c.startSection) }
+    if (next != null) {
+        val h = sectionStartHour(next.startSection)
+        return "下一节 · ${next.name} · ${next.room} · ${"%02d:00".format(h)}"
+    }
+    return if (tomorrowFirstSection != null) {
+        "明天第 $tomorrowFirstSection 节开课"
+    } else {
+        "今天的课全部结束"
+    }
+}
+
+// ═══════════════ 通用 stagger 动画 ═══════════════
 
 @Composable
 private fun StaggeredCard(index: Int, content: @Composable () -> Unit) {
@@ -251,11 +355,14 @@ private fun TodayCourseCard(
     error: String?,
     onClick: () -> Unit,
 ) {
+    // badge 改为承载"星期"（课数在列表里可见，不重复）
+    val weekdayLabel = remember {
+        val idx = java.time.LocalDate.now().dayOfWeek.value - 1
+        listOf("星期一", "星期二", "星期三", "星期四", "星期五", "星期六", "星期日")[idx]
+    }
     DashboardCard(
-        icon = Icons.Default.CalendarMonth,
-        iconTint = LxTerra,
         title = "今日课程",
-        badge = if (currentWeek > 0) "第${currentWeek}周" else null,
+        badge = if (currentWeek > 0) "第 $currentWeek 周 · $weekdayLabel" else weekdayLabel,
         onClick = onClick,
     ) {
         when {
@@ -272,7 +379,7 @@ private fun TodayCourseCard(
                         val color = LxCategoryColors[
                             (course.name.hashCode() and 0x7FFFFFFF) % LxCategoryColors.size
                         ]
-                        // 左侧 3dp × 36dp 彩色竖条
+                        // 唯一保留的彩色：左侧 3dp 竖条（与课表页块色联动，维持"分类"语义）
                         Box(
                             modifier = Modifier
                                 .size(width = 3.dp, height = 36.dp)
@@ -301,7 +408,7 @@ private fun TodayCourseCard(
                     Text(
                         text = "还有 ${courses.size - 3} 节课...",
                         style = MaterialTheme.typography.labelSmall,
-                        color = LxTerra,
+                        color = LxInkMuted,
                         modifier = Modifier.padding(top = 4.dp),
                     )
                 }
@@ -310,40 +417,51 @@ private fun TodayCourseCard(
     }
 }
 
-// ═══════════════ 查寝签到 ═══════════════
+// ═══════════════ 查寝签到（条件渲染）═══════════════
+
+private fun shouldShowCheckin(task: CheckinTask?): Boolean {
+    if (task == null) return false
+    val start = parseHourMinute(task.startTime) ?: return false
+    val now = LocalTime.now()
+    val nowMin = now.hour * 60 + now.minute
+    val startMin = start.first * 60 + start.second
+    val diffMin = startMin - nowMin
+    // 开始前 4 小时内 OR 已在窗口内（start..end 之间即 diff <= 0 但未过期）
+    return diffMin in -(CHECKIN_VISIBLE_HOURS_BEFORE * 60)..(CHECKIN_VISIBLE_HOURS_BEFORE * 60)
+}
+
+private fun parseHourMinute(raw: String): Pair<Int, Int>? {
+    val trimmed = raw.trim()
+    if (trimmed.isEmpty()) return null
+    val parts = trimmed.split(":", "：").mapNotNull { it.toIntOrNull() }
+    if (parts.size < 2) return null
+    return parts[0] to parts[1]
+}
 
 @Composable
-private fun CheckinCard(task: CheckinTask?, error: String?, onClick: () -> Unit) {
+private fun CheckinCard(task: CheckinTask, onClick: () -> Unit) {
     DashboardCard(
-        icon = Icons.Default.Bed,
-        iconTint = LxAmber,
         title = "查寝签到",
         onClick = onClick,
     ) {
-        when {
-            error != null -> ErrorHint(error)
-            task == null -> EmptyHint("暂无待签到任务")
-            else -> {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    PulseDot(color = LxAmber)
-                    Spacer(modifier = Modifier.width(10.dp))
-                    Column {
-                        Text(
-                            text = task.taskName.ifBlank { "查寝签到" },
-                            fontSize = 14.5.sp,
-                            fontWeight = FontWeight.Medium,
-                        )
-                        Spacer(modifier = Modifier.height(1.dp))
-                        Text(
-                            text = buildString {
-                                append(task.startTime)
-                                if (task.endTime.isNotBlank()) append(" ~ ${task.endTime}")
-                            },
-                            fontSize = 12.sp,
-                            color = LxInkMuted,
-                        )
-                    }
-                }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            PulseDot(color = LxAmber)
+            Spacer(modifier = Modifier.width(10.dp))
+            Column {
+                Text(
+                    text = task.taskName.ifBlank { "查寝签到" },
+                    fontSize = 14.5.sp,
+                    fontWeight = FontWeight.Medium,
+                )
+                Spacer(modifier = Modifier.height(1.dp))
+                Text(
+                    text = buildString {
+                        append(task.startTime)
+                        if (task.endTime.isNotBlank()) append(" ~ ${task.endTime}")
+                    },
+                    fontSize = 12.sp,
+                    color = LxInkMuted,
+                )
             }
         }
     }
@@ -371,17 +489,17 @@ private fun PulseDot(color: Color) {
 
 @Composable
 private fun RunningCard(dashboard: RunningDashboard?, error: String?, onClick: () -> Unit) {
+    // badge 承载互补信息（body 说"离完成还差 X"，badge 说"目标 3 km"）
+    val targetBadge = "目标 ${DAILY_TARGET_KM.toInt()} km"
     DashboardCard(
-        icon = Icons.Default.DirectionsRun,
-        iconTint = LxSage,
         title = "运动进度",
+        badge = targetBadge,
         onClick = onClick,
     ) {
         when {
             error != null -> ErrorHint(error)
             dashboard == null -> EmptyHint("暂无运动数据")
             else -> {
-                // 今日环形进度
                 val dailyProgress = (dashboard.todayKm / DAILY_TARGET_KM).coerceIn(0.0, 1.0).toFloat()
                 val remaining = max(DAILY_TARGET_KM - dashboard.todayKm, 0.0)
 
@@ -432,7 +550,7 @@ private fun RunningCard(dashboard: RunningDashboard?, error: String?, onClick: (
                         val subtitle = if (dashboard.todayKm >= DAILY_TARGET_KM) {
                             "今日目标已达成"
                         } else {
-                            "目标 ${DAILY_TARGET_KM.toInt()} km · 离完成还差 ${formatKm(remaining)} km"
+                            "离完成还差 ${formatKm(remaining)} km"
                         }
                         Text(
                             text = subtitle,
@@ -442,108 +560,7 @@ private fun RunningCard(dashboard: RunningDashboard?, error: String?, onClick: (
                         )
                     }
                 }
-
-                // 总进度横条
-                Spacer(modifier = Modifier.height(14.dp))
-                TotalProgressBar(
-                    completedKm = dashboard.completedKm,
-                    targetKm = dashboard.taskTargetKm,
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun TotalProgressBar(completedKm: Double, targetKm: Double) {
-    val fraction = if (targetKm > 0) {
-        (completedKm / targetKm).coerceIn(0.0, 1.0).toFloat()
-    } else 0f
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        Text(
-            text = "总进度",
-            fontSize = 12.sp,
-            color = LxInkMuted,
-        )
-        Box(
-            modifier = Modifier
-                .weight(1f)
-                .height(9.dp)
-                .clip(RoundedCornerShape(5.dp))
-                .background(LxSand),
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth(fraction)
-                    .height(9.dp)
-                    .clip(RoundedCornerShape(5.dp))
-                    .background(LxSage),
-            )
-        }
-        Text(
-            text = "${formatKm(completedKm)} / ${formatKm(targetKm)} km",
-            fontSize = 12.sp,
-            fontWeight = FontWeight.Medium,
-            style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "tnum"),
-        )
-    }
-}
-
-// ═══════════════ 劳动教育 ═══════════════
-
-@Composable
-private fun LaborCard(hours: HoursSummary?, error: String?, onClick: () -> Unit) {
-    DashboardCard(
-        icon = Icons.Default.WorkHistory,
-        iconTint = LxPlum,
-        title = "劳动教育",
-        badge = hours?.let { "共 ${formatHours(it.totalTimes)} h" },
-        onClick = onClick,
-    ) {
-        when {
-            error != null -> ErrorHint(error)
-            hours == null -> EmptyHint("暂无工时数据")
-            else -> {
-                val items = listOf(
-                    "志愿" to hours.voluntaryTimes,
-                    "暑期" to hours.summerTimes,
-                    "劳动" to hours.laborTimes,
-                    "社区" to hours.socialTimes,
-                    "其他" to hours.otherTimes,
-                )
-                items.forEachIndexed { index, (label, value) ->
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 5.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(
-                            text = label,
-                            fontSize = 14.sp,
-                            color = LxInkSoft,
-                            modifier = Modifier.weight(1f),
-                        )
-                        Text(
-                            text = "${formatHours(value)} h",
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Medium,
-                            style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "tnum"),
-                            textAlign = TextAlign.End,
-                        )
-                    }
-                    if (index < items.lastIndex) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(1.dp)
-                                .background(LxSand),
-                        )
-                    }
-                }
+                // 总进度横条删除 — 每张卡只承载一个核心信息；学期进度移至运动详情页
             }
         }
     }
@@ -553,8 +570,6 @@ private fun LaborCard(hours: HoursSummary?, error: String?, onClick: () -> Unit)
 
 @Composable
 private fun DashboardCard(
-    icon: ImageVector,
-    iconTint: Color,
     title: String,
     badge: String? = null,
     onClick: () -> Unit,
@@ -562,26 +577,20 @@ private fun DashboardCard(
 ) {
     LxCard(onClick = onClick) {
         Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 18.dp)) {
+            // 卡头去图标色块：仅 [serif 标题] ──── [墨灰 badge]
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(bottom = 14.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    tint = iconTint,
-                    modifier = Modifier.size(32.dp),
-                )
-                Spacer(modifier = Modifier.width(10.dp))
                 Text(
                     text = title,
-                    style = MaterialTheme.typography.titleMedium, // Newsreader 14pt Medium
+                    style = MaterialTheme.typography.titleMedium,
                     modifier = Modifier.weight(1f),
                 )
                 if (badge != null) {
-                    BadgePill(text = badge)
+                    BadgeText(text = badge)
                 }
             }
             content()
@@ -589,22 +598,14 @@ private fun DashboardCard(
     }
 }
 
+/** 纯 12sp 墨灰 sans 小字 — 去掉胶囊背景，只承载卡片内没有的信息 */
 @Composable
-private fun BadgePill(text: String) {
-    Box(
-        modifier = Modifier
-            .clip(RoundedCornerShape(20.dp))
-            .background(LxTerraSoft)
-            .padding(horizontal = 10.dp, vertical = 4.dp),
-    ) {
-        Text(
-            text = text,
-            fontSize = 11.sp,
-            fontWeight = FontWeight.Medium,
-            color = LxTerra,
-            letterSpacing = 0.6.sp,
-        )
-    }
+private fun BadgeText(text: String) {
+    Text(
+        text = text,
+        fontSize = 12.sp,
+        color = LxInkMuted,
+    )
 }
 
 @Composable
@@ -630,6 +631,3 @@ private fun EmptyHint(message: String) {
 private fun formatKm(value: Double): String =
     if (value % 1.0 == 0.0) String.format(Locale.CHINA, "%.0f", value)
     else String.format(Locale.CHINA, "%.2f", value)
-
-private fun formatHours(value: Double): String =
-    String.format(Locale.CHINA, "%.1f", value)

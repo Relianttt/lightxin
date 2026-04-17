@@ -8,6 +8,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import com.lightxin.R
 
+// Noto Serif SC 仅 Regular：中文衬线笔画密度高，配 Newsreader Medium 才视觉对齐；
+// 两边都 Medium 会让中文"黑一块"。需要强调靠字号，不靠字重。
+private val NotoSerifScRegular = Font(R.font.notoserifsc_regular, FontWeight.Normal)
+private val NotoSerifScAsMedium = Font(R.font.notoserifsc_regular, FontWeight.Medium)
+
 /**
  * Newsreader 小号光学尺寸（14pt）— 正文级标题（14~18sp）。
  * 字形在小字下更粗、字距更宽，利于卡片标题阅读。
@@ -15,6 +20,8 @@ import com.lightxin.R
 val NewsreaderSmall = FontFamily(
     Font(R.font.newsreader_14_regular, FontWeight.Normal),
     Font(R.font.newsreader_14_medium, FontWeight.Medium),
+    NotoSerifScRegular,
+    NotoSerifScAsMedium,
 )
 
 /**
@@ -23,6 +30,8 @@ val NewsreaderSmall = FontFamily(
 val NewsreaderLarge = FontFamily(
     Font(R.font.newsreader_24_regular, FontWeight.Normal),
     Font(R.font.newsreader_24_medium, FontWeight.Medium),
+    NotoSerifScRegular,
+    NotoSerifScAsMedium,
 )
 
 /**
@@ -31,6 +40,8 @@ val NewsreaderLarge = FontFamily(
 val NewsreaderDisplay = FontFamily(
     Font(R.font.newsreader_36_regular, FontWeight.Normal),
     Font(R.font.newsreader_36_medium, FontWeight.Medium),
+    NotoSerifScRegular,
+    NotoSerifScAsMedium,
 )
 
 /**

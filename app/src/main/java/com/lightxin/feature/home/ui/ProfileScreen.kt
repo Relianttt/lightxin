@@ -1,6 +1,8 @@
 package com.lightxin.feature.home.ui
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -20,10 +22,10 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Bed
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.School
-import androidx.compose.material.icons.filled.WorkHistory
+import androidx.compose.material.icons.outlined.Bed
+import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.School
+import androidx.compose.material.icons.outlined.WorkHistory
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -45,16 +47,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.lightxin.core.designsystem.component.LxCard
-import com.lightxin.core.designsystem.theme.LxAmber
 import com.lightxin.core.designsystem.theme.LxCream
 import com.lightxin.core.designsystem.theme.LxInk
 import com.lightxin.core.designsystem.theme.LxInkGhost
 import com.lightxin.core.designsystem.theme.LxInkMuted
-import com.lightxin.core.designsystem.theme.LxPlum
+import com.lightxin.core.designsystem.theme.LxInkSoft
 import com.lightxin.core.designsystem.theme.LxRose
-import com.lightxin.core.designsystem.theme.LxSage
 import com.lightxin.core.designsystem.theme.LxSand
-import com.lightxin.core.designsystem.theme.LxSlate
 import com.lightxin.core.designsystem.theme.LxTerra
 import com.lightxin.core.designsystem.theme.NewsreaderDisplay
 import com.lightxin.core.designsystem.theme.NewsreaderLarge
@@ -76,9 +75,9 @@ fun ProfileScreen(
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 20.dp)
-            .padding(top = 2.dp, bottom = 28.dp),
+            .padding(top = 24.dp, bottom = 28.dp), // 状态栏 ↔ 页标题 24dp
     ) {
-        // ── 顶部标题 ──
+        // ── 顶部标题（陶土衬线；本屏陶土色用法 1/2，头像字色用法 2/2）──
         Text(
             text = "我的",
             fontFamily = NewsreaderDisplay,
@@ -86,7 +85,7 @@ fun ProfileScreen(
             fontSize = 28.sp,
             lineHeight = 34.sp,
             letterSpacing = (-0.3).sp,
-            color = LxInk,
+            color = LxTerra,
             modifier = Modifier.padding(start = 4.dp),
         )
 
@@ -121,56 +120,48 @@ fun ProfileScreen(
             }
         }
 
-        Spacer(modifier = Modifier.height(20.dp))
-
-        SectionLabel("功能")
-        Spacer(modifier = Modifier.height(8.dp))
+        // 两个功能组之间 6dp 额外 spacer（合计 22dp，自然分组，无需 section label）
+        Spacer(modifier = Modifier.height(22.dp))
 
         // ── 功能列表（单卡多行） ──
         LxCard {
             Column {
                 ProfileMenuRow(
-                    icon = Icons.Default.Bed,
-                    iconTint = LxAmber,
+                    icon = Icons.Outlined.Bed,
                     title = "查寝签到",
                     onClick = onNavigateCheckin,
                 )
                 MenuDivider()
                 ProfileMenuRow(
-                    icon = Icons.Default.WorkHistory,
-                    iconTint = LxPlum,
+                    icon = Icons.Outlined.WorkHistory,
                     title = "劳动教育",
                     onClick = onNavigateLabor,
                 )
                 MenuDivider()
                 ProfileMenuRow(
-                    icon = Icons.Default.School,
-                    iconTint = LxSage,
+                    icon = Icons.Outlined.School,
                     title = "AI课堂",
                     onClick = onNavigateAiClass,
                 )
             }
         }
 
-        Spacer(modifier = Modifier.height(20.dp))
+        Spacer(modifier = Modifier.height(22.dp))
 
-        SectionLabel("其他")
-        Spacer(modifier = Modifier.height(8.dp))
-
+        // ── 其他组 ──
         LxCard {
             ProfileMenuRow(
-                icon = Icons.Default.Info,
-                iconTint = LxSlate,
+                icon = Icons.Outlined.Info,
                 title = "关于轻小信",
                 hint = "v1.0.0",
                 onClick = { /* 关于页暂未实现，按住占位 */ },
             )
         }
 
-        Spacer(modifier = Modifier.height(20.dp))
+        Spacer(modifier = Modifier.height(28.dp))
 
-        // ── 退出登录（LxCard 样式 rose 字居中） ──
-        LogoutRow(
+        // ── 退出登录（陶土轮廓按钮，与登录的"实心陶土"做视觉区分）──
+        LogoutOutlinedButton(
             isLoggingOut = uiState.isLoggingOut,
             onClick = { showLogoutDialog = true },
         )
@@ -222,21 +213,8 @@ private fun AvatarRing(userName: String) {
 }
 
 @Composable
-private fun SectionLabel(text: String) {
-    Text(
-        text = text,
-        fontSize = 11.sp,
-        fontWeight = FontWeight.Medium,
-        letterSpacing = 1.8.sp,
-        color = LxInkMuted,
-        modifier = Modifier.padding(start = 4.dp),
-    )
-}
-
-@Composable
 private fun ProfileMenuRow(
     icon: ImageVector,
-    iconTint: Color,
     title: String,
     hint: String? = null,
     onClick: () -> Unit,
@@ -258,11 +236,12 @@ private fun ProfileMenuRow(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(14.dp),
     ) {
+        // 22×22 墨灰线性图标 — 取消分类底色，仅卡头"分类"语义由课表块色承担
         Icon(
             imageVector = icon,
             contentDescription = null,
-            tint = iconTint,
-            modifier = Modifier.size(32.dp),
+            tint = LxInkSoft,
+            modifier = Modifier.size(22.dp),
         )
         Text(
             text = title,
@@ -288,30 +267,45 @@ private fun ProfileMenuRow(
 
 @Composable
 private fun MenuDivider() {
-    // 左 50dp 起至右 18dp 止，模拟原型 `.grow+.grow::before` 分隔线
+    // 左 54dp（与图标+间距对齐）起至右 18dp 止
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(start = 50.dp, end = 18.dp)
+            .padding(start = 54.dp, end = 18.dp)
             .height(1.dp)
             .background(LxSand),
     )
 }
 
 @Composable
-private fun LogoutRow(isLoggingOut: Boolean, onClick: () -> Unit) {
-    LxCard(onClick = if (isLoggingOut) null else onClick) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 16.dp),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(
-                text = if (isLoggingOut) "退出中..." else "退出登录",
-                fontSize = 15.sp,
-                color = LxRose,
-            )
-        }
+private fun LogoutOutlinedButton(isLoggingOut: Boolean, onClick: () -> Unit) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    // 按压浅填充陶土 soft，轻微反馈
+    val bg = if (isPressed) LxTerra.copy(alpha = 0.06f) else Color.Transparent
+    val shape = RoundedCornerShape(16.dp)
+    val borderStroke = BorderStroke(1.dp, LxTerra.copy(alpha = 0.55f))
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(52.dp)
+            .clip(shape)
+            .background(bg)
+            .border(borderStroke, shape)
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                enabled = !isLoggingOut,
+                onClick = onClick,
+            ),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = if (isLoggingOut) "退出中..." else "退出登录",
+            fontSize = 15.sp,
+            fontWeight = FontWeight.Medium,
+            color = LxTerra,
+        )
     }
 }

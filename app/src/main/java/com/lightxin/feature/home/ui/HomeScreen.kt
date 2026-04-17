@@ -9,9 +9,9 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CalendarMonth
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.outlined.CalendarMonth
+import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -27,6 +27,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontWeight
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import com.lightxin.core.designsystem.theme.LxInkFaint
@@ -39,10 +40,12 @@ private data class TabItem(
     val icon: ImageVector,
 )
 
+// 全部线性图标：选中态靠陶土色 + 加粗区分，不切换 Filled 版本，
+// 避免顶部 Newsreader 衬线与底部 Material filled 的视觉冲突。
 private val tabs = listOf(
-    TabItem("首页", Icons.Default.Home),
-    TabItem("课程表", Icons.Default.CalendarMonth),
-    TabItem("我的", Icons.Default.Person),
+    TabItem("首页", Icons.Outlined.Home),
+    TabItem("课程表", Icons.Outlined.CalendarMonth),
+    TabItem("我的", Icons.Outlined.Person),
 )
 
 @Composable
@@ -59,11 +62,18 @@ fun HomeScreen(
                 containerColor = LxParchment.copy(alpha = 0.92f),
             ) {
                 tabs.forEachIndexed { index, tab ->
+                    val selected = selectedTab == index
                     NavigationBarItem(
-                        selected = selectedTab == index,
+                        selected = selected,
                         onClick = { selectedTab = index },
                         icon = { Icon(tab.icon, contentDescription = tab.label) },
-                        label = { Text(tab.label, style = MaterialTheme.typography.labelSmall) },
+                        label = {
+                            Text(
+                                tab.label,
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
+                            )
+                        },
                         colors = NavigationBarItemDefaults.colors(
                             selectedIconColor = MaterialTheme.colorScheme.primary,
                             selectedTextColor = MaterialTheme.colorScheme.primary,
