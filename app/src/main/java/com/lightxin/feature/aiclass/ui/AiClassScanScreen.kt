@@ -2,7 +2,9 @@ package com.lightxin.feature.aiclass.ui
 
 import android.Manifest
 import android.net.Uri
+import android.os.SystemClock
 import android.util.Log
+import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageProxy
@@ -44,6 +46,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
+import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.common.InputImage
 import com.lightxin.core.designsystem.component.LxTopBar
@@ -51,6 +54,10 @@ import com.lightxin.feature.aiclass.domain.AiClassQrPayload
 import java.util.concurrent.Executors
 
 private const val SCAN_LOG_TAG = "AiClassScan"
+private const val AUTO_ZOOM_TRIGGER_RATIO = 0.18f
+private const val AUTO_ZOOM_STEP = 1.35f
+private const val AUTO_ZOOM_MAX_RATIO = 4f
+private const val AUTO_ZOOM_COOLDOWN_MS = 1200L
 
 @Composable
 fun AiClassScanScreen(
@@ -204,6 +211,8 @@ private fun CameraPreview(
 
             cameraProviderFuture.addListener({
                 val cameraProvider = cameraProviderFuture.get()
+                var camera: Camera? = null
+                var lastAutoZoomAt = 0L
 
                 val preview = Preview.Builder().build().also {
                     it.surfaceProvider = previewView.surfaceProvider
@@ -214,15 +223,31 @@ private fun CameraPreview(
                     .build()
                     .also { imageAnalysis ->
                         imageAnalysis.setAnalyzer(executor) { imageProxy ->
-                            processImage(imageProxy, scanner) { rawValue ->
-                                onQrCodeDetected(rawValue)
-                            }
+                            processImage(
+                                imageProxy = imageProxy,
+                                scanner = scanner,
+                                onResult = { rawValue ->
+                                    onQrCodeDetected(rawValue)
+                                },
+                                onBarcodeObserved = { barcode, imageWidth, imageHeight ->
+                                    camera?.let { currentCamera ->
+                                        maybeAutoZoom(
+                                            camera = currentCamera,
+                                            barcode = barcode,
+                                            imageWidth = imageWidth,
+                                            imageHeight = imageHeight,
+                                            lastAutoZoomAt = lastAutoZoomAt,
+                                            onZoomApplied = { lastAutoZoomAt = it },
+                                        )
+                                    }
+                                },
+                            )
                         }
                     }
 
                 try {
                     cameraProvider.unbindAll()
-                    cameraProvider.bindToLifecycle(
+                    camera = cameraProvider.bindToLifecycle(
                         lifecycleOwner,
                         CameraSelector.DEFAULT_BACK_CAMERA,
                         preview,
@@ -277,6 +302,7 @@ private fun processImage(
     imageProxy: ImageProxy,
     scanner: com.google.mlkit.vision.barcode.BarcodeScanner,
     onResult: (String) -> Unit,
+    onBarcodeObserved: (Barcode, Int, Int) -> Unit,
 ) {
     val mediaImage = imageProxy.image
     if (mediaImage == null) {
@@ -287,6 +313,9 @@ private fun processImage(
     val inputImage = InputImage.fromMediaImage(mediaImage, imageProxy.imageInfo.rotationDegrees)
     scanner.process(inputImage)
         .addOnSuccessListener { barcodes ->
+            barcodes.firstOrNull()?.let { barcode ->
+                onBarcodeObserved(barcode, inputImage.width, inputImage.height)
+            }
             barcodes.firstNotNullOfOrNull { barcode ->
                 barcode.rawValue?.trim()?.takeIf { it.isNotBlank() }
             }?.let {
@@ -297,6 +326,39 @@ private fun processImage(
         .addOnCompleteListener {
             imageProxy.close()
         }
+}
+
+private fun maybeAutoZoom(
+    camera: Camera,
+    barcode: Barcode,
+    imageWidth: Int,
+    imageHeight: Int,
+    lastAutoZoomAt: Long,
+    onZoomApplied: (Long) -> Unit,
+) {
+    val box = barcode.boundingBox ?: return
+    if (imageWidth <= 0 || imageHeight <= 0) return
+
+    val widthRatio = box.width().toFloat() / imageWidth
+    val heightRatio = box.height().toFloat() / imageHeight
+    val visibleRatio = maxOf(widthRatio, heightRatio)
+    if (visibleRatio >= AUTO_ZOOM_TRIGGER_RATIO) return
+
+    val now = SystemClock.elapsedRealtime()
+    if (now - lastAutoZoomAt < AUTO_ZOOM_COOLDOWN_MS) return
+
+    val zoomState = camera.cameraInfo.zoomState.value ?: return
+    val currentZoom = zoomState.zoomRatio
+    val maxZoom = minOf(zoomState.maxZoomRatio, AUTO_ZOOM_MAX_RATIO)
+    val targetZoom = (currentZoom * AUTO_ZOOM_STEP).coerceAtMost(maxZoom)
+    if (targetZoom <= currentZoom + 0.01f) return
+
+    camera.cameraControl.setZoomRatio(targetZoom)
+    onZoomApplied(now)
+    Log.i(
+        SCAN_LOG_TAG,
+        "Auto zoom applied, visibleRatio=$visibleRatio, zoom=$currentZoom->$targetZoom",
+    )
 }
 
 /**

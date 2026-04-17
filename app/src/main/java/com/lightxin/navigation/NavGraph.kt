@@ -1,5 +1,9 @@
 package com.lightxin.navigation
 
+import android.app.Activity
+import android.content.Context
+import android.content.ContextWrapper
+import android.os.Build
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -10,6 +14,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.platform.LocalContext
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
@@ -81,6 +86,7 @@ fun LightXinNavHost(
             enterTransition = { fadeIn(tween(400)) },
             exitTransition = { fadeOut(tween(300)) },
         ) {
+            val context = LocalContext.current
             OnboardingScreen(
                 onAcknowledge = {
                     scope.launch {
@@ -91,8 +97,12 @@ fun LightXinNavHost(
                     }
                 },
                 onDismiss = {
-                    navController.navigate(Routes.LOGIN) {
-                        popUpTo(Routes.ONBOARDING) { inclusive = true }
+                    context.findActivity()?.let { activity ->
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                            activity.finishAndRemoveTask()
+                        } else {
+                            activity.finishAffinity()
+                        }
                     }
                 },
             )
@@ -269,4 +279,10 @@ fun LightXinNavHost(
             )
         }
     }
+}
+
+private tailrec fun Context.findActivity(): Activity? = when (this) {
+    is Activity -> this
+    is ContextWrapper -> baseContext.findActivity()
+    else -> null
 }
