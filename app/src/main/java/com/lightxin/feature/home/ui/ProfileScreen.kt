@@ -24,6 +24,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Bed
 import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.Route
 import androidx.compose.material.icons.outlined.School
 import androidx.compose.material.icons.outlined.WorkHistory
 import androidx.compose.material3.AlertDialog
@@ -63,6 +64,7 @@ fun ProfileScreen(
     onNavigateCheckin: () -> Unit,
     onNavigateLabor: () -> Unit,
     onNavigateAiClass: () -> Unit,
+    onNavigateRouteSimulation: () -> Unit,
     onLogout: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: ProfileViewModel = hiltViewModel(),
@@ -142,6 +144,12 @@ fun ProfileScreen(
                     icon = Icons.Outlined.School,
                     title = "AI课堂",
                     onClick = onNavigateAiClass,
+                )
+                MenuDivider()
+                ProfileMenuRow(
+                    icon = Icons.Outlined.Route,
+                    title = "路线模拟",
+                    onClick = onNavigateRouteSimulation,
                 )
             }
         }

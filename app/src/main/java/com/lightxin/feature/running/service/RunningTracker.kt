@@ -31,6 +31,17 @@ class RunningTracker @Inject constructor() {
         )
     }
 
+    /** 开启模板录制会话：不涉及跑步 startInfo。 */
+    fun beginTemplateSession(startTimeMillis: Long = System.currentTimeMillis()) {
+        _state.value = RunningTrackerState(
+            startInfo = null,
+            startTimeMillis = startTimeMillis,
+            isSessionActive = true,
+            isCollecting = true,
+            locationLabel = "等待定位",
+        )
+    }
+
     fun onServiceStarted() {
         _state.value = _state.value.copy(
             isCollecting = true,

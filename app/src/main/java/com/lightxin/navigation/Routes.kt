@@ -20,6 +20,9 @@ object Routes {
     const val RUNNING_ACTIVE = "running/active"
     const val RUNNING_SIM = "running/sim"
     const val RUNNING_RESULT = "running/result"
+    const val RUNNING_ROUTE_SETTINGS = "running/route/settings"
+    const val RUNNING_ROUTE_RECORD = "running/route/record"
+    const val RUNNING_ROUTE_LIST = "running/route/list"
 
     // Labor
     const val LABOR_SUMMARY = "labor/summary"

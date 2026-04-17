@@ -33,6 +33,10 @@ import com.lightxin.feature.labor.ui.LaborDetailScreen
 import com.lightxin.feature.labor.ui.LaborSummaryScreen
 import com.lightxin.feature.login.ui.LoginScreen
 import com.lightxin.feature.onboarding.ui.OnboardingScreen
+import com.lightxin.feature.running.ui.RouteSimulationSettingsScreen
+import com.lightxin.feature.running.ui.RouteTemplateListScreen
+import com.lightxin.feature.running.ui.RouteTemplateRecordScreen
+import com.lightxin.feature.running.ui.RouteTemplateViewModel
 import com.lightxin.feature.running.ui.RunningActiveScreen
 import com.lightxin.feature.running.ui.RunningHomeScreen
 import com.lightxin.feature.running.ui.RunningResultScreen
@@ -227,6 +231,44 @@ fun LightXinNavHost(
                         launchSingleTop = true
                     }
                 },
+            )
+        }
+
+        // Route Simulation (Phase 1)
+        composable(Routes.RUNNING_ROUTE_SETTINGS) {
+            val settingsEntry = remember(navController) {
+                navController.getBackStackEntry(Routes.RUNNING_ROUTE_SETTINGS)
+            }
+            val routeVm: RouteTemplateViewModel = hiltViewModel(settingsEntry)
+            RouteSimulationSettingsScreen(
+                viewModel = routeVm,
+                onBack = { navController.popBackStack() },
+                onOpenRecord = {
+                    navController.navigate(Routes.RUNNING_ROUTE_RECORD) { launchSingleTop = true }
+                },
+                onOpenList = {
+                    navController.navigate(Routes.RUNNING_ROUTE_LIST) { launchSingleTop = true }
+                },
+            )
+        }
+        composable(Routes.RUNNING_ROUTE_RECORD) {
+            val settingsEntry = remember(navController) {
+                navController.getBackStackEntry(Routes.RUNNING_ROUTE_SETTINGS)
+            }
+            val routeVm: RouteTemplateViewModel = hiltViewModel(settingsEntry)
+            RouteTemplateRecordScreen(
+                viewModel = routeVm,
+                onBack = { navController.popBackStack() },
+            )
+        }
+        composable(Routes.RUNNING_ROUTE_LIST) {
+            val settingsEntry = remember(navController) {
+                navController.getBackStackEntry(Routes.RUNNING_ROUTE_SETTINGS)
+            }
+            val routeVm: RouteTemplateViewModel = hiltViewModel(settingsEntry)
+            RouteTemplateListScreen(
+                viewModel = routeVm,
+                onBack = { navController.popBackStack() },
             )
         }
 
