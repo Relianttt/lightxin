@@ -76,6 +76,53 @@ fun RunningSimScreen(
                 )
             }
 
+            // 路线来源卡
+            item {
+                LxCard {
+                    Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp)) {
+                        Text(
+                            text = "路线来源",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        val template = uiState.defaultTemplate
+                        if (template != null) {
+                            Text(
+                                text = "默认模板 · ${template.name}",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Medium,
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = String.format(
+                                    "%.2f km · %d 个点",
+                                    template.totalDistanceMeters / 1000.0,
+                                    template.pointCount,
+                                ),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        } else {
+                            Text(
+                                text = "使用内置校园路线",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Medium,
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = if (uiState.templateCount > 0)
+                                    "未设置默认模板，前往「我的 / 路线模拟」选一条"
+                                else
+                                    "尚无模板，前往「我的 / 路线模拟」录制一条",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                }
+            }
+
             // 卡片1: 跑步参数 + 建议时间
             item {
                 LxCard {

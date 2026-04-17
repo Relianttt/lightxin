@@ -60,6 +60,15 @@ object TrajectoryGenerator {
         return points
     }
 
+    /** 基于用户录制的路线模板生成轨迹，委托给 PolylineSampler。 */
+    fun generateFromTemplate(config: SimConfig, template: RouteTemplate): List<TrackPoint> =
+        PolylineSampler.sampleFromTemplate(
+            templatePoints = template.points,
+            targetDistanceMeters = config.distanceKm * 1000.0,
+            startTimeMillis = config.startTimeMillis,
+            durationSeconds = config.durationMinutes * 60L,
+        )
+
     private fun jitter(point: TrackPoint): TrackPoint {
         val latOffsetMeters = Random.nextDouble(-4.0, 4.0)
         val lngOffsetMeters = Random.nextDouble(-4.0, 4.0)

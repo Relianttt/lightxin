@@ -104,17 +104,29 @@ class RunningRepository @Inject constructor(
         }
     }
 
-    suspend fun submitSimulation(config: SimConfig): Result<RunningResult> {
+    suspend fun submitSimulation(
+        config: SimConfig,
+        overridePoints: List<TrackPoint>? = null,
+        overrideIsBd09: Boolean = false,
+    ): Result<RunningResult> {
         return try {
             val startInfo = startRunning().getOrElse { return Result.failure(it) }
-            val trajectory = TrajectoryGenerator.generate(config)
+            val trajectory: List<TrackPoint>
+            val isBd09: Boolean
+            if (overridePoints != null && overridePoints.size >= 2) {
+                trajectory = overridePoints
+                isBd09 = overrideIsBd09
+            } else {
+                trajectory = TrajectoryGenerator.generate(config)
+                isBd09 = true
+            }
             val snapshot = RunningSnapshot(
                 startInfo = startInfo,
                 startTimeMillis = config.startTimeMillis,
                 durationSeconds = config.durationMinutes * 60L,
                 distanceMeters = config.distanceKm * 1000.0,
                 points = trajectory,
-                pointsAreBd09 = true,
+                pointsAreBd09 = isBd09,
             )
             uploadSnapshot(snapshot)
         } catch (e: Exception) {

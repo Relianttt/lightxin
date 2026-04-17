@@ -2,7 +2,9 @@ package com.lightxin.feature.running.ui
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.lightxin.feature.running.data.RouteTemplateStore
 import com.lightxin.feature.running.data.RunningRepository
+import com.lightxin.feature.running.domain.RouteTemplate
 import com.lightxin.feature.running.domain.RunningDashboard
 import com.lightxin.feature.running.domain.RunningResult
 import com.lightxin.feature.running.domain.RunningSnapshot
@@ -38,12 +40,15 @@ data class RunningUiState(
     val isUploadingRun: Boolean = false,
     val lastResult: RunningResult? = null,
     val shouldNavigateToResult: Boolean = false,
+    val defaultTemplate: RouteTemplate? = null,
+    val templateCount: Int = 0,
 )
 
 @HiltViewModel
 class RunningViewModel @Inject constructor(
     private val repository: RunningRepository,
     private val tracker: RunningTracker,
+    private val templateStore: RouteTemplateStore,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(RunningUiState())
@@ -51,7 +56,21 @@ class RunningViewModel @Inject constructor(
 
     init {
         observeTracker()
+        observeTemplates()
         refreshDashboard()
+    }
+
+    private fun observeTemplates() {
+        viewModelScope.launch {
+            templateStore.templates.collectLatest { list ->
+                _uiState.update {
+                    it.copy(
+                        defaultTemplate = list.firstOrNull { t -> t.isDefault },
+                        templateCount = list.size,
+                    )
+                }
+            }
+        }
     }
 
     fun refreshDashboard() {
@@ -153,7 +172,11 @@ class RunningViewModel @Inject constructor(
     suspend fun submitSimulation() {
         if (_uiState.value.isSubmittingSimulation) return
         val config = validateSimulation() ?: return
-        val simulatedPointCount = TrajectoryGenerator.generate(config).size
+        val template = _uiState.value.defaultTemplate
+        val overridePoints = template?.let { TrajectoryGenerator.generateFromTemplate(config, it) }
+        val useTemplate = overridePoints != null && overridePoints.size >= 2
+        val trajectorySize = if (useTemplate) overridePoints!!.size
+            else TrajectoryGenerator.generate(config).size
 
         _uiState.update {
             it.copy(
@@ -164,7 +187,17 @@ class RunningViewModel @Inject constructor(
             )
         }
 
-        repository.submitSimulation(config).fold(
+        val submitCall = if (useTemplate) {
+            repository.submitSimulation(
+                config = config,
+                overridePoints = overridePoints,
+                overrideIsBd09 = false,
+            )
+        } else {
+            repository.submitSimulation(config)
+        }
+
+        submitCall.fold(
             onSuccess = { result ->
                 _uiState.update {
                     it.copy(
@@ -179,7 +212,7 @@ class RunningViewModel @Inject constructor(
                 val failureResult = buildFailedResult(
                     message = error.message ?: "模拟提交失败",
                     config = config,
-                    pointCount = simulatedPointCount,
+                    pointCount = trajectorySize,
                 )
                 _uiState.update {
                     it.copy(
