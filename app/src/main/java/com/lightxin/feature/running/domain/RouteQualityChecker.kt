@@ -15,12 +15,6 @@ import kotlin.math.sqrt
  */
 object RouteQualityChecker {
 
-    // 保守校园边界框（覆盖内置 campusRoutes 区域并略外扩）
-    private const val CAMPUS_MIN_LAT = 31.1380
-    private const val CAMPUS_MAX_LAT = 31.1450
-    private const val CAMPUS_MIN_LNG = 118.6330
-    private const val CAMPUS_MAX_LNG = 118.6395
-
     private const val JUMP_SEGMENT_METERS = 80.0
     private const val MIN_MOVING_SEGMENT_METERS = 1.5
 
@@ -62,8 +56,8 @@ object RouteQualityChecker {
     }
 
     private fun inCampus(p: TrackPoint): Boolean =
-        p.latitude in CAMPUS_MIN_LAT..CAMPUS_MAX_LAT &&
-        p.longitude in CAMPUS_MIN_LNG..CAMPUS_MAX_LNG
+        p.latitude in RunningCampus.minLatitude..RunningCampus.maxLatitude &&
+        p.longitude in RunningCampus.minLongitude..RunningCampus.maxLongitude
 
     private fun haversine(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
         val earthRadius = 6_371_000.0

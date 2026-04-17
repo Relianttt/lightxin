@@ -33,9 +33,11 @@ data class RunningUiState(
     val trackerState: RunningTrackerState = RunningTrackerState(),
     val isStarting: Boolean = false,
     val startError: String? = null,
+    val simError: String? = null,
     val simDistance: String = "3.20",
     val simDurationMinutes: String = "24",
     val simStartTimeMillis: Long = System.currentTimeMillis() - TimeUnit.MINUTES.toMillis(24),
+    val selectedSimDurationPresetMinutes: Int? = null,
     val isSubmittingSimulation: Boolean = false,
     val isUploadingRun: Boolean = false,
     val lastResult: RunningResult? = null,
@@ -147,26 +149,47 @@ class RunningViewModel @Inject constructor(
     }
 
     fun updateSimDistance(value: String) {
-        _uiState.update { it.copy(simDistance = value.filterAllowedDecimal()) }
+        _uiState.update { state ->
+            val next = state.copy(simDistance = value.filterAllowedDecimal())
+            next.withRealtimeSimulationError()
+        }
     }
 
     fun updateSimDurationMinutes(value: String) {
         val filtered = value.filter(Char::isDigit)
         val minutes = filtered.toIntOrNull()
-        _uiState.update {
-            it.copy(
+        _uiState.update { state ->
+            val next = state.copy(
                 simDurationMinutes = filtered,
                 simStartTimeMillis = if (minutes != null && minutes > 0) {
                     System.currentTimeMillis() - minutes * 60_000L
                 } else {
-                    it.simStartTimeMillis
+                    state.simStartTimeMillis
                 },
+                selectedSimDurationPresetMinutes = minutes?.takeIf { it in SIM_DURATION_PRESETS },
             )
+            next.withRealtimeSimulationError()
+        }
+    }
+
+    fun selectSimDurationPreset(minutes: Int) {
+        _uiState.update { state ->
+            val next = state.copy(
+                simDurationMinutes = minutes.toString(),
+                simStartTimeMillis = System.currentTimeMillis() - minutes * 60_000L,
+                selectedSimDurationPresetMinutes = minutes,
+            )
+            next.withRealtimeSimulationError()
         }
     }
 
     fun updateSimStartTime(timeMillis: Long) {
-        _uiState.update { it.copy(simStartTimeMillis = timeMillis) }
+        _uiState.update { state ->
+            state.copy(
+                simStartTimeMillis = timeMillis,
+                selectedSimDurationPresetMinutes = null,
+            ).withRealtimeSimulationError()
+        }
     }
 
     suspend fun submitSimulation() {
@@ -181,7 +204,7 @@ class RunningViewModel @Inject constructor(
         _uiState.update {
             it.copy(
                 isSubmittingSimulation = true,
-                startError = null,
+                simError = null,
                 lastResult = null,
                 shouldNavigateToResult = false,
             )
@@ -290,31 +313,49 @@ class RunningViewModel @Inject constructor(
     }
 
     private fun validateSimulation(): SimConfig? {
-        val distanceKm = _uiState.value.simDistance.toDoubleOrNull()
-        val durationMinutes = _uiState.value.simDurationMinutes.toIntOrNull()
-        val startTimeMillis = _uiState.value.simStartTimeMillis
+        val uiState = _uiState.value
+        val distanceKm = uiState.simDistance.toDoubleOrNull()
+        val durationMinutes = uiState.simDurationMinutes.toIntOrNull()
+        val startTimeMillis = uiState.simStartTimeMillis
 
         if (distanceKm == null || distanceKm <= 0.0) {
-            _uiState.update { it.copy(startError = "请输入有效距离") }
+            _uiState.update { it.copy(simError = "请输入有效距离") }
             return null
         }
         if (durationMinutes == null || durationMinutes <= 0) {
-            _uiState.update { it.copy(startError = "请输入有效时长") }
+            _uiState.update { it.copy(simError = "请输入有效时长") }
             return null
         }
         if (startTimeMillis >= System.currentTimeMillis()) {
-            _uiState.update { it.copy(startError = "开始时间需要早于当前时间") }
+            _uiState.update { it.copy(simError = "开始时间需要早于当前时间") }
             return null
         }
 
         val speedKmh = distanceKm / durationMinutes * 60.0
         if (speedKmh !in 6.0..15.0) {
-            _uiState.update { it.copy(startError = "模拟速度需要在 6-15 km/h 之间") }
+            _uiState.update { it.copy(simError = "模拟速度需要在 6-15 km/h 之间") }
             return null
         }
 
-        _uiState.update { it.copy(startError = null) }
+        _uiState.update { it.copy(simError = null) }
         return SimConfig(distanceKm = distanceKm, durationMinutes = durationMinutes, startTimeMillis = startTimeMillis)
+    }
+
+    private fun RunningUiState.withRealtimeSimulationError(): RunningUiState {
+        return copy(simError = realtimeSimulationError())
+    }
+
+    private fun RunningUiState.realtimeSimulationError(): String? {
+        val distanceKm = simDistance.toDoubleOrNull()
+        val durationMinutes = simDurationMinutes.toIntOrNull()
+        if (distanceKm == null || distanceKm <= 0.0 || durationMinutes == null || durationMinutes <= 0) {
+            return null
+        }
+        if (simStartTimeMillis >= System.currentTimeMillis()) {
+            return "开始时间需要早于当前时间"
+        }
+        val speedKmh = distanceKm / durationMinutes * 60.0
+        return if (speedKmh in 6.0..15.0) null else "模拟速度需要在 6-15 km/h 之间"
     }
 
     private fun buildFailedResult(
@@ -369,6 +410,7 @@ class RunningViewModel @Inject constructor(
     }
 
     companion object {
+        private val SIM_DURATION_PRESETS = setOf(20, 30, 45)
         private val FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss", Locale.CHINA)
     }
 }

@@ -32,6 +32,12 @@ import com.lightxin.core.designsystem.component.LxButton
 import com.lightxin.core.designsystem.component.LxCard
 import com.lightxin.core.designsystem.component.LxTextField
 import com.lightxin.core.designsystem.component.LxTopBar
+import com.lightxin.core.designsystem.theme.LxCream
+import com.lightxin.core.designsystem.theme.LxInk
+import com.lightxin.core.designsystem.theme.LxInkMuted
+import com.lightxin.core.designsystem.theme.LxSandDeep
+import com.lightxin.core.designsystem.theme.LxTerra
+import com.lightxin.core.designsystem.theme.LxTerraSoft
 import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.ZoneId
@@ -156,14 +162,20 @@ fun RunningSimScreen(
                         ) {
                             listOf(20, 30, 45).forEach { minutes ->
                                 FilterChip(
-                                    selected = false,
-                                    onClick = {
-                                        val targetTime = System.currentTimeMillis() - minutes * 60_000L
-                                        viewModel.updateSimStartTime(targetTime)
-                                    },
-                                    label = { Text("前推 $minutes 分钟") },
+                                    selected = uiState.selectedSimDurationPresetMinutes == minutes,
+                                    onClick = { viewModel.selectSimDurationPreset(minutes) },
+                                    label = { Text("$minutes 分钟") },
                                     colors = FilterChipDefaults.filterChipColors(
-                                        selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                                        containerColor = LxCream,
+                                        labelColor = LxInkMuted,
+                                        selectedContainerColor = LxTerraSoft,
+                                        selectedLabelColor = LxTerra,
+                                    ),
+                                    border = FilterChipDefaults.filterChipBorder(
+                                        enabled = true,
+                                        selected = uiState.selectedSimDurationPresetMinutes == minutes,
+                                        borderColor = LxSandDeep,
+                                        selectedBorderColor = LxTerra,
                                     ),
                                 )
                             }
@@ -208,21 +220,21 @@ fun RunningSimScreen(
                                     Locale.US,
                                     "预估速度 %.1f km/h %s",
                                     speed,
-                                    if (inRange) "✓" else "（建议 6-15 km/h）",
+                                    if (inRange) "✓" else "",
                                 )
                             },
                             style = MaterialTheme.typography.bodyMedium,
                             color = if (speed != null && speed in 6.0..15.0) {
-                                MaterialTheme.colorScheme.onSurface
+                                LxInk
                             } else {
                                 MaterialTheme.colorScheme.error
                             },
                         )
 
-                        if (!uiState.startError.isNullOrBlank()) {
+                        if (!uiState.simError.isNullOrBlank()) {
                             Spacer(modifier = Modifier.height(8.dp))
                             Text(
-                                text = uiState.startError!!,
+                                text = uiState.simError!!,
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.error,
                             )
