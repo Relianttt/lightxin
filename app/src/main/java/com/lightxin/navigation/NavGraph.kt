@@ -262,8 +262,8 @@ fun LightXinNavHost(
             val aiClassViewModel: com.lightxin.feature.aiclass.ui.AiClassViewModel = hiltViewModel(aiClassEntry)
             AiClassScanScreen(
                 onBack = { navController.popBackStack() },
-                onScanResult = { token ->
-                    aiClassViewModel.submitQrCode(token)
+                onScanResult = { payload ->
+                    aiClassViewModel.submitQrCode(payload)
                     navController.popBackStack()
                 },
             )

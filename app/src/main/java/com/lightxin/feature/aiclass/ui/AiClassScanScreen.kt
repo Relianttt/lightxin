@@ -47,7 +47,7 @@ import androidx.core.content.ContextCompat
 import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.common.InputImage
 import com.lightxin.core.designsystem.component.LxTopBar
-import java.util.concurrent.ExecutorService
+import com.lightxin.feature.aiclass.domain.AiClassQrPayload
 import java.util.concurrent.Executors
 
 private const val SCAN_LOG_TAG = "AiClassScan"
@@ -55,7 +55,7 @@ private const val SCAN_LOG_TAG = "AiClassScan"
 @Composable
 fun AiClassScanScreen(
     onBack: () -> Unit,
-    onScanResult: (token: String) -> Unit,
+    onScanResult: (AiClassQrPayload) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var permissionGranted by remember { mutableStateOf(false) }
@@ -100,14 +100,14 @@ fun AiClassScanScreen(
                                 SCAN_LOG_TAG,
                                 "QR raw detected, preview=${rawValue.previewForLog()}",
                             )
-                            val token = extractToken(rawValue)
-                            if (token != null) {
+                            val payload = extractQrPayload(rawValue)
+                            if (payload != null) {
                                 Log.i(
                                     SCAN_LOG_TAG,
-                                    "Token extracted, preview=${token.previewForLog()}, length=${token.length}",
+                                    "Token extracted, preview=${payload.token.previewForLog()}, length=${payload.token.length}",
                                 )
                                 scanState = ScanState.Success
-                                onScanResult(token)
+                                onScanResult(payload)
                             } else {
                                 Log.w(
                                     SCAN_LOG_TAG,
@@ -300,24 +300,27 @@ private fun processImage(
 }
 
 /**
- * 从二维码内容提取 token。
+ * 从二维码内容提取原始内容与 token。
  * 二维码可能是完整 URL（含 token 参数）或直接是 token 字符串。
  */
-private fun extractToken(rawValue: String): String? {
+private fun extractQrPayload(rawValue: String): AiClassQrPayload? {
     val trimmed = rawValue.trim()
 
     runCatching { Uri.parse(trimmed) }.getOrNull()?.let { uri ->
         uri.getQueryParameter("token")
             ?.takeIf { it.isNotBlank() }
-            ?.let { return it }
+            ?.let { return AiClassQrPayload(rawValue = trimmed, token = it) }
     }
 
     if (trimmed.contains("token=")) {
-        return Regex("[?&]token=([^&#]+)").find(trimmed)?.groupValues?.getOrNull(1)
+        val token = Regex("[?&]token=([^&#]+)").find(trimmed)?.groupValues?.getOrNull(1)
+        if (!token.isNullOrBlank()) {
+            return AiClassQrPayload(rawValue = trimmed, token = token)
+        }
     }
 
     if (trimmed.matches(Regex("^[A-Za-z0-9_-]{20,}$"))) {
-        return trimmed
+        return AiClassQrPayload(rawValue = trimmed, token = trimmed)
     }
 
     return null

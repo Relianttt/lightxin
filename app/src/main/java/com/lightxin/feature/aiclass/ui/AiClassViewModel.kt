@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.lightxin.core.network.FifSessionManager
 import com.lightxin.feature.aiclass.data.AiClassRepository
 import com.lightxin.feature.aiclass.domain.AiCourse
+import com.lightxin.feature.aiclass.domain.AiClassQrPayload
 import com.lightxin.feature.aiclass.domain.AiWorkingRecord
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -123,14 +124,14 @@ class AiClassViewModel @Inject constructor(
     }
 
     /** 扫码签到 */
-    fun submitQrCode(token: String) {
+    fun submitQrCode(payload: AiClassQrPayload) {
         viewModelScope.launch {
             Log.i(
                 VIEWMODEL_LOG_TAG,
-                "submitQrCode called, token=${token.previewForLog()}, length=${token.length}",
+                "submitQrCode called, raw=${payload.rawValue.previewForLog(32)}, token=${payload.token.previewForLog()}, length=${payload.token.length}",
             )
             _uiState.update { it.copy(isSigningIn = true, signResult = null) }
-            val result = repository.submitQrCode(token)
+            val result = repository.submitQrCode(payload)
             Log.i(
                 VIEWMODEL_LOG_TAG,
                 "submitQrCode finished, success=${result.isSuccess}, message=${result.getOrNull() ?: result.exceptionOrNull()?.message}",
