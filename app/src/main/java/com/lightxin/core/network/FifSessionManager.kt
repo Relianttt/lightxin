@@ -53,7 +53,16 @@ class FifSessionManager @Inject constructor(
         context.fifDataStore.data.first()[KEY_SCHOOL_ID]
 
     suspend fun isSessionValid(): Boolean =
-        !getStudentId().isNullOrBlank() && !getFifToken().isNullOrBlank()
+        !getStudentId().isNullOrBlank() &&
+            !getFifToken().isNullOrBlank() &&
+            hasSessionCookie()
+
+    suspend fun hasSessionCookie(): Boolean = withContext(Dispatchers.IO) {
+        val fifUrl = ApiConstants.BASE_FIF.toHttpUrl()
+        cookieJar.loadForRequest(fifUrl).any { cookie ->
+            cookie.name.equals("SESSION", ignoreCase = true) && cookie.value.isNotBlank()
+        }
+    }
 
     /**
      * 执行完整的 SSO 登录链路:
@@ -184,6 +193,45 @@ class FifSessionManager @Inject constructor(
     suspend fun buildAuthHeader(): String {
         val fifToken = getFifToken().orEmpty()
         return "Basic $fifToken"
+    }
+
+    suspend fun appendQrLoginParams(url: String): String {
+        val httpUrl = url.toHttpUrl()
+        val accessToken = tokenManager.getAccessToken().orEmpty()
+        val userCode = tokenManager.getUserCode().orEmpty()
+        val userName = tokenManager.getUserName().orEmpty()
+        val userType = tokenManager.getUserType().orEmpty()
+
+        if (accessToken.isBlank() || userCode.isBlank()) {
+            return url
+        }
+
+        return httpUrl.newBuilder().apply {
+            if (httpUrl.queryParameter("access_token").isNullOrBlank()) {
+                addQueryParameter("access_token", accessToken)
+            }
+            if (httpUrl.queryParameter("_userCode").isNullOrBlank()) {
+                addQueryParameter("_userCode", userCode)
+            }
+            if (httpUrl.queryParameter("code").isNullOrBlank()) {
+                addQueryParameter("code", userCode)
+            }
+            if (httpUrl.queryParameter("userCode").isNullOrBlank()) {
+                addQueryParameter("userCode", userCode)
+            }
+            if (httpUrl.queryParameter("_userName").isNullOrBlank() && userName.isNotBlank()) {
+                addQueryParameter("_userName", userName)
+            }
+            if (httpUrl.queryParameter("_userType").isNullOrBlank() && userType.isNotBlank()) {
+                addQueryParameter("_userType", userType)
+            }
+            if (httpUrl.queryParameter("appId").isNullOrBlank()) {
+                addQueryParameter("appId", ApiConstants.APP_ID)
+            }
+            if (!httpUrl.queryParameterValues("returnFromIscToAppFunc").contains("ReturnDefault")) {
+                addQueryParameter("returnFromIscToAppFunc", "ReturnDefault")
+            }
+        }.build().toString()
     }
 
     suspend fun clear() {

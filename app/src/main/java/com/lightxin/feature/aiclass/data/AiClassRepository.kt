@@ -37,8 +37,8 @@ class AiClassRepository @Inject constructor(
     @FifOkHttpClient private val fifClient: OkHttpClient,
 ) {
     /** 确保 FIF 会话有效，无效则自动 SSO */
-    private suspend fun ensureSession(): String {
-        if (!fifSession.isSessionValid()) {
+    private suspend fun ensureSession(forceRefresh: Boolean = false): String {
+        if (forceRefresh || !fifSession.isSessionValid()) {
             fifSession.performSso().getOrThrow()
         }
         return fifSession.buildAuthHeader()
@@ -156,52 +156,15 @@ class AiClassRepository @Inject constructor(
                 REPOSITORY_LOG_TAG,
                 "submitQrCode start, raw=${payload.rawValue.previewForLog(48)}, token=${payload.token.previewForLog()}, length=${payload.token.length}",
             )
-            ensureSession()
-            val url = buildQrHandlerUrl(payload)
-            val cookieHeader = buildQrCookieHeader(url)
-
-            val noRedirectClient = fifClient.newBuilder()
-                .followRedirects(false)
-                .followSslRedirects(false)
-                .build()
-
-            val requestBuilder = Request.Builder()
-                .url(url)
-                .get()
-                .header(
-                    "User-Agent",
-                    "Mozilla/5.0 (Linux; Android 10; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/122.0.0.0 Mobile Safari/537.36",
-                )
-                .header("X-Requested-With", WEBVIEW_REQUESTED_WITH)
-                .header(
-                    "Accept",
-                    "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
-                )
-                .header("Upgrade-Insecure-Requests", "1")
-            if (cookieHeader.isNotBlank()) {
-                requestBuilder.header("Cookie", cookieHeader)
+            var auth = ensureSession()
+            var attempt = executeQrCodeRequest(payload, auth)
+            if (requiresQrSessionRefresh(attempt)) {
+                Log.w(REPOSITORY_LOG_TAG, "qrcodeHandler redirected to loginManage, forcing SSO retry")
+                auth = ensureSession(forceRefresh = true)
+                attempt = executeQrCodeRequest(payload, auth)
             }
-            val request = requestBuilder.build()
 
-            val response = noRedirectClient.newCall(request).execute()
-            val code = response.code
-            val location = response.header("Location").orEmpty()
-            response.close()
-
-            Log.i(
-                REPOSITORY_LOG_TAG,
-                "qrcodeHandler finished, httpCode=$code, location=${location.previewForLog(96)}, url=${url.previewForLog(96)}",
-            )
-
-            if (code == 302 && location.contains("codeExpired", ignoreCase = true)) {
-                Result.failure(Exception("二维码已过期"))
-            } else if (code == 302 && location.contains("signSuccess", ignoreCase = true)) {
-                Result.success("扫码签到成功")
-            } else if (code == 302) {
-                Result.failure(Exception(resolveQrRedirectMessage(location)))
-            } else {
-                Result.failure(Exception("签到失败（HTTP $code）"))
-            }
+            resolveQrCodeResult(attempt)
         } catch (e: Exception) {
             Log.e(REPOSITORY_LOG_TAG, "submitQrCode failed", e)
             Result.failure(Exception(mapError("扫码签到", e), e))
@@ -210,11 +173,12 @@ class AiClassRepository @Inject constructor(
 
     private suspend fun buildQrHandlerUrl(payload: AiClassQrPayload): String {
         val rawValue = payload.rawValue.trim()
-        return if (rawValue.toHttpUrlOrNull() != null) {
+        val baseUrl = if (rawValue.toHttpUrlOrNull() != null) {
             rawValue
         } else {
             "${ApiConstants.BASE_FIF}/coursecenter-interaction/qrcodeV2/qrcodeHandler?token=${payload.token}&openTheWay=2"
         }
+        return fifSession.appendQrLoginParams(baseUrl)
     }
 
     private suspend fun buildQrCookieHeader(url: String): String {
@@ -240,10 +204,72 @@ class AiClassRepository @Inject constructor(
     private fun resolveQrRedirectMessage(location: String): String {
         if (location.isBlank()) return "扫码签到失败：服务端未返回跳转地址"
         return when {
+            location.contains("loginManage", ignoreCase = true) -> "扫码签到失败：AI课堂登录态已失效"
             location.contains("login", ignoreCase = true) -> "扫码签到失败：AI课堂登录态已失效"
             location.contains("course", ignoreCase = true) -> "扫码签到失败：二维码跳转到了课程页"
             else -> "扫码签到失败：未识别的跳转结果"
         }
+    }
+
+    private fun requiresQrSessionRefresh(result: QrRequestResult): Boolean =
+        result.code == 302 && result.location.contains("loginManage", ignoreCase = true)
+
+    private fun resolveQrCodeResult(result: QrRequestResult): Result<String> {
+        return if (result.code == 302 && result.location.contains("codeExpired", ignoreCase = true)) {
+            Result.failure(Exception("二维码已过期"))
+        } else if (result.code == 302 && result.location.contains("signSuccess", ignoreCase = true)) {
+            Result.success("扫码签到成功")
+        } else if (result.code == 302) {
+            Result.failure(Exception(resolveQrRedirectMessage(result.location)))
+        } else {
+            Result.failure(Exception("签到失败（HTTP ${result.code}）"))
+        }
+    }
+
+    private suspend fun executeQrCodeRequest(payload: AiClassQrPayload, auth: String): QrRequestResult {
+        val url = buildQrHandlerUrl(payload)
+        val cookieHeader = buildQrCookieHeader(url)
+
+        val noRedirectClient = fifClient.newBuilder()
+            .followRedirects(false)
+            .followSslRedirects(false)
+            .build()
+
+        val requestBuilder = Request.Builder()
+            .url(url)
+            .get()
+            .header("authorization", auth)
+            .header("Visit-Type", "mobile")
+            .header(
+                "User-Agent",
+                "Mozilla/5.0 (Linux; Android 10; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/122.0.0.0 Mobile Safari/537.36",
+            )
+            .header("X-Requested-With", WEBVIEW_REQUESTED_WITH)
+            .header(
+                "Accept",
+                "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+            )
+            .header("Upgrade-Insecure-Requests", "1")
+        if (cookieHeader.isNotBlank()) {
+            requestBuilder.header("Cookie", cookieHeader)
+        }
+        val request = requestBuilder.build()
+
+        val response = noRedirectClient.newCall(request).execute()
+        val code = response.code
+        val location = response.header("Location").orEmpty()
+        response.close()
+
+        Log.i(
+            REPOSITORY_LOG_TAG,
+            "qrcodeHandler finished, httpCode=$code, location=${location.previewForLog(96)}, url=${url.previewForLog(96)}",
+        )
+
+        return QrRequestResult(
+            code = code,
+            location = location,
+            requestUrl = url,
+        )
     }
 
     private fun mapError(action: String, error: Exception): String {
@@ -263,6 +289,12 @@ private fun String.previewForLog(maxLen: Int = 16): String {
     if (isBlank()) return "<blank>"
     return if (length <= maxLen) this else take(maxLen) + "..."
 }
+
+private data class QrRequestResult(
+    val code: Int,
+    val location: String,
+    val requestUrl: String,
+)
 
 @Module
 @InstallIn(SingletonComponent::class)
