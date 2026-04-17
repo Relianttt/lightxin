@@ -3,6 +3,7 @@ package com.lightxin.feature.running.ui
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.lightxin.feature.running.data.RouteTemplateStore
+import com.lightxin.feature.running.domain.RouteQualityChecker
 import com.lightxin.feature.running.domain.RouteTemplate
 import com.lightxin.feature.running.domain.RouteTemplateRules
 import com.lightxin.feature.running.domain.RunningTrackerState
@@ -92,16 +93,22 @@ class RouteTemplateViewModel @Inject constructor(
             "模板 ${_uiState.value.templates.size + 1}"
         }
         val duration = ((System.currentTimeMillis() - current.startTimeMillis) / 1000L).coerceAtLeast(1L)
+        val quality = RouteQualityChecker.evaluate(points)
         store.save(
             name = trimmedName,
             points = points,
             totalDistanceMeters = distance,
             durationSeconds = duration,
+            qualityStatus = quality.status,
+            qualityMessage = quality.message,
         )
         tracker.cancelSession()
         _uiState.update { it.copy(pendingSaveMessage = "模板已保存") }
         return true
     }
+
+    fun templateById(id: String): RouteTemplate? =
+        _uiState.value.templates.firstOrNull { it.id == id }
 
     fun rename(id: String, newName: String) {
         val trimmed = newName.trim()

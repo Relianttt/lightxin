@@ -199,6 +199,9 @@ class RunningViewModel @Inject constructor(
 
         submitCall.fold(
             onSuccess = { result ->
+                if (useTemplate && template != null) {
+                    templateStore.markUsed(template.id)
+                }
                 _uiState.update {
                     it.copy(
                         isSubmittingSimulation = false,

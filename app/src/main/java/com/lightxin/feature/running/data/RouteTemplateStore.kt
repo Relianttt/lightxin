@@ -55,6 +55,9 @@ class RouteTemplateStore @Inject constructor(
         points: List<TrackPoint>,
         totalDistanceMeters: Double,
         durationSeconds: Long,
+        qualityStatus: com.lightxin.feature.running.domain.RouteQualityStatus =
+            com.lightxin.feature.running.domain.RouteQualityStatus.PASS,
+        qualityMessage: String? = null,
     ): RouteTemplate = mutex.withLock {
         val now = System.currentTimeMillis()
         val current = _templates.value
@@ -68,10 +71,21 @@ class RouteTemplateStore @Inject constructor(
             source = RouteTemplateSource.TEMPLATE_RECORDING,
             isDefault = current.isEmpty(),
             points = points,
+            qualityStatus = qualityStatus,
+            qualityMessage = qualityMessage,
+            lastUsedAtMillis = null,
         )
         val next = current + template
         persist(next)
         template
+    }
+
+    suspend fun markUsed(id: String) = mutex.withLock {
+        val now = System.currentTimeMillis()
+        val next = _templates.value.map {
+            if (it.id == id) it.copy(lastUsedAtMillis = now) else it
+        }
+        persist(next)
     }
 
     suspend fun rename(id: String, newName: String) = mutex.withLock {

@@ -10,12 +10,29 @@ data class RouteTemplate(
     val source: RouteTemplateSource,
     val isDefault: Boolean,
     val points: List<TrackPoint>,
+    val qualityStatus: RouteQualityStatus = RouteQualityStatus.PASS,
+    val qualityMessage: String? = null,
+    val lastUsedAtMillis: Long? = null,
 ) {
     val pointCount: Int get() = points.size
 }
 
 enum class RouteTemplateSource {
-    TEMPLATE_RECORDING,
+    TEMPLATE_RECORDING;
+
+    fun displayName(): String = when (this) {
+        TEMPLATE_RECORDING -> "手动录制"
+    }
+}
+
+enum class RouteQualityStatus {
+    PASS, WARNING, REJECTED;
+
+    fun displayName(): String = when (this) {
+        PASS -> "正常"
+        WARNING -> "警告"
+        REJECTED -> "已拒绝"
+    }
 }
 
 sealed class RouteTemplateSaveResult {

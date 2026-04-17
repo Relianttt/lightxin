@@ -34,6 +34,7 @@ import com.lightxin.feature.labor.ui.LaborSummaryScreen
 import com.lightxin.feature.login.ui.LoginScreen
 import com.lightxin.feature.onboarding.ui.OnboardingScreen
 import com.lightxin.feature.running.ui.RouteSimulationSettingsScreen
+import com.lightxin.feature.running.ui.RouteTemplateDetailScreen
 import com.lightxin.feature.running.ui.RouteTemplateListScreen
 import com.lightxin.feature.running.ui.RouteTemplateRecordScreen
 import com.lightxin.feature.running.ui.RouteTemplateViewModel
@@ -268,6 +269,23 @@ fun LightXinNavHost(
             val routeVm: RouteTemplateViewModel = hiltViewModel(settingsEntry)
             RouteTemplateListScreen(
                 viewModel = routeVm,
+                onBack = { navController.popBackStack() },
+                onOpenDetail = { id ->
+                    navController.navigate(Routes.runningRouteDetail(id)) { launchSingleTop = true }
+                },
+            )
+        }
+        composable(
+            route = Routes.RUNNING_ROUTE_DETAIL,
+            arguments = listOf(navArgument("templateId") { type = NavType.StringType }),
+        ) { backStackEntry ->
+            val settingsEntry = remember(navController) {
+                navController.getBackStackEntry(Routes.RUNNING_ROUTE_SETTINGS)
+            }
+            val routeVm: RouteTemplateViewModel = hiltViewModel(settingsEntry)
+            RouteTemplateDetailScreen(
+                viewModel = routeVm,
+                templateId = backStackEntry.arguments?.getString("templateId") ?: "",
                 onBack = { navController.popBackStack() },
             )
         }

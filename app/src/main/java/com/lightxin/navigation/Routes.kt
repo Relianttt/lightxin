@@ -23,6 +23,8 @@ object Routes {
     const val RUNNING_ROUTE_SETTINGS = "running/route/settings"
     const val RUNNING_ROUTE_RECORD = "running/route/record"
     const val RUNNING_ROUTE_LIST = "running/route/list"
+    const val RUNNING_ROUTE_DETAIL = "running/route/detail/{templateId}"
+    fun runningRouteDetail(templateId: String) = "running/route/detail/$templateId"
 
     // Labor
     const val LABOR_SUMMARY = "labor/summary"
