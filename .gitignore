@@ -11,3 +11,4 @@ local.properties
 .ace-tool/
 /.claude/
 .gradle-user/
+/HAR

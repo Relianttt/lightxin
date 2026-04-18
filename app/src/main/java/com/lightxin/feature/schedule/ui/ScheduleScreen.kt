@@ -61,6 +61,8 @@ private val DAY_LABELS = listOf("一", "二", "三", "四", "五", "六", "日")
 private val CELL_HEIGHT = 58.dp
 private val SECTION_LABEL_WIDTH = 26.dp
 
+@Composable
+@androidx.compose.runtime.ReadOnlyComposable
 private fun courseColor(name: String): Color {
     val index = (name.hashCode() and 0x7FFFFFFF) % LxCategoryColors.size
     return LxCategoryColors[index]
@@ -159,6 +161,7 @@ private fun WeekChip(
     // 四态组合：default / cur / on / on.cur（选中填充优先，选中时边框 transparent）
     val bg = if (isSelected) LxTerra else Color.Transparent
     val textColor = when {
+        // 贴在陶土品牌色块上的前景：Light/Dark 两种主题下品牌色都是暖橙，固定白字对比度最佳
         isSelected -> Color.White
         isCurrent -> LxInkSoft
         else -> LxInkMuted
@@ -287,6 +290,7 @@ private fun ScheduleGrid(
                                     fontSize = 10.sp,
                                     fontWeight = FontWeight.Medium,
                                     lineHeight = 12.5.sp,
+                                    // 贴在课程块分类色底上的前景固定白字，不随主题变
                                     color = Color.White,
                                     maxLines = 3,
                                     overflow = TextOverflow.Ellipsis,

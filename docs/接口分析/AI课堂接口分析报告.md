@@ -10,6 +10,8 @@
 - `ai课堂实际扫码抓包/数字码签到成功.har`
 - `ai课堂实际扫码抓包/扫码签到成功后返回上一页.har`
 - `ai课堂实际扫码抓包/full_log_aiclass_scan_page.txt`
+- `HAR/sttp.fifedu.com.har`（讨论详情、发布回复、删除回复、返回上一页）
+- `HAR/已提交测验抓包.har`（测验列表、已提交详情、返回上一页）
 - 主报告中已整理的源码逆向与运行时结论
 
 ---
@@ -159,6 +161,149 @@ term=2
 | `https://sttp.fifedu.com/coursecenter-interaction/homeworkJob/discuss/getDiscussInCourseInfo` | POST | 讨论信息 |
 | `https://sttp.fifedu.com/coursecenter-interaction/quickAnswer/getQuickAnswerInCourseInfo` | POST | 快答信息 |
 | `https://sttp.fifedu.com/coursecenter-interaction/paper/getPaperInCourseInfo` | GET | 试卷信息 |
+
+### 6.2.1 讨论详情与发言链路
+
+2026-04-16 新 HAR 已确认讨论页不只是“课程详情卡片上的一个入口”，而是存在可直接落地的 H5 业务接口链：
+
+| URL | 方法 | 说明 |
+|-----|------|------|
+| `https://sttp.fifedu.com/coursecenter-interaction/teachClass/discuss/topicStatus` | GET | 查询话题状态 |
+| `https://sttp.fifedu.com/coursecenter-interaction/homeworkJob/discuss/info` | GET | 讨论详情 + 回复列表 |
+| `https://sttp.fifedu.com/coursecenter-interaction/homeworkJob/discuss/reply` | POST | 发表回复 |
+| `https://sttp.fifedu.com/coursecenter-interaction/homeworkJob/discuss/delete` | POST | 删除本人回复 |
+
+**`topicStatus`**
+- 查询参数：
+  - `schoolId=2811000226000001678`
+  - `id=d707451172a7414ba9582c01091ce82f`
+  - `teachClassId=3402030000000352381`
+- 返回：`{"data":{"topicStatus":"1"},"code":"2021","status":"1","message":"话题信息操作成功"}`
+
+**`discuss/info`**
+- 查询参数：
+  - `id=d707451172a7414ba9582c01091ce82f`
+  - `schoolId=3212`
+  - `isAll=0`
+  - `stuFlg=1`
+  - `size=10`
+  - `page=1`
+  - `appKey=aikt`
+  - `userName=aiit3233032235`
+  - `classId=3402030000000352381`
+  - `userId=95f777de234fd428b39d84d6651b8397`
+- 返回顶层字段已确认包含：
+  - `jobTitle`
+  - `jobContent`
+  - `replyStatus`
+  - `openType`
+  - `startTime`
+  - `replyList`
+- `replyList` 单条回复字段已确认包含：
+  - `replyId`
+  - `replyContent`
+  - `name`
+  - `createTime`
+  - `candelete`
+  - `zanCount`
+  - `replyCount`
+  - `zanStatus`
+
+**`discuss/reply`**
+- 请求体：
+
+```text
+id=d707451172a7414ba9582c01091ce82f
+type=3
+audio=
+content=<p>...</p>
+isAnonymous=0
+appendix=
+appKey=aikt
+userName=aiit3233032235
+schoolId=3212
+classId=3402030000000352381
+```
+
+- 返回：
+
+```json
+{"data":{"result":"true","id":"0058a6acff844e618b78bf0574932c76"},"message":"回复成功","status":"success"}
+```
+
+说明：
+- `content` 不是纯文本，而是 HTML 片段
+- 发布成功后会返回新回复的 `id`
+- 当前已确认的是“进入讨论话题后发表回复”，不是“新建顶层话题”
+
+**`discuss/delete`**
+- 请求体：
+
+```text
+id=288cf36a32ff11f1a0adb8cef6a71504
+type=1
+appKey=aikt
+userName=aiit3233032235
+schoolId=3212
+teachClassId=3402030000000352381
+```
+
+- 返回：`{"message":"删除成功","status":"success"}`
+
+补充结论：
+- 讨论页在“发布回复”“删除回复”后，页面都会重新请求一次 `discuss/info` 刷新列表
+- 仅从本次 HAR 看，讨论 MVP 不必依赖 websocket 才能实现“查看话题详情 + 发一条内容 + 删除本人内容”
+
+### 6.2.2 测验列表与已提交详情链路
+
+2026-04-16 新 HAR 已补出“学生查看已提交测验”的两条关键接口：
+
+| URL | 方法 | 说明 |
+|-----|------|------|
+| `https://sttp.fifedu.com/coursecenter-interaction/paper/getPublishPaperListOfStudent` | GET | 学生可见试卷列表 |
+| `https://sttp.fifedu.com/coursecenter-interaction/question/getStudentQuestionDetailListOfPaper` | GET | 学生已提交试卷详情 |
+
+**`getPublishPaperListOfStudent`**
+- 查询参数：
+  - `courseId=3402030000000352381`
+  - `studentId=3889526`
+  - `userId=95f777de234fd428b39d84d6651b8397`
+- 返回列表项字段已确认包含：
+  - `id`
+  - `title`
+  - `status`
+  - `iscommited`
+  - `refPaperId`
+  - `publishTime`
+  - `publishDateTime`
+  - `publishWeek`
+  - `answerDuration`
+
+样本结论：
+- 当前样本中的两份测验都为 `status="2"`
+- 同时标记 `iscommited=true`
+- 说明该接口足以支撑“测验列表 + 已提交状态展示”
+
+**`getStudentQuestionDetailListOfPaper`**
+- 查询参数：
+  - `paperId=132212`
+  - `studentId=3889526`
+  - `userId=95f777de234fd428b39d84d6651b8397`
+- 返回单题字段已确认包含：
+  - `id`
+  - `content`
+  - `questionTypeName`
+  - `options`
+  - `answer`
+  - `studentAnswer`
+  - `rank`
+  - `isCollect`
+
+样本结论：
+- 当前样本共返回 `10` 道题
+- `studentAnswer` 中已直接给出学生所选项及 `isCorrect`
+- 当前样本足以支撑“已提交测验详情/结果查看页”
+- 但仍未覆盖“进入未提交测验并作答提交”的完整链路
 
 ### 6.3 正在上课态补充接口
 
@@ -576,6 +721,11 @@ courseRecordId=cc7603debff0465b9492955e789eb687
 - 数字码签到
 - 扫码签到成功链
 - 成功页与已签到状态展示
+- 讨论话题详情展示
+- 在讨论话题内发表回复
+- 删除本人已发表的回复
+- 测验列表与已提交状态展示
+- 已提交测验详情/结果查看
 
 ### 12.2 当前剩余缺口
 
@@ -584,8 +734,12 @@ courseRecordId=cc7603debff0465b9492955e789eb687
 - 无效二维码、过期二维码的失败返回结构
 - 扫描“未加入课程二维码”后出现“加入课堂”按钮的分支接口
 - 极少数课堂场景下不同 `courseId / teachClassId` 组合是否有分支差异
+- 讨论“新建顶层话题”的独立接口尚未抓到
+- 讨论 websocket 的消息帧、订阅协议和实时推送链路尚未抓到
+- 测验“未提交 -> 作答中 -> 交卷”的提交接口尚未抓到
+- 当前测验详情样本仅覆盖已提交单选题，未覆盖多题型与未作答状态
 
-这些缺口不影响首版开发。
+这些缺口不影响首版先做“签到 + 讨论回复 + 已提交测验查看”的核心版本。
 
 ---
 
@@ -600,13 +754,15 @@ AI课堂现在已经不是“入口明确但签到链缺失”的状态，而是
 5. 正在上课态接口
 6. 数字码签到真实提交接口
 7. 扫码签到真实导航链与成功页刷新链
-8. 原生扫码取消导致回主页的异常原因
+8. 讨论话题详情、回复发布与删除链路
+9. 已提交测验列表与学生答题详情链路
+10. 原生扫码取消导致回主页的异常原因
 
-如果目标是独立新应用，AI课堂模块已经进入“可实现核心功能”的阶段。
+如果目标是独立新应用，AI课堂模块已经进入“可实现核心功能”的阶段；至少已经足够支撑“签到 + 讨论页发一条内容 + 已提交测验查看结果”的 MVP 实现。
 
 ---
 
-**文档版本**: v1.0  
+**文档版本**: v1.1  
 **创建日期**: 2026年4月15日  
 **作者**: Codex（AI助手）  
-**更新说明**: 基于 `ai课堂实际扫码抓包` 目录中的三份新 HAR，补全 AI课堂数字码签到成功链、扫码成功 `302 -> signSuccess.html -> 课堂状态刷新` 链，并与既有课程列表、课程详情、源码异常链路结论合并成独立文档
+**更新说明**: 2026年4月16日并入 `HAR/sttp.fifedu.com.har` 与 `HAR/已提交测验抓包.har` 的新结论，补全讨论话题详情、回复发布/删除链路，以及已提交测验列表与答题详情查看链路

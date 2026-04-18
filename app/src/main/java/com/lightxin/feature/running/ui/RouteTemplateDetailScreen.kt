@@ -203,6 +203,11 @@ private fun TrackCanvas(points: List<TrackPoint>, modifier: Modifier = Modifier)
     val latSpan = (maxLat - minLat).coerceAtLeast(1e-6)
     val lngSpan = (maxLng - minLng).coerceAtLeast(1e-6)
 
+    // DrawScope 非 @Composable，将主题色提前读取到本地变量后再传入 Canvas
+    val pathColor = LxTerra
+    val startColor = LxSage
+    val endColor = LxRose
+
     Canvas(modifier = modifier) {
         val w = size.width
         val h = size.height
@@ -227,12 +232,12 @@ private fun TrackCanvas(points: List<TrackPoint>, modifier: Modifier = Modifier)
         }
         drawPath(
             path = path,
-            color = LxTerra,
+            color = pathColor,
             style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round),
         )
         // 起终点
-        drawCircle(color = LxSage, radius = 4.dp.toPx(), center = first)
-        drawCircle(color = LxRose, radius = 4.dp.toPx(), center = project(points.last()))
+        drawCircle(color = startColor, radius = 4.dp.toPx(), center = first)
+        drawCircle(color = endColor, radius = 4.dp.toPx(), center = project(points.last()))
     }
 }
 

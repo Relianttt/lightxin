@@ -1,0 +1,8 @@
+<resources>
+    <!-- 深色模式下使用非 Light 的 Material 父主题，让系统组件（如 DatePicker、TimePicker）默认走深色适配 -->
+    <style name="Theme.LightXin" parent="android:Theme.Material.NoActionBar">
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:forceDarkAllowed">false</item>
+    </style>
+</resources>
