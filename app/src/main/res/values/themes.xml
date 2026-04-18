@@ -6,4 +6,12 @@
         <!-- 禁止系统（如 MIUI/HyperOS）对应用强制应用深色滤镜，保证暖色 token 不被反色 -->
         <item name="android:forceDarkAllowed">false</item>
     </style>
+
+    <!-- Splash 主题：承载 Android 12+ 官方 SplashScreen（以及 compat 兼容低版本）。 -->
+    <!-- 启动期间显示羊皮纸暖底 + 应用 logo，数据就绪/超时后由 postSplashScreenTheme 切换回正常主题。 -->
+    <style name="Theme.LightXin.Splash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/splash_background</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
+        <item name="postSplashScreenTheme">@style/Theme.LightXin</item>
+    </style>
 </resources>

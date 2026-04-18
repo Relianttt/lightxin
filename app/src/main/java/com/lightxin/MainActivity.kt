@@ -7,19 +7,41 @@ import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import androidx.lifecycle.lifecycleScope
 import com.lightxin.core.auth.SessionManager
 import com.lightxin.core.designsystem.theme.LightXinTheme
+import com.lightxin.feature.home.domain.HomeBootstrap
 import com.lightxin.navigation.LightXinNavHost
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import javax.inject.Inject
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
     @Inject lateinit var sessionManager: SessionManager
+    @Inject lateinit var homeBootstrap: HomeBootstrap
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        val splashScreen = installSplashScreen()
+        // splash 放行闭包：数据就绪 OR 1500ms 超时均会置 false；两路解耦，超时不会取消加载协程
+        var keepSplashOnScreen = true
+        splashScreen.setKeepOnScreenCondition { keepSplashOnScreen }
         super.onCreate(savedInstanceState)
+
+        // 独立协程：真实执行数据加载（即使超时也会继续跑完，结果写入 HomeBootstrap.snapshot）
+        lifecycleScope.launch { homeBootstrap.load() }
+        // 独立协程：等待 ready 或超时，决定何时放行 splash
+        lifecycleScope.launch {
+            withTimeoutOrNull(SPLASH_MAX_WAIT_MS) {
+                homeBootstrap.ready.first { it }
+            }
+            keepSplashOnScreen = false
+        }
+
         // 状态栏与导航栏按系统深色模式切换图标明暗：浅色主题下用 light（深色图标贴暖底），深色主题下用 dark（浅色图标）
         val isNight = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK ==
             Configuration.UI_MODE_NIGHT_YES
@@ -42,5 +64,9 @@ class MainActivity : ComponentActivity() {
                 LightXinNavHost(sessionManager = sessionManager)
             }
         }
+    }
+
+    companion object {
+        private const val SPLASH_MAX_WAIT_MS = 1500L
     }
 }

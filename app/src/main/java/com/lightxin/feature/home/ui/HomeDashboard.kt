@@ -1,5 +1,6 @@
 package com.lightxin.feature.home.ui
 
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -7,7 +8,10 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -48,6 +52,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.navigation.NavHostController
 import com.lightxin.core.designsystem.component.LxCard
 import com.lightxin.core.designsystem.component.LxShimmerCard
@@ -60,6 +66,7 @@ import com.lightxin.core.designsystem.theme.LxSand
 import com.lightxin.core.designsystem.theme.LxTerra
 import com.lightxin.core.designsystem.theme.NewsreaderLarge
 import com.lightxin.feature.checkin.domain.CheckinTask
+import com.lightxin.feature.home.domain.SectionSchedule
 import com.lightxin.feature.running.domain.RunningDashboard
 import com.lightxin.feature.schedule.domain.Course
 import com.lightxin.navigation.Routes
@@ -74,9 +81,8 @@ private const val DAILY_TARGET_KM = 3.0
 // 查寝签到条件渲染窗口：开始前 4 小时内才出现在首页
 private const val CHECKIN_VISIBLE_HOURS_BEFORE = 4
 
-// 节次 → 近似起止小时：以 8 点为第 1 节起点，每节约 45 分钟 + 休息
-private fun sectionStartHour(section: Int): Int = 8 + (section - 1)
-private fun sectionEndHour(section: Int): Int = 8 + section
+// 副标题 / 场景每分钟重算一次，驱动「还有 12 分钟上课」等分钟级文案
+private const val SUBTITLE_TICK_MS = 60_000L
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -87,6 +93,18 @@ fun HomeDashboard(
     onTabSelected: (Int) -> Unit,
 ) {
     val uiState by viewModel.uiState.collectAsState()
+
+    // 生命周期：ON_PAUSE 记录时间戳，ON_RESUME 触发副标题轮换判定 + 重算场景
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { viewModel.onResumed() }
+    LifecycleEventEffect(Lifecycle.Event.ON_PAUSE) { viewModel.onPaused() }
+
+    // 前台定时器：每分钟重算副标题，驱动分钟级场景文案
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(SUBTITLE_TICK_MS)
+            viewModel.recomputeSubtitle()
+        }
+    }
 
     PullToRefreshBox(
         isRefreshing = uiState.isRefreshing,
@@ -102,7 +120,7 @@ fun HomeDashboard(
             // ── 问候 + 副标 ──
             GreetingSection(
                 userName = uiState.userName,
-                dashboardData = uiState.dashboardData,
+                subtitle = uiState.subtitle,
                 modifier = Modifier.padding(horizontal = 24.dp),
             )
 
@@ -190,7 +208,7 @@ fun HomeDashboard(
 @Composable
 private fun GreetingSection(
     userName: String,
-    dashboardData: HomeDashboardData,
+    subtitle: String,
     modifier: Modifier = Modifier,
 ) {
     val hour = remember { LocalTime.now().hour }
@@ -213,54 +231,29 @@ private fun GreetingSection(
 
         Spacer(modifier = Modifier.height(5.dp))
 
-        val subtitle = remember(dashboardData, hour) {
-            buildSmartSubtitle(dashboardData, hour)
+        // 副标：衬线 italic + 墨灰；切换时旧文字向上淡出，新文字从下方淡入（文档 3.4）
+        AnimatedContent(
+            targetState = subtitle,
+            transitionSpec = {
+                (fadeIn(tween(200, delayMillis = 200)) +
+                    slideInVertically(tween(200, delayMillis = 200)) { it / 2 })
+                    .togetherWith(
+                        fadeOut(tween(200)) +
+                            slideOutVertically(tween(200)) { -it / 2 },
+                    )
+            },
+            label = "subtitle-switch",
+        ) { text ->
+            Text(
+                text = text,
+                fontFamily = NewsreaderLarge,
+                fontStyle = FontStyle.Italic,
+                fontWeight = FontWeight.Normal,
+                fontSize = 15.sp,
+                lineHeight = 21.sp,
+                color = LxInkMuted,
+            )
         }
-
-        // 副标：衬线 italic + 墨灰（与主标同字族，避免字体栈割裂）
-        Text(
-            text = subtitle,
-            fontFamily = NewsreaderLarge,
-            fontStyle = FontStyle.Italic,
-            fontWeight = FontWeight.Normal,
-            fontSize = 15.sp,
-            lineHeight = 21.sp,
-            color = LxInkMuted,
-        )
-    }
-}
-
-private fun buildSmartSubtitle(data: HomeDashboardData, hour: Int): String {
-    val isLateNight = hour in 0..5
-    if (isLateNight) return "这么晚了还没睡？注意身体哦"
-    if (hour >= 23 && data.tomorrowFirstSection != null && data.tomorrowFirstSection <= 2) {
-        return "明天有早课，记得早点休息哦"
-    }
-    if (hour >= 19 && data.nextCheckin != null) return "别忘了完成查寝签到哦"
-    if (hour >= 23) return "夜深了，早点休息"
-    if (data.todayCourses.isEmpty() && data.currentWeek > 0) {
-        return when (hour) {
-            in 6..9 -> "今天没课，可以多睡一会儿"
-            in 10..11 -> "今天没课，享受悠闲的上午"
-            in 12..13 -> "今天没课，午饭后休息一下"
-            in 14..17 -> "今天没课，下午自由安排"
-            in 18..20 -> "今天没课的一天，轻松惬意"
-            else -> "今天没课，好好放松"
-        }
-    }
-    if (data.todayCourses.isNotEmpty()) {
-        val lastSection = data.todayCourses.maxOf { it.endSection }
-        val approximateEndHour = sectionEndHour(lastSection)
-        if (hour >= approximateEndHour) return "今天的课结束了，辛苦啦"
-    }
-    return when (hour) {
-        in 6..8 -> "新的一天，元气满满"
-        in 9..11 -> "上午加油，效率拉满"
-        in 12..13 -> "午间时光，记得吃饭"
-        in 14..17 -> "下午继续，保持状态"
-        in 18..20 -> "傍晚了，今天辛苦了"
-        in 21..22 -> "晚间时光，放松一下"
-        else -> "轻小信，陪你度过每一天"
     }
 }
 
@@ -286,9 +279,9 @@ private fun NextClassHeadline(
     tomorrowFirstSection: Int?,
     modifier: Modifier = Modifier,
 ) {
-    val hour = remember { LocalTime.now().hour }
-    val headline = remember(courses, tomorrowFirstSection, hour) {
-        buildNextClassHeadline(courses, tomorrowFirstSection, hour)
+    val now = remember { LocalTime.now() }
+    val headline = remember(courses, tomorrowFirstSection, now) {
+        buildNextClassHeadline(courses, tomorrowFirstSection, now)
     }
     Text(
         text = headline,
@@ -304,7 +297,7 @@ private fun NextClassHeadline(
 private fun buildNextClassHeadline(
     courses: List<Course>,
     tomorrowFirstSection: Int?,
-    hour: Int,
+    now: LocalTime,
 ): String {
     if (courses.isEmpty()) {
         return if (tomorrowFirstSection != null) {
@@ -314,15 +307,25 @@ private fun buildNextClassHeadline(
         }
     }
     val current = courses.firstOrNull { c ->
-        hour in sectionStartHour(c.startSection) until sectionEndHour(c.endSection)
+        val s = SectionSchedule.startOf(c.startSection) ?: return@firstOrNull false
+        val e = SectionSchedule.endOf(c.endSection) ?: return@firstOrNull false
+        now >= s && now < e
     }
     if (current != null) {
         return "正在上 · ${current.name} · ${current.room}"
     }
-    val next = courses.firstOrNull { c -> hour < sectionStartHour(c.startSection) }
+    val next = courses.firstOrNull { c ->
+        val s = SectionSchedule.startOf(c.startSection) ?: return@firstOrNull false
+        now < s
+    }
     if (next != null) {
-        val h = sectionStartHour(next.startSection)
-        return "下一节 · ${next.name} · ${next.room} · ${"%02d:00".format(h)}"
+        val start = SectionSchedule.startOf(next.startSection)
+        val clock = if (start != null) {
+            String.format(Locale.CHINA, "%02d:%02d", start.hour, start.minute)
+        } else {
+            "第 ${next.startSection} 节"
+        }
+        return "下一节 · ${next.name} · ${next.room} · $clock"
     }
     return if (tomorrowFirstSection != null) {
         "明天第 $tomorrowFirstSection 节开课"

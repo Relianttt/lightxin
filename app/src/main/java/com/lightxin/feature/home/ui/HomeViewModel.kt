@@ -5,6 +5,12 @@ import androidx.lifecycle.viewModelScope
 import com.lightxin.core.auth.TokenManager
 import com.lightxin.feature.checkin.data.CheckinRepository
 import com.lightxin.feature.checkin.domain.CheckinTask
+import com.lightxin.feature.home.domain.HomeBootstrap
+import com.lightxin.feature.home.domain.HomeBootstrapSnapshot
+import com.lightxin.feature.home.domain.HomeScene
+import com.lightxin.feature.home.domain.SceneResolver
+import com.lightxin.feature.home.domain.SubtitleContext
+import com.lightxin.feature.home.domain.SubtitleLibrary
 import com.lightxin.feature.labor.data.LaborRepository
 import com.lightxin.feature.labor.domain.HoursSummary
 import com.lightxin.feature.running.data.RunningRepository
@@ -16,9 +22,11 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.LocalDate
+import java.time.LocalDateTime
 import javax.inject.Inject
 
 data class HomeDashboardData(
@@ -32,6 +40,7 @@ data class HomeDashboardData(
 
 data class HomeUiState(
     val userName: String = "",
+    val subtitle: String = "",
     val dashboardData: HomeDashboardData = HomeDashboardData(),
     val isLoading: Boolean = true,
     val isRefreshing: Boolean = false,
@@ -40,6 +49,7 @@ data class HomeUiState(
 
 @HiltViewModel
 class HomeViewModel @Inject constructor(
+    private val homeBootstrap: HomeBootstrap,
     private val scheduleRepository: ScheduleRepository,
     private val checkinRepository: CheckinRepository,
     private val runningRepository: RunningRepository,
@@ -50,18 +60,103 @@ class HomeViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState: StateFlow<HomeUiState> = _uiState
 
+    // 副标题轮换计数器：手动刷新或后台 >30 分钟回前台时递增，驱动同桶下文案轮换
+    private var subtitleRotation: Int = 0
+    // 上次进入后台的时间戳
+    private var lastPausedAt: Long? = null
+
     init {
+        // 先填本地姓名，避免首次 snapshot 未到达时界面空白
         viewModelScope.launch {
             _uiState.update { it.copy(userName = tokenManager.getUserName().orEmpty()) }
-            loadAll()
         }
+        // 立即应用 bootstrap 已有的 snapshot（若有）
+        homeBootstrap.snapshot.value?.let { applyBootstrap(it) }
+        // 持续订阅后续 snapshot 变化（超时后到达的数据）
+        viewModelScope.launch {
+            homeBootstrap.snapshot.filterNotNull().collect { applyBootstrap(it) }
+        }
+        // 自行加载 bootstrap 不覆盖的 running / labor
+        viewModelScope.launch { loadExtras() }
     }
 
     fun refresh() {
         viewModelScope.launch {
+            subtitleRotation++
             _uiState.update { it.copy(isRefreshing = true) }
-            loadAll()
-            _uiState.update { it.copy(isRefreshing = false) }
+            try {
+                loadAll()
+            } finally {
+                _uiState.update { it.copy(isRefreshing = false) }
+            }
+        }
+    }
+
+    /** 应用进入后台：记录时间戳 */
+    fun onPaused() {
+        lastPausedAt = System.currentTimeMillis()
+    }
+
+    /** 应用回前台：若距上次 ON_PAUSE > 30 分钟则轮换副标题，再重算场景 */
+    fun onResumed() {
+        val pausedAt = lastPausedAt
+        if (pausedAt != null &&
+            System.currentTimeMillis() - pausedAt > BACKGROUND_ROTATION_THRESHOLD_MS
+        ) {
+            subtitleRotation++
+        }
+        recomputeSubtitle()
+    }
+
+    /** 前台定时器 / 其他触发点调用：基于当前 dashboardData 重算副标题 */
+    fun recomputeSubtitle() {
+        _uiState.update { current ->
+            current.copy(subtitle = buildSubtitle(current.dashboardData))
+        }
+    }
+
+    private fun applyBootstrap(snapshot: HomeBootstrapSnapshot) {
+        _uiState.update { current ->
+            val merged = current.dashboardData.copy(
+                todayCourses = snapshot.todayCourses,
+                tomorrowFirstSection = snapshot.tomorrowFirstSection,
+                currentWeek = snapshot.currentWeek,
+                nextCheckin = snapshot.nextUnsignedCheckin,
+            )
+            val errors = current.errors.toMutableMap().apply {
+                snapshot.scheduleError?.let { put("schedule", it) } ?: remove("schedule")
+                snapshot.checkinError?.let { put("checkin", it) } ?: remove("checkin")
+            }
+            current.copy(
+                userName = snapshot.userName.ifBlank { current.userName },
+                dashboardData = merged,
+                subtitle = buildSubtitle(merged),
+                isLoading = false,
+                errors = errors,
+            )
+        }
+    }
+
+    private suspend fun loadExtras() = coroutineScope {
+        val runningDeferred = async { loadRunning() }
+        val laborDeferred = async { loadLabor() }
+        val (running, runningError) = runningDeferred.await()
+        val (labor, laborError) = laborDeferred.await()
+
+        _uiState.update { current ->
+            val merged = current.dashboardData.copy(
+                runningProgress = running,
+                laborHours = labor,
+            )
+            val errors = current.errors.toMutableMap().apply {
+                runningError?.let { put("running", it) } ?: remove("running")
+                laborError?.let { put("labor", it) } ?: remove("labor")
+            }
+            current.copy(
+                dashboardData = merged,
+                subtitle = buildSubtitle(merged),
+                errors = errors,
+            )
         }
     }
 
@@ -86,21 +181,39 @@ class HomeViewModel @Inject constructor(
                 laborError?.let { put("labor", it) }
             }
 
+            val merged = HomeDashboardData(
+                todayCourses = courses,
+                tomorrowFirstSection = tomorrowFirst,
+                currentWeek = currentWeek,
+                nextCheckin = checkinTask,
+                runningProgress = running,
+                laborHours = labor,
+            )
             _uiState.update {
                 it.copy(
-                    dashboardData = HomeDashboardData(
-                        todayCourses = courses,
-                        tomorrowFirstSection = tomorrowFirst,
-                        currentWeek = currentWeek,
-                        nextCheckin = checkinTask,
-                        runningProgress = running,
-                        laborHours = labor,
-                    ),
+                    dashboardData = merged,
+                    subtitle = buildSubtitle(merged),
                     isLoading = false,
                     errors = errors,
                 )
             }
         }
+    }
+
+    /** 场景优先：命中则用场景文案；否则走文案库 */
+    private fun buildSubtitle(data: HomeDashboardData): String {
+        val now = LocalDateTime.now()
+        val scene = SceneResolver.resolve(now, data.todayCourses, data.nextCheckin)
+        SubtitleLibrary.fromScene(scene)?.let { return it }
+        return SubtitleLibrary.pickSubtitle(
+            context = SubtitleContext(
+                now = now,
+                todayCourses = data.todayCourses,
+                tomorrowFirstSection = data.tomorrowFirstSection,
+                hasPendingCheckin = data.nextCheckin?.let { !it.isSigned } == true,
+            ),
+            rotation = subtitleRotation,
+        )
     }
 
     private data class ScheduleResult(
@@ -151,5 +264,9 @@ class HomeViewModel @Inject constructor(
     private suspend fun loadLabor(): Pair<HoursSummary?, String?> {
         val result = laborRepository.getHoursSummary()
         return Pair(result.getOrNull(), result.exceptionOrNull()?.message)
+    }
+
+    private companion object {
+        const val BACKGROUND_ROTATION_THRESHOLD_MS = 30 * 60_000L
     }
 }
