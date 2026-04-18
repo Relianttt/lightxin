@@ -99,74 +99,74 @@ object SubtitleLibrary {
     private fun pool(bucket: SubtitleBucket): List<String> = when (bucket) {
         SubtitleBucket.LateNight -> listOf(
             "这么晚了还没睡？注意身体哦",
-            "凌晨了，早点休息",
-            "夜深了，要好好照顾自己",
+            "凌晨了，早点休息吧，别熬坏了",
+            "夜深了，要好好照顾自己呀",
         )
         SubtitleBucket.EarlyClassTomorrow -> listOf(
-            "明天有早课，记得早点休息哦",
-            "早课别迟到，今晚早点睡",
+            "明天有早课，今晚早点休息哦",
+            "明早有课，早睡才有精神呀",
         )
         SubtitleBucket.PendingCheckin -> listOf(
             "别忘了完成查寝签到哦",
-            "查寝还没签，记得处理一下",
+            "查寝还没签到，顺手搞定吧",
         )
         SubtitleBucket.DeepNight -> listOf(
-            "夜深了，早点休息",
-            "晚安，明天继续",
+            "夜深了，早点休息吧",
+            "晚安，好梦，明天见",
         )
         SubtitleBucket.FreeMorningEarly -> listOf(
             "今天没课，可以多睡一会儿",
-            "没课的早晨，舒服一点",
+            "没课的早晨，赖个床也不错",
         )
         SubtitleBucket.FreeMorningLate -> listOf(
-            "今天没课，享受悠闲的上午",
-            "空闲的上午，慢慢来",
+            "今天没课，享受悠闲的上午吧",
+            "没课的上午，慢慢来不着急",
         )
         SubtitleBucket.FreeNoon -> listOf(
-            "今天没课，午饭后休息一下",
-            "无课的午间，轻松一点",
+            "今天没课，午饭后好好休息一下",
+            "没课的中午，记得好好吃饭呀",
         )
         SubtitleBucket.FreeAfternoon -> listOf(
-            "今天没课，下午自由安排",
-            "没课的下午，好好放松",
+            "今天没课，下午自由安排吧",
+            "没课的下午，做点喜欢的事吧",
         )
         SubtitleBucket.FreeEvening -> listOf(
-            "今天没课的一天，轻松惬意",
+            "没课的一天真轻松，好好享受吧",
             "悠闲的夜晚，做些自己喜欢的事",
         )
         SubtitleBucket.FreeNight -> listOf(
-            "今天没课，好好放松",
-            "轻松的一天，辛苦啦",
+            "没课的一天快结束了，好好休息吧",
+            "今天辛苦啦，好好放松一下",
         )
         SubtitleBucket.DayClassOver -> listOf(
             "今天的课结束了，辛苦啦",
-            "今天的课都上完了",
-            "课上完了，该休息啦",
+            "课都上完了，好好犒劳自己吧",
+            "课上完了，该好好休息啦",
         )
         SubtitleBucket.DefaultMorning -> listOf(
             "新的一天，元气满满",
-            "早上好，加油哦",
-            "新的一天，加油",
+            "早上好，今天也要加油哦",
+            "美好的一天开始了，fighting！",
         )
         SubtitleBucket.DefaultForenoon -> listOf(
-            "上午加油，效率拉满",
-            "上午时光，认真一点",
+            "上午好呀，今天也在认真上课呢",
+            "课间记得站起来活动活动哦",
         )
         SubtitleBucket.DefaultNoon -> listOf(
-            "午间时光，记得吃饭",
-            "中午了，别忘记午饭",
+            "午间时光，别亏待了自己的胃",
+            "中午啦，吃点好的犒劳一下自己",
         )
         SubtitleBucket.DefaultAfternoon -> listOf(
-            "下午继续，保持状态",
-            "下午也要加油",
+            "下午也要加油呀",
+            "下午有点困？坚持一下就好啦",
         )
         SubtitleBucket.DefaultDusk -> listOf(
-            "傍晚了，今天辛苦了",
-            "夕阳西下，放缓节奏",
+            "傍晚了，今天辛苦啦",
+            "夕阳西下，放缓节奏吧",
         )
         SubtitleBucket.DefaultLate -> listOf(
-            "晚间时光，放松一下",
-            "忙了一天，放松一下",
+            "忙了一天，辛苦啦",
+            "夜晚属于自己，好好享受吧",
         )
         SubtitleBucket.Fallback -> listOf(
             "轻小信，陪你度过每一天",
