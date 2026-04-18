@@ -20,8 +20,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Class
 import androidx.compose.material.icons.filled.Login
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -47,7 +45,9 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.lightxin.core.designsystem.component.LxButton
 import com.lightxin.core.designsystem.component.LxCard
 import com.lightxin.core.designsystem.component.LxError
+import com.lightxin.core.designsystem.component.LxFloatingActionButton
 import com.lightxin.core.designsystem.component.LxLoading
+import com.lightxin.core.designsystem.component.LxProgressIndicator
 import com.lightxin.core.designsystem.component.LxTextField
 import com.lightxin.core.designsystem.component.LxTopBar
 import com.lightxin.feature.aiclass.domain.AiCourse
@@ -76,9 +76,8 @@ fun AiClassHomeScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
             if (!uiState.isLoading && uiState.error == null) {
-                FloatingActionButton(
+                LxFloatingActionButton(
                     onClick = onOpenScan,
-                    containerColor = MaterialTheme.colorScheme.primary,
                 ) {
                     Icon(
                         imageVector = Icons.Default.CameraAlt,
@@ -98,7 +97,7 @@ fun AiClassHomeScreen(
                     contentAlignment = Alignment.Center,
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        CircularProgressIndicator()
+                        LxProgressIndicator()
                         if (uiState.isSsoInProgress) {
                             Spacer(modifier = Modifier.height(12.dp))
                             Text(

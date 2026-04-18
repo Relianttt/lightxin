@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <title>AIIT Anthropic Icon Implementation</title>
+    <style>
+        /* 恢复纯净背景，只关注图标构建 */
+        body {
+            background: #FFFFFF;
+            margin: 0;
+            padding: 60px;
+            display: flex;
+            gap: 40px;
+            justify-content: flex-start;
+        }
+
+        /* 基础的图标容器框架，去掉了底部结构只留圆角矩形 */
+        .icon {
+            width: 180px;
+            height: 180px;
+            border-radius: 38px;
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* Anthropic 的核心调色板：Ivory (纸张米白) 与 Charcoal (炭灰) */
+        .bg-ivory {
+            background-color: #F0EFEB;
+        }
+
+        .fg-charcoal {
+            background-color: #1C1B1A;
+        }
+
+        .bg-charcoal {
+            background-color: #1C1B1A;
+        }
+
+        .fg-ivory {
+            background-color: #F0EFEB;
+        }
+
+        /* --------------
+     纯 DOM 实心拼接原版 AIIT 形态
+     不依赖任何 SVG，100% 页面元素构成
+  -------------- */
+        .aiit-graphic {
+            position: relative;
+            width: 100px;
+            height: 60px;
+            /* 微调视觉居中 */
+            margin-left: -5px;
+            margin-top: -5px;
+        }
+
+        .line {
+            position: absolute;
+            border-radius: 8px;
+            /* 还原原始图标那种宽厚、略带圆角的流线感 */
+        }
+
+        /* 结构 1：构筑形似 A 的主体 */
+        .a-l {
+            width: 15px;
+            height: 62px;
+            left: 4px;
+            top: 4px;
+            transform: rotate(26deg);
+            transform-origin: top center;
+        }
+
+        .a-r {
+            width: 15px;
+            height: 62px;
+            left: 28px;
+            top: 4px;
+            transform: rotate(-26deg);
+            transform-origin: top center;
+        }
+
+        .a-peak {
+            width: 18px;
+            height: 15px;
+            left: 12px;
+            top: 2px;
+            border-radius: 8px;
+        }
+
+        /* 结构 2：连贯在右侧的 I 柱体 */
+        .i-core {
+            width: 15px;
+            height: 58px;
+            left: 48px;
+            top: 2px;
+        }
+
+        /* 结构 3：连贯在最右侧的 T 结构 */
+        .t-top {
+            width: 32px;
+            height: 15px;
+            left: 64px;
+            top: 2px;
+        }
+
+        .t-core {
+            width: 15px;
+            height: 58px;
+            left: 72px;
+            top: 2px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- Anthropic Style: Light Ivory 模式 -->
+    <div class="icon bg-ivory">
+        <div class="aiit-graphic">
+            <!-- 彻底抛弃 SVG，使用 HTML DOM 和 CSS 变形组装 AIIT 图标结构 -->
+            <div class="line fg-charcoal a-l"></div>
+            <div class="line fg-charcoal a-r"></div>
+            <div class="line fg-charcoal a-peak"></div>
+            <div class="line fg-charcoal i-core"></div>
+            <div class="line fg-charcoal t-top"></div>
+            <div class="line fg-charcoal t-core"></div>
+        </div>
+    </div>
+
+    <!-- Anthropic Style: Dark Charcoal 模式 -->
+    <div class="icon bg-charcoal">
+        <div class="aiit-graphic">
+            <div class="line fg-ivory a-l"></div>
+            <div class="line fg-ivory a-r"></div>
+            <div class="line fg-ivory a-peak"></div>
+            <div class="line fg-ivory i-core"></div>
+            <div class="line fg-ivory t-top"></div>
+            <div class="line fg-ivory t-core"></div>
+        </div>
+    </div>
+
+</body>
+
+</html>

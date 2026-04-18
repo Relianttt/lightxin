@@ -12,8 +12,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -30,14 +28,10 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.lightxin.core.designsystem.component.LxButton
 import com.lightxin.core.designsystem.component.LxCard
+import com.lightxin.core.designsystem.component.LxChoiceChip
 import com.lightxin.core.designsystem.component.LxTextField
 import com.lightxin.core.designsystem.component.LxTopBar
-import com.lightxin.core.designsystem.theme.LxCream
 import com.lightxin.core.designsystem.theme.LxInk
-import com.lightxin.core.designsystem.theme.LxInkMuted
-import com.lightxin.core.designsystem.theme.LxSandDeep
-import com.lightxin.core.designsystem.theme.LxTerra
-import com.lightxin.core.designsystem.theme.LxTerraSoft
 import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.ZoneId
@@ -161,22 +155,10 @@ fun RunningSimScreen(
                             verticalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
                             listOf(20, 30, 45).forEach { minutes ->
-                                FilterChip(
+                                LxChoiceChip(
+                                    text = "$minutes 分钟",
                                     selected = uiState.selectedSimDurationPresetMinutes == minutes,
                                     onClick = { viewModel.selectSimDurationPreset(minutes) },
-                                    label = { Text("$minutes 分钟") },
-                                    colors = FilterChipDefaults.filterChipColors(
-                                        containerColor = LxCream,
-                                        labelColor = LxInkMuted,
-                                        selectedContainerColor = LxTerraSoft,
-                                        selectedLabelColor = LxTerra,
-                                    ),
-                                    border = FilterChipDefaults.filterChipBorder(
-                                        enabled = true,
-                                        selected = uiState.selectedSimDurationPresetMinutes == minutes,
-                                        borderColor = LxSandDeep,
-                                        selectedBorderColor = LxTerra,
-                                    ),
                                 )
                             }
                         }

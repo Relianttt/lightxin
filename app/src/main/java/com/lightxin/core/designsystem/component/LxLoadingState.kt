@@ -33,16 +33,29 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.Dp
+
+@Composable
+fun LxProgressIndicator(
+    modifier: Modifier = Modifier,
+    strokeWidth: Dp = 3.dp,
+    color: Color = MaterialTheme.colorScheme.primary,
+) {
+    CircularProgressIndicator(
+        modifier = modifier,
+        strokeWidth = strokeWidth,
+        color = color,
+    )
+}
 
 @Composable
 fun LxLoading(modifier: Modifier = Modifier) {
     Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        CircularProgressIndicator(
+        LxProgressIndicator(
             modifier = Modifier.size(40.dp),
-            strokeWidth = 3.dp,
-            color = MaterialTheme.colorScheme.primary,
         )
     }
 }

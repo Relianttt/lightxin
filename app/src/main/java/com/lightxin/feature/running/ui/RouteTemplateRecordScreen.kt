@@ -12,11 +12,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -34,6 +32,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.lightxin.core.designsystem.component.LxButton
 import com.lightxin.core.designsystem.component.LxCard
+import com.lightxin.core.designsystem.component.LxDialog
 import com.lightxin.core.designsystem.component.LxOutlinedButton
 import com.lightxin.core.designsystem.component.LxTextField
 import com.lightxin.core.designsystem.component.LxTopBar
@@ -207,13 +206,30 @@ fun RouteTemplateRecordScreen(
     }
 
     if (showSaveDialog) {
-        AlertDialog(
-            onDismissRequest = { /* 阻止外部关闭避免丢失录制 */ },
-            containerColor = MaterialTheme.colorScheme.surface,
-            title = { Text("保存模板") },
-            text = {
+        LxDialog(
+            title = "保存模板",
+            confirmText = "保存",
+            dismissText = "放弃",
+            onDismissRequest = { },
+            dismissOnBackPress = false,
+            dismissOnClickOutside = false,
+            onDismiss = {
+                showSaveDialog = false
+                viewModel.cancelRecording()
+                onBack()
+            },
+            onConfirm = {
+                scope.launch {
+                    val ok = viewModel.saveRecording(nameInput)
+                    showSaveDialog = false
+                    if (ok) {
+                        onBack()
+                    }
+                }
+            },
+            content = {
                 Column {
-                    Text("请为本次路线命名")
+                    Text("请为本次路线命名", style = MaterialTheme.typography.bodyMedium)
                     Spacer(modifier = Modifier.height(12.dp))
                     LxTextField(
                         value = nameInput,
@@ -222,26 +238,6 @@ fun RouteTemplateRecordScreen(
                         keyboardOptions = KeyboardOptions.Default,
                     )
                 }
-            },
-            confirmButton = {
-                TextButton(onClick = {
-                    scope.launch {
-                        val ok = viewModel.saveRecording(nameInput)
-                        if (ok) {
-                            showSaveDialog = false
-                            onBack()
-                        } else {
-                            showSaveDialog = false
-                        }
-                    }
-                }) { Text("保存") }
-            },
-            dismissButton = {
-                TextButton(onClick = {
-                    showSaveDialog = false
-                    viewModel.cancelRecording()
-                    onBack()
-                }) { Text("放弃") }
             },
         )
     }

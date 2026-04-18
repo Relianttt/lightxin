@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -30,6 +31,7 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -59,7 +61,9 @@ import java.time.LocalDate
 private const val SECTION_COUNT = 10
 private val DAY_LABELS = listOf("一", "二", "三", "四", "五", "六", "日")
 private val CELL_HEIGHT = 58.dp
-private val SECTION_LABEL_WIDTH = 26.dp
+private val SECTION_LABEL_WIDTH = 32.dp
+private val GRID_START_PADDING = 12.dp
+private val GRID_END_PADDING = 10.dp
 
 @Composable
 @androidx.compose.runtime.ReadOnlyComposable
@@ -100,6 +104,7 @@ fun ScheduleScreen(
                 uiState.courses.isEmpty() -> LxEmpty(message = "本周没有课程")
                 else -> ScheduleGrid(
                     courses = uiState.courses,
+                    showCurrentDayIndicator = uiState.weekInfo?.currentWeek == uiState.selectedWeek,
                     onCourseClick = { selectedCourse = it },
                 )
             }
@@ -132,20 +137,47 @@ private fun WeekSelector(
         val target = (selectedWeek - 2).coerceAtLeast(0)
         listState.animateScrollToItem(target)
     }
+    val currentWeekHint by remember(listState, currentWeek) {
+        derivedStateOf {
+            val visibleItems = listState.layoutInfo.visibleItemsInfo
+            if (visibleItems.isEmpty()) return@derivedStateOf null
+            val firstVisibleIndex = visibleItems.first().index
+            val lastVisibleIndex = visibleItems.last().index
+            when {
+                currentWeek < firstVisibleIndex -> "← 本周" to Alignment.TopStart
+                currentWeek > lastVisibleIndex -> "本周 →" to Alignment.TopEnd
+                else -> null
+            }
+        }
+    }
 
-    LazyRow(
-        state = listState,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 10.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        itemsIndexed(List(totalWeeks) { it }) { _, week ->
-            WeekChip(
-                label = if (week == 0) "预备" else "第${week}周",
-                isSelected = week == selectedWeek,
-                isCurrent = week == currentWeek,
-                onClick = { onWeekSelected(week) },
+    Box(modifier = Modifier.fillMaxWidth()) {
+        LazyRow(
+            state = listState,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 10.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            itemsIndexed(List(totalWeeks) { it }) { _, week ->
+                WeekChip(
+                    label = if (week == 0) "预备" else "第${week}周",
+                    isSelected = week == selectedWeek,
+                    isCurrent = week == currentWeek,
+                    onClick = { onWeekSelected(week) },
+                )
+            }
+        }
+
+        currentWeekHint?.let { (label, alignment) ->
+            Text(
+                text = label,
+                modifier = Modifier
+                    .align(alignment)
+                    .offset(y = (-35).dp)
+                    .padding(start = 20.dp, end = 20.dp, top = 2.dp),
+                fontSize = 12.sp,
+                color = LxInkMuted,
             )
         }
     }
@@ -195,6 +227,7 @@ private fun WeekChip(
 @Composable
 private fun ScheduleGrid(
     courses: List<Course>,
+    showCurrentDayIndicator: Boolean,
     onCourseClick: (Course) -> Unit,
 ) {
     val today = remember { LocalDate.now().dayOfWeek.value } // 1=周一
@@ -202,14 +235,15 @@ private fun ScheduleGrid(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState()),
+            .verticalScroll(rememberScrollState())
+            .padding(start = GRID_START_PADDING, end = GRID_END_PADDING),
     ) {
         // ── 表头：星期 ──
         Row(modifier = Modifier.fillMaxWidth()) {
             Box(modifier = Modifier.width(SECTION_LABEL_WIDTH))
             DAY_LABELS.forEachIndexed { index, label ->
                 val dayIndex = index + 1
-                val isToday = dayIndex == today
+                val isToday = showCurrentDayIndicator && dayIndex == today
                 Column(
                     modifier = Modifier
                         .weight(1f)
@@ -255,7 +289,7 @@ private fun ScheduleGrid(
 
             // 7 天列
             (1..7).forEach { day ->
-                val isToday = day == today
+                val isToday = showCurrentDayIndicator && day == today
                 val dayCourses = courses.filter { it.dayOfWeek == day }
 
                 Box(

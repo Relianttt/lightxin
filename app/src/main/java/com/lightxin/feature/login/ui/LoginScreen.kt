@@ -24,9 +24,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -50,6 +48,8 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.lightxin.core.designsystem.component.LxButton
 import com.lightxin.core.designsystem.component.LxCard
+import com.lightxin.core.designsystem.component.LxIconButton
+import com.lightxin.core.designsystem.component.LxProgressIndicator
 import com.lightxin.core.designsystem.component.LxTextField
 import com.lightxin.core.designsystem.theme.LxCardBorder
 import com.lightxin.core.designsystem.theme.LxCream
@@ -125,7 +125,7 @@ fun LoginScreen(
                             PasswordVisualTransformation()
                         },
                         trailingIcon = {
-                            IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                            LxIconButton(onClick = { passwordVisible = !passwordVisible }) {
                                 Icon(
                                     imageVector = if (passwordVisible) {
                                         Icons.Default.VisibilityOff
@@ -169,10 +169,9 @@ fun LoginScreen(
                             modifier = Modifier.fillMaxWidth(),
                             contentAlignment = Alignment.Center,
                         ) {
-                            CircularProgressIndicator(
+                            LxProgressIndicator(
                                 modifier = Modifier.size(40.dp),
                                 strokeWidth = 3.dp,
-                                color = MaterialTheme.colorScheme.primary,
                             )
                         }
                     } else {

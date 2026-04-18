@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -154,7 +155,8 @@ private fun RunningActiveContent(
                 )
                 ActiveMetricCard(
                     title = "速度",
-                    value = if (speedKmh > 0.0) String.format("%.1f km/h", speedKmh) else "--",
+                    value = if (speedKmh > 0.0) String.format("%.1f", speedKmh) else "--",
+                    unitText = if (speedKmh > 0.0) "km/h" else null,
                     modifier = Modifier.weight(1f),
                 )
             }
@@ -206,6 +208,7 @@ private fun RunningActiveContent(
 private fun ActiveMetricCard(
     title: String,
     value: String,
+    unitText: String? = null,
     modifier: Modifier = Modifier,
 ) {
     LxCard(modifier = modifier) {
@@ -216,11 +219,33 @@ private fun ActiveMetricCard(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Spacer(modifier = Modifier.height(6.dp))
-            Text(
-                text = value,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-            )
+            if (!unitText.isNullOrBlank()) {
+                Row(verticalAlignment = Alignment.Bottom) {
+                    Text(
+                        text = value,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                        softWrap = false,
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = unitText,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        softWrap = false,
+                    )
+                }
+            } else {
+                Text(
+                    text = value,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    softWrap = false,
+                )
+            }
         }
     }
 }

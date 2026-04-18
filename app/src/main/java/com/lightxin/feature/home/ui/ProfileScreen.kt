@@ -27,11 +27,9 @@ import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Route
 import androidx.compose.material.icons.outlined.School
 import androidx.compose.material.icons.outlined.WorkHistory
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -48,6 +46,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.lightxin.core.designsystem.component.LxCard
+import com.lightxin.core.designsystem.component.LxDialog
+import com.lightxin.core.designsystem.component.LxDialogConfirmTone
 import com.lightxin.core.designsystem.theme.LxCream
 import com.lightxin.core.designsystem.theme.LxInk
 import com.lightxin.core.designsystem.theme.LxInkGhost
@@ -176,24 +176,18 @@ fun ProfileScreen(
     }
 
     if (showLogoutDialog) {
-        AlertDialog(
+        LxDialog(
+            title = "退出登录",
+            message = "确定要退出登录吗？",
+            confirmText = "确定",
+            dismissText = "取消",
             onDismissRequest = { showLogoutDialog = false },
-            containerColor = MaterialTheme.colorScheme.surface,
-            title = { Text("退出登录") },
-            text = { Text("确定要退出登录吗？") },
-            confirmButton = {
-                TextButton(onClick = {
-                    showLogoutDialog = false
-                    viewModel.logout(onLogout)
-                }) {
-                    Text("确定", color = LxRose)
-                }
+            onDismiss = { showLogoutDialog = false },
+            onConfirm = {
+                showLogoutDialog = false
+                viewModel.logout(onLogout)
             },
-            dismissButton = {
-                TextButton(onClick = { showLogoutDialog = false }) {
-                    Text("取消")
-                }
-            },
+            confirmTone = LxDialogConfirmTone.Destructive,
         )
     }
 }

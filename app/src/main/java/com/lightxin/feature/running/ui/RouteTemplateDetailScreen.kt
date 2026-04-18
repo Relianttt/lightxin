@@ -16,11 +16,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -40,6 +38,8 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.lightxin.core.designsystem.component.LxButton
 import com.lightxin.core.designsystem.component.LxCard
+import com.lightxin.core.designsystem.component.LxDialog
+import com.lightxin.core.designsystem.component.LxDialogConfirmTone
 import com.lightxin.core.designsystem.component.LxEmpty
 import com.lightxin.core.designsystem.component.LxOutlinedButton
 import com.lightxin.core.designsystem.component.LxTextField
@@ -119,11 +119,17 @@ fun RouteTemplateDetailScreen(
     }
 
     if (renameVisible && template != null) {
-        AlertDialog(
+        LxDialog(
+            title = "重命名模板",
+            confirmText = "确定",
+            dismissText = "取消",
             onDismissRequest = { renameVisible = false },
-            containerColor = MaterialTheme.colorScheme.surface,
-            title = { Text("重命名模板") },
-            text = {
+            onDismiss = { renameVisible = false },
+            onConfirm = {
+                viewModel.rename(template.id, renameInput)
+                renameVisible = false
+            },
+            content = {
                 LxTextField(
                     value = renameInput,
                     onValueChange = { renameInput = it },
@@ -131,34 +137,23 @@ fun RouteTemplateDetailScreen(
                     keyboardOptions = KeyboardOptions.Default,
                 )
             },
-            confirmButton = {
-                TextButton(onClick = {
-                    viewModel.rename(template.id, renameInput)
-                    renameVisible = false
-                }) { Text("确定") }
-            },
-            dismissButton = {
-                TextButton(onClick = { renameVisible = false }) { Text("取消") }
-            },
         )
     }
 
     if (deleteVisible && template != null) {
-        AlertDialog(
+        LxDialog(
+            title = "删除模板",
+            message = "确定删除「${template.name}」？此操作不可撤销。",
+            confirmText = "删除",
+            dismissText = "取消",
             onDismissRequest = { deleteVisible = false },
-            containerColor = MaterialTheme.colorScheme.surface,
-            title = { Text("删除模板") },
-            text = { Text("确定删除「${template.name}」？此操作不可撤销。") },
-            confirmButton = {
-                TextButton(onClick = {
-                    viewModel.delete(template.id)
-                    deleteVisible = false
-                    onBack()
-                }) { Text("删除", color = LxRose) }
+            onDismiss = { deleteVisible = false },
+            onConfirm = {
+                viewModel.delete(template.id)
+                deleteVisible = false
+                onBack()
             },
-            dismissButton = {
-                TextButton(onClick = { deleteVisible = false }) { Text("取消") }
-            },
+            confirmTone = LxDialogConfirmTone.Destructive,
         )
     }
 }
