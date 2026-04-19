@@ -2,6 +2,7 @@ package com.lightxin.feature.running.ui
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.lightxin.core.settings.DeveloperPrefs
 import com.lightxin.feature.running.data.RouteTemplateStore
 import com.lightxin.feature.running.data.RunningRepository
 import com.lightxin.feature.running.domain.RouteTemplate
@@ -44,6 +45,7 @@ data class RunningUiState(
     val shouldNavigateToResult: Boolean = false,
     val defaultTemplate: RouteTemplate? = null,
     val templateCount: Int = 0,
+    val advancedEnabled: Boolean = false,
 )
 
 @HiltViewModel
@@ -51,6 +53,7 @@ class RunningViewModel @Inject constructor(
     private val repository: RunningRepository,
     private val tracker: RunningTracker,
     private val templateStore: RouteTemplateStore,
+    private val developerPrefs: DeveloperPrefs,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(RunningUiState())
@@ -59,7 +62,16 @@ class RunningViewModel @Inject constructor(
     init {
         observeTracker()
         observeTemplates()
+        observeDeveloperPrefs()
         refreshDashboard()
+    }
+
+    private fun observeDeveloperPrefs() {
+        viewModelScope.launch {
+            developerPrefs.isAdvancedEnabled.collectLatest { enabled ->
+                _uiState.update { it.copy(advancedEnabled = enabled) }
+            }
+        }
     }
 
     private fun observeTemplates() {

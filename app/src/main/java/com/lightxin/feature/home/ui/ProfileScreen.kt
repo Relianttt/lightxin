@@ -65,6 +65,7 @@ fun ProfileScreen(
     onNavigateLabor: () -> Unit,
     onNavigateAiClass: () -> Unit,
     onNavigateRouteSimulation: () -> Unit,
+    onNavigateAbout: () -> Unit,
     onLogout: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: ProfileViewModel = hiltViewModel(),
@@ -145,12 +146,14 @@ fun ProfileScreen(
                     title = "AI课堂",
                     onClick = onNavigateAiClass,
                 )
-                MenuDivider()
-                ProfileMenuRow(
-                    icon = Icons.Outlined.Route,
-                    title = "路线模拟",
-                    onClick = onNavigateRouteSimulation,
-                )
+                if (uiState.advancedEnabled) {
+                    MenuDivider()
+                    ProfileMenuRow(
+                        icon = Icons.Outlined.Route,
+                        title = "路线模拟",
+                        onClick = onNavigateRouteSimulation,
+                    )
+                }
             }
         }
 
@@ -162,7 +165,7 @@ fun ProfileScreen(
                 icon = Icons.Outlined.Info,
                 title = "关于轻小信",
                 hint = "v1.0.0",
-                onClick = { /* 关于页暂未实现，按住占位 */ },
+                onClick = onNavigateAbout,
             )
         }
 

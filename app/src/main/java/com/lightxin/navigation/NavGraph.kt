@@ -26,6 +26,7 @@ import com.lightxin.core.auth.SessionManager
 import com.lightxin.core.designsystem.component.LxLoading
 import com.lightxin.feature.aiclass.ui.AiClassHomeScreen
 import com.lightxin.feature.aiclass.ui.AiClassScanScreen
+import com.lightxin.feature.about.ui.AboutScreen
 import com.lightxin.feature.checkin.ui.CheckinDetailScreen
 import com.lightxin.feature.checkin.ui.CheckinListScreen
 import com.lightxin.feature.home.ui.HomeScreen
@@ -337,6 +338,11 @@ fun LightXinNavHost(
                     navController.popBackStack()
                 },
             )
+        }
+
+        // About
+        composable(Routes.ABOUT) {
+            AboutScreen(onBack = { navController.popBackStack() })
         }
     }
 }

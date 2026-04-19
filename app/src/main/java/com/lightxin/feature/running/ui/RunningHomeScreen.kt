@@ -119,6 +119,7 @@ fun RunningHomeScreen(
                 isActive = uiState.trackerState.isSessionActive,
                 trackerLabel = uiState.trackerState.locationLabel,
                 startError = permissionError ?: uiState.startError,
+                advancedEnabled = uiState.advancedEnabled,
                 onPrimaryAction = {
                     if (uiState.trackerState.isSessionActive) {
                         onOpenActive()
@@ -140,6 +141,7 @@ private fun RunningHomeContent(
     isActive: Boolean,
     trackerLabel: String,
     startError: String?,
+    advancedEnabled: Boolean,
     onPrimaryAction: () -> Unit,
     onSimAction: () -> Unit,
     modifier: Modifier = Modifier,
@@ -196,12 +198,14 @@ private fun RunningHomeContent(
                 onClick = onPrimaryAction,
                 enabled = !isStarting,
             )
-            Spacer(modifier = Modifier.height(10.dp))
-            LxOutlinedButton(
-                text = "模拟提交",
-                onClick = onSimAction,
-                enabled = !isStarting,
-            )
+            if (advancedEnabled) {
+                Spacer(modifier = Modifier.height(10.dp))
+                LxOutlinedButton(
+                    text = "模拟提交",
+                    onClick = onSimAction,
+                    enabled = !isStarting,
+                )
+            }
         }
     }
 }

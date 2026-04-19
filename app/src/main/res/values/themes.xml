@@ -11,7 +11,7 @@
     <!-- 启动期间显示羊皮纸暖底 + 应用 logo，数据就绪/超时后由 postSplashScreenTheme 切换回正常主题。 -->
     <style name="Theme.LightXin.Splash" parent="Theme.SplashScreen">
         <item name="windowSplashScreenBackground">@color/splash_background</item>
-        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/splash_logo</item>
         <item name="postSplashScreenTheme">@style/Theme.LightXin</item>
     </style>
 </resources>

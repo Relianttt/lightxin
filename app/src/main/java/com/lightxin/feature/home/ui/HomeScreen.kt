@@ -129,6 +129,11 @@ fun HomeScreen(
                             launchSingleTop = true
                         }
                     },
+                    onNavigateAbout = {
+                        navController.navigate(Routes.ABOUT) {
+                            launchSingleTop = true
+                        }
+                    },
                     onLogout = {
                         navController.navigate(Routes.LOGIN) {
                             popUpTo(Routes.HOME) { inclusive = true }
