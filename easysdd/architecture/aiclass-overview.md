@@ -117,6 +117,7 @@ UI 层限制输入长度 ≤6，签到按钮在输入达到 6 位且存在进行
 - 图像分析用 `ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST`
 - 扫码结果通过 `BarcodeScanner.process()` 异步回调
 - ML Kit 的 `ZoomSuggestionOptions` 启用自动变焦
+- 支持双指捏合手动变焦，缩放上限与自动变焦一致（`minOf(hardwareMax, 4f)`）
 - 成功检测到二维码后显示"扫码成功"过渡态
 
 ## 3. 数据与状态

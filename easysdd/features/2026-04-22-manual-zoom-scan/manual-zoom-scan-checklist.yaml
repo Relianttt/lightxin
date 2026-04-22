@@ -1,0 +1,49 @@
+steps:
+  - id: step-1
+    description: 提高 ImageAnalysis 分辨率至 720p
+    status: done
+    details: "修改 AiClassScanScreen.kt 中 ImageAnalysis.Builder，追加 .setTargetResolution(Size(1280, 720))"
+    exit_signal: "扫码页打开后，远处二维码识别率提升（真机验证）"
+
+  - id: step-2
+    description: CameraPreview 新增 onCameraReady 回调
+    status: done
+    details: "CameraPreview 函数追加 onCameraReady: (Camera) -> Unit 参数，在 cameraProvider.bindToLifecycle() 成功后调用"
+    exit_signal: "CameraPreview 的调用方能收到 Camera 实例"
+
+  - id: step-3
+    description: PreviewView 增加双指捏合缩放
+    status: done
+    details: "在 PreviewView 的 AndroidView factory lambda 中设置 OnTouchListener + ScaleGestureDetector，缩放上限复用 OFFICIAL_AUTO_ZOOM_MAX_RATIO 逻辑"
+    exit_signal: "扫码页中双指捏合/张开能控制预览画面缩放"
+
+  - id: step-4
+    description: 边界验证
+    status: done
+    details: "验证提高分辨率后扫码正常触发、缩放后扫码正常触发、快速缩放不卡顿、不支持变焦设备无崩溃"
+    exit_signal: "所有边界情况通过验证"
+
+checks:
+  - id: check-1
+    description: "远距离二维码识别率提升（真机实测，1m+ 距离）"
+    status: passed
+
+  - id: check-2
+    description: "双指缩放后扫码功能正常"
+    status: passed
+
+  - id: check-3
+    description: "手动与自动变焦上限一致（共用 OFFICIAL_AUTO_ZOOM_MAX_RATIO）"
+    status: passed
+
+  - id: check-4
+    description: "不支持变焦的设备无崩溃"
+    status: passed
+
+  - id: check-5
+    description: "ML Kit 自动变焦建议仍正常工作"
+    status: passed
+
+  - id: check-6
+    description: "acceptance 阶段更新 aiclass-overview.md §2.7 补充手动捏合缩放能力说明"
+    status: passed

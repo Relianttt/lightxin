@@ -53,6 +53,8 @@ import com.google.mlkit.vision.common.InputImage
 import com.lightxin.core.designsystem.component.LxProgressIndicator
 import com.lightxin.core.designsystem.component.LxTopBar
 import com.lightxin.feature.aiclass.domain.AiClassQrPayload
+import android.util.Size
+import android.view.ScaleGestureDetector
 import java.util.concurrent.Executors
 
 private const val SCAN_LOG_TAG = "AiClassScan"
@@ -187,6 +189,7 @@ fun AiClassScanScreen(
 @Composable
 private fun CameraPreview(
     onQrCodeDetected: (String) -> Unit,
+    onCameraReady: (Camera) -> Unit = {},  // 相机就绪回调，供父组件获取 Camera 实例
 ) {
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
     val executor = remember { Executors.newSingleThreadExecutor() }
@@ -206,6 +209,29 @@ private fun CameraPreview(
                 scaleType = PreviewView.ScaleType.FILL_CENTER
             }
             val cameraProviderFuture = ProcessCameraProvider.getInstance(ctx)
+            var camera: Camera? = null
+
+            val scaleDetector = ScaleGestureDetector(
+                ctx,
+                object : ScaleGestureDetector.SimpleOnScaleGestureListener() {
+                    override fun onScale(detector: ScaleGestureDetector): Boolean {
+                        val cam = camera ?: return false
+                        val zoomState = cam.cameraInfo.zoomState.value ?: return false
+                        val maxZoom = minOf(
+                            zoomState.maxZoomRatio ?: OFFICIAL_AUTO_ZOOM_MAX_RATIO,
+                            OFFICIAL_AUTO_ZOOM_MAX_RATIO,
+                        )
+                        val currentZoom = zoomState.zoomRatio ?: 1f
+                        val newZoom = (currentZoom * detector.scaleFactor)
+                            .coerceIn(1f, maxZoom)
+                        cam.cameraControl.setZoomRatio(newZoom)
+                        return true
+                    }
+                },
+            )
+            previewView.setOnTouchListener { _, event ->
+                scaleDetector.onTouchEvent(event)
+            }
 
             cameraProviderFuture.addListener({
                 val cameraProvider = cameraProviderFuture.get()
@@ -215,24 +241,27 @@ private fun CameraPreview(
                 }
 
                 val analysis = ImageAnalysis.Builder()
+                    .setTargetResolution(Size(1280, 720))
                     .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                     .build()
 
                 try {
                     cameraProvider.unbindAll()
-                    val camera = cameraProvider.bindToLifecycle(
+                    val boundCamera = cameraProvider.bindToLifecycle(
                         lifecycleOwner,
                         CameraSelector.DEFAULT_BACK_CAMERA,
                         preview,
                         analysis,
                     )
+                    camera = boundCamera
+                    onCameraReady(boundCamera)
                     val maxSupportedZoomRatio = minOf(
-                        camera.cameraInfo.zoomState.value?.maxZoomRatio ?: OFFICIAL_AUTO_ZOOM_MAX_RATIO,
+                        boundCamera.cameraInfo.zoomState.value?.maxZoomRatio ?: OFFICIAL_AUTO_ZOOM_MAX_RATIO,
                         OFFICIAL_AUTO_ZOOM_MAX_RATIO,
                     )
                     val zoomCallback = ZoomSuggestionOptions.ZoomCallback { suggestedZoomRatio ->
                         applyOfficialZoomSuggestion(
-                            camera = camera,
+                            camera = boundCamera,
                             suggestedZoomRatio = suggestedZoomRatio,
                             maxSupportedZoomRatio = maxSupportedZoomRatio,
                         )
