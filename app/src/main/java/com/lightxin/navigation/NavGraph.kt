@@ -1,5 +1,7 @@
 package com.lightxin.navigation
 
+import android.net.Uri
+
 import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
@@ -15,7 +17,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalContext
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -25,6 +27,7 @@ import androidx.navigation.navArgument
 import com.lightxin.core.auth.SessionManager
 import com.lightxin.core.designsystem.component.LxLoading
 import com.lightxin.feature.aiclass.ui.AiClassHomeScreen
+import com.lightxin.feature.aiclass.ui.AiClassCourseDetailScreen
 import com.lightxin.feature.aiclass.ui.AiClassScanScreen
 import com.lightxin.feature.about.ui.AboutScreen
 import com.lightxin.feature.checkin.ui.CheckinDetailScreen
@@ -326,6 +329,17 @@ fun LightXinNavHost(
                         launchSingleTop = true
                     }
                 },
+                onOpenCourseDetail = { classId ->
+                    navController.navigate(Routes.aiClassDetail(classId)) {
+                        launchSingleTop = true
+                    }
+                },
+                onOpenWorkingDetail = {
+                    aiClassViewModel.openWorkingRecordDetail()
+                    navController.navigate(Routes.aiClassDetail("_working")) {
+                        launchSingleTop = true
+                    }
+                },
             )
         }
         composable(Routes.AICLASS_SCAN) {
@@ -337,6 +351,18 @@ fun LightXinNavHost(
                     aiClassViewModel.submitQrCode(payload)
                     navController.popBackStack()
                 },
+            )
+        }
+        composable(
+            route = Routes.AICLASS_DETAIL,
+            arguments = listOf(navArgument("classId") { type = NavType.StringType }),
+        ) { backStackEntry ->
+            val aiClassEntry = remember(navController) { navController.getBackStackEntry(Routes.AICLASS_HOME) }
+            val aiClassViewModel: com.lightxin.feature.aiclass.ui.AiClassViewModel = hiltViewModel(aiClassEntry)
+            AiClassCourseDetailScreen(
+                classId = Uri.decode(backStackEntry.arguments?.getString("classId").orEmpty()),
+                viewModel = aiClassViewModel,
+                onBack = { navController.popBackStack() },
             )
         }
 

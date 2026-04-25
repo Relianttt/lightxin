@@ -1,0 +1,55 @@
+steps:
+  - id: step-1
+    description: 补 FIF 会话中的 memberId 持久化与读取能力
+    status: done
+    details: "修改 FifSessionManager，解析 FIF token 的 JWT payload 并保存 memberId，提供 getMemberUserId()"
+    exit_signal: "Repository 能拿到 studentId 与 memberId"
+
+  - id: step-2
+    description: 补 AI课堂测验数据模型、API、课程补数与 Repository
+    status: done
+    details: "新增 AiQuiz、测验接口、课表补数接口、响应模型、getQuizList(courseId)，并把 timetableInfo 缺失课程补进当前学期课程列表"
+    exit_signal: "repository.getQuizList(courseId) 返回映射后的测验列表；repository.getCourses() 能补齐 myClassroom 缺失的当前学期课程"
+
+  - id: step-3
+    description: 补 ViewModel 详情态与详情页加载动作
+    status: done
+    details: "AiClassUiState 增加 selectedCourse/quizList/isQuizLoading/quizError，并新增 openCourseDetail(classId)"
+    exit_signal: "选中课程后能驱动详情页测验列表加载"
+
+  - id: step-4
+    description: 新增课程详情页与导航入口
+    status: done
+    details: "新增 AICLASS_DETAIL route、详情页 Screen，并让课程卡片可点击进入"
+    exit_signal: "点击课程卡片进入详情页，可看到课程信息与测验区块"
+
+  - id: step-5
+    description: 架构归并与最小验证
+    status: pending
+    details: "已更新 aiclass-overview.md 并补最小单测；仍需基于最新代码执行 assembleDebug/test 完成验证闭环"
+    exit_signal: "最新代码的 assembleDebug 与 test 通过，架构文档已补到课程详情/测验能力"
+
+checks:
+  - id: check-1
+    description: "FIF token 中的 memberId 能被容错解析并持久化"
+    status: pending
+
+  - id: check-2
+    description: "测验提交状态优先使用 iscommited，不单独依赖 status"
+    status: passed
+
+  - id: check-2b
+    description: "myClassroom 缺失的当前学期课程可由 timetableInfo 补进“我的课程”，且补进课程仍能进入详情页"
+    status: pending
+
+  - id: check-3
+    description: "首页课程卡片点击后可进入课程详情页"
+    status: pending
+
+  - id: check-4
+    description: "课程详情页能展示测验列表、空态与错误态"
+    status: pending
+
+  - id: check-5
+    description: "acceptance 阶段更新 aiclass-overview.md，补充课程详情与测验列表能力"
+    status: passed

@@ -1,0 +1,36 @@
+feature: aiclass-working-card-quiz
+created: 2026-04-26
+
+steps:
+  - action: "ViewModel：新增 openWorkingRecordDetail()，openCourseDetail() 处理 _working 哨兵"
+    exit_signal: "编译通过，函数可被外部调用"
+    status: done
+  - action: "HomeScreen：WorkingClassCard 加 onClick，AiClassContent 传 onOpenWorkingDetail"
+    exit_signal: "编译通过，WorkingClassCard 可点击"
+    status: done
+  - action: "NavGraph：AiClassHomeScreen 接线 onOpenWorkingDetail 回调"
+    exit_signal: "编译通过，debug 包点击正在上课卡片能跳转详情页"
+    status: done
+  - action: "实机闭环验证：debug + release 包测试完整链路"
+    exit_signal: "debug 和 release 包均测试通过"
+    status: pending
+
+checks:
+  - item: "不修改正在上课卡片视觉样式（仅加点击）"
+    source: 范围守护
+    status: pending
+  - item: "不新增 API，不改变我的课程列表逻辑"
+    source: 范围守护
+    status: pending
+  - item: "openWorkingRecordDetail() 设置 isQuizLoading=true，协程有陈旧数据防护"
+    source: 接口契约
+    status: pending
+  - item: "点击无匹配课程时不崩溃，用 courseItemName 展示"
+    source: 测试约束
+    status: pending
+  - item: "typeName=理论/实验的课程正确显示后缀，不重复拼接"
+    source: 测试约束
+    status: pending
+  - item: "release 包 ProGuard 不影响新功能"
+    source: 测试约束
+    status: pending

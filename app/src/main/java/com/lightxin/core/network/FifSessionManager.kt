@@ -1,13 +1,13 @@
 package com.lightxin.core.network
 
 import android.content.Context
-import android.util.Base64
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.lightxin.core.auth.TokenManager
+import com.google.gson.JsonParser
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
@@ -17,6 +17,8 @@ import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
+import java.util.Base64
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -38,6 +40,7 @@ class FifSessionManager @Inject constructor(
         private val KEY_STUDENT_ID = stringPreferencesKey("student_id")
         private val KEY_USER_NAME = stringPreferencesKey("user_name")
         private val KEY_SCHOOL_ID = stringPreferencesKey("school_id")
+        private val KEY_MEMBER_USER_ID = stringPreferencesKey("member_user_id")
     }
 
     suspend fun getStudentId(): String? =
@@ -51,6 +54,9 @@ class FifSessionManager @Inject constructor(
 
     suspend fun getSchoolId(): String? =
         context.fifDataStore.data.first()[KEY_SCHOOL_ID]
+
+    suspend fun getMemberUserId(): String? =
+        context.fifDataStore.data.first()[KEY_MEMBER_USER_ID]
 
     suspend fun isSessionValid(): Boolean =
         !getStudentId().isNullOrBlank() &&
@@ -92,6 +98,7 @@ class FifSessionManager @Inject constructor(
             // Step 3: 用户映射
             val userInfo = fetchUserMapping(fifToken)
                 ?: return@withContext Result.failure(Exception("FIF 用户映射失败"))
+            val memberUserId = extractMemberUserIdFromFifToken(fifToken)
 
             // 持久化
             context.fifDataStore.edit { prefs ->
@@ -99,6 +106,11 @@ class FifSessionManager @Inject constructor(
                 prefs[KEY_STUDENT_ID] = userInfo.studentId
                 prefs[KEY_USER_NAME] = userInfo.userName
                 prefs[KEY_SCHOOL_ID] = userInfo.schoolId
+                if (!memberUserId.isNullOrBlank()) {
+                    prefs[KEY_MEMBER_USER_ID] = memberUserId
+                } else {
+                    prefs.remove(KEY_MEMBER_USER_ID)
+                }
             }
 
             Result.success(Unit)
@@ -246,4 +258,20 @@ class FifSessionManager @Inject constructor(
         val userName: String,
         val schoolId: String,
     )
+}
+
+internal fun extractMemberUserIdFromFifToken(token: String): String? {
+    val payload = token.split('.').getOrNull(1) ?: return null
+    return runCatching {
+        val decoded = Base64.getUrlDecoder().decode(payload.padBase64Url())
+        val payloadJson = String(decoded, StandardCharsets.UTF_8)
+        val jsonObject = JsonParser.parseString(payloadJson).asJsonObject
+        jsonObject.get("memberId")?.asString
+            ?: jsonObject.get("memberUserId")?.asString
+    }.getOrNull()?.takeIf { it.isNotBlank() }
+}
+
+private fun String.padBase64Url(): String {
+    val remainder = length % 4
+    return if (remainder == 0) this else this + "=".repeat(4 - remainder)
 }

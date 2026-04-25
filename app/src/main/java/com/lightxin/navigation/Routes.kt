@@ -1,5 +1,6 @@
 package com.lightxin.navigation
 
+import android.net.Uri
 import kotlinx.serialization.Serializable
 
 object Routes {
@@ -34,6 +35,8 @@ object Routes {
     // AI Class
     const val AICLASS_HOME = "aiclass/home"
     const val AICLASS_SCAN = "aiclass/scan"
+    const val AICLASS_DETAIL = "aiclass/detail/{classId}"
+    fun aiClassDetail(classId: String) = "aiclass/detail/${Uri.encode(classId)}"
 
     // About
     const val ABOUT = "about"

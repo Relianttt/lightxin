@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.lightxin.core.network.FifSessionManager
 import com.lightxin.feature.aiclass.data.AiClassRepository
 import com.lightxin.feature.aiclass.domain.AiCourse
+import com.lightxin.feature.aiclass.domain.AiQuiz
 import com.lightxin.feature.aiclass.domain.AiClassQrPayload
 import com.lightxin.feature.aiclass.domain.AiWorkingRecord
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -20,10 +21,14 @@ private const val VIEWMODEL_LOG_TAG = "AiClassVM"
 data class AiClassUiState(
     val courses: List<AiCourse> = emptyList(),
     val workingRecord: AiWorkingRecord? = null,
+    val selectedCourse: AiCourse? = null,
+    val quizList: List<AiQuiz> = emptyList(),
     val isLoading: Boolean = true,
     val isSsoInProgress: Boolean = false,
     val isSigningIn: Boolean = false,
+    val isQuizLoading: Boolean = false,
     val error: String? = null,
+    val quizError: String? = null,
     val signResult: String? = null,
 )
 
@@ -147,6 +152,84 @@ class AiClassViewModel @Inject constructor(
 
     fun retry() {
         load()
+    }
+
+    fun openCourseDetail(classId: String) {
+        if (classId == "_working") return // 由 openWorkingRecordDetail() 已处理
+        val course = _uiState.value.courses.find { it.stableId == classId }
+        if (course == null) {
+            _uiState.update {
+                it.copy(
+                    selectedCourse = null,
+                    quizList = emptyList(),
+                    isQuizLoading = false,
+                    quizError = "课程信息不存在，请返回重试",
+                )
+            }
+            return
+        }
+
+        _uiState.update {
+            it.copy(
+                selectedCourse = course,
+                quizList = emptyList(),
+                isQuizLoading = true,
+                quizError = null,
+            )
+        }
+
+        viewModelScope.launch {
+            val quizResult = repository.getQuizList(course.courseId)
+            _uiState.update { current ->
+                if (current.selectedCourse?.stableId != classId) return@update current
+                current.copy(
+                    quizList = quizResult.getOrDefault(emptyList()),
+                    isQuizLoading = false,
+                    quizError = quizResult.exceptionOrNull()?.message,
+                )
+            }
+        }
+    }
+
+    fun retryQuiz() {
+        _uiState.value.selectedCourse?.stableId?.let(::openCourseDetail)
+    }
+
+    /** 从"正在上课"卡片进入测验详情 */
+    fun openWorkingRecordDetail() {
+        val record = _uiState.value.workingRecord ?: return
+        val existing = _uiState.value.courses.find { it.teachClassId == record.teachClassId }
+        val base = existing ?: AiCourse(
+            stableId = "",
+            id = "",
+            code = "",
+            classId = record.teachClassId,
+            courseId = record.teachClassId,
+            courseRecordId = record.courseRecordId,
+            courseName = record.courseItemName.ifBlank { record.courseName },
+            teacherName = "",
+            studentNum = 0,
+            teachClassId = record.teachClassId,
+            cover = "",
+            termYear = "",
+            term = "",
+            typeName = "",
+        )
+        val course = base.copy(stableId = "_working") // 统一哨兵值，协程防护依赖此值
+        _uiState.update {
+            it.copy(selectedCourse = course, quizList = emptyList(), isQuizLoading = true, quizError = null)
+        }
+        viewModelScope.launch {
+            val quizResult = repository.getQuizList(record.teachClassId)
+            _uiState.update { current ->
+                if (current.selectedCourse?.stableId != "_working") return@update current
+                current.copy(
+                    quizList = quizResult.getOrDefault(emptyList()),
+                    isQuizLoading = false,
+                    quizError = quizResult.exceptionOrNull()?.message,
+                )
+            }
+        }
     }
 }
 

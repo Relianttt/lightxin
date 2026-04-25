@@ -82,4 +82,6 @@ dependencies {
     implementation(libs.camerax.lifecycle)
     implementation(libs.camerax.view)
     implementation(libs.mlkit.barcode)
+
+    testImplementation("junit:junit:4.13.2")
 }

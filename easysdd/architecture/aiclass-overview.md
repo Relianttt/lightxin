@@ -1,8 +1,8 @@
 ---
 doc_type: architecture
 slug: aiclass-overview
-scope: feature/aiclass/ 的 AI 课堂模块：FIF 独立 SSO 会话、课程列表、数字码签到、ML Kit 扫码签到
-summary: aiclass 以独立 OkHttpClient + CookieJar 管理 FIF 平台登录态，SSO 自动续期，支持数字码签到和 ML Kit 扫码签到两种方式；扫码签到手动处理 302 跳转
+scope: feature/aiclass/ 的 AI 课堂模块：FIF 独立 SSO 会话、课程列表、当前学期课程补数、课程详情测验列表、数字码签到、ML Kit 扫码签到
+summary: aiclass 以独立 OkHttpClient + CookieJar 管理 FIF 平台登录态，SSO 自动续期，支持当前学期课程补数、课程详情测验列表、数字码签到和 ML Kit 扫码签到；扫码签到手动处理 302 跳转
 status: current
 last_reviewed: 2026-04-22
 tags: [aiclass, fif, sso, qrcode, mlkit, barcode]
@@ -24,7 +24,7 @@ depends_on: [network-overview]
 本 doc 描述 `feature/aiclass/` 的职责边界：
 
 - FIF 独立登录态管理（SSO 自动续期）
-- 课程列表展示 + 当前课堂状态查询
+- 课程列表展示 + 当前学期课程补数 + 课程详情测验列表 + 当前课堂状态查询
 - 数字码签到与扫码签到两种方式
 
 适用读者：
@@ -38,11 +38,12 @@ depends_on: [network-overview]
 ### 2.1 三层结构
 
 ```
-AiClassApi (data)           → 6 个 FIF 接口
-AiClassRepository (data)    → SSO + 课程 + 签到 + 扫码（含手动 302 处理）
-AiClassViewModel (ui)       → 加载 + 签到触发
-AiClassHomeScreen (ui)      → 课程列表 + 签到卡片
-AiClassScanScreen (ui)      → CameraX + ML Kit 扫码
+AiClassApi (data)                 → 7 个 FIF 接口
+AiClassRepository (data)          → SSO + 课程 + 测验列表 + 签到 + 扫码（含手动 302 处理）
+AiClassViewModel (ui)             → 加载 + 签到触发 + 课程详情测验加载
+AiClassHomeScreen (ui)            → 课程列表 + 签到卡片
+AiClassCourseDetailScreen (ui)    → 课程基础信息 + 测验列表
+AiClassScanScreen (ui)            → CameraX + ML Kit 扫码
 ```
 
 ### 2.2 FIF 独立网络栈
@@ -70,11 +71,15 @@ FIF 不使用主站的 `AuthInterceptor`，认证通过 `FifSessionManager.build
 
 所有公开方法（`getCourses` / `getWorkingRecord` / `getSignInInfo` / `submitSignCode` / `submitQrCode`）在真正请求前都先调 `ensureSession()`。
 
-### 2.4 课程加载 + 课堂状态
+### 2.4 课程加载 + 课程详情测验列表 + 课堂状态
 
 锚点：`feature/aiclass/data/AiClassRepository.kt:48-106`
 
-`getCourses()` 内部先调 `getTermList()` 获取当前学期（`selected=1`），再调 `getCourses(termYear, term)`。
+`getCourses()` 内部先调 `getTermList()` 获取当前学期（`selected=1`），再调 `getCourses(termYear, term)`。`myClassroom` 返回后，会继续尝试请求 `liveAndRecord/timetableInfo(schoolId, mid, identity=2)`，把课表里存在但“我的课程”缺失的当前学期课程补进结果列表。补数只作为兜底，失败时不会阻断首页课程展示。
+
+课表补数条目会从 `className/classNames` 中解析 `(理论)` / `(实验)` 标签，并把教学班 ID（`classId/teachClassId`）写回详情链路使用的 `courseId`，这是因为 HAR 已确认课表页点击详情后，`getPublishPaperListOfStudent` / `getPaperInCourseInfo` 都以教学班 ID 而不是课表原始 `courseId` 为参数。
+
+`getQuizList(courseId)` 进入课程详情页后会同时利用两类测验数据：以 `paper/getPublishPaperListOfStudent` 作为学生视角主列表，保证历史测验与 `iscommited` 提交态完整；再把 `paper/getPaperInCourseInfo(courseId, studentId)` 解析出的课程详情试卷信息作为补充字段合并进去。前者除 `studentId` 外还需要 `userId`，当前实现从 FIF token 的 JWT payload 中解析 `memberId` 作为 `userId`。
 
 `getWorkingRecord()` 查询当前正在进行的课堂记录，用于首页签到卡片展示。返回 null 表示当前无进行中课堂。
 
@@ -126,16 +131,18 @@ UI 层限制输入长度 ≤6，签到按钮在输入达到 6 位且存在进行
 
 | 类型 | 含义 | 定义位置 |
 |---|---|---|
-| `AiCourse` | classId / courseId / courseRecordId / courseName / teacherName / studentNum / teachClassId / cover | `AiClassModels.kt:3-11` |
+| `AiCourse` | stableId / id / code / classId / courseId / courseRecordId / courseName / teacherName / studentNum / teachClassId / cover / termYear / term / typeName | `AiClassModels.kt:3-16` |
+| `AiQuiz` | id / title / isCommitted / status / publishTime / publishDateTime / publishWeek / answerDurationMinutes | `AiClassModels.kt:28-36` |
 | `AiSignInInfo` | signId / teacherName / hasActiveSign | `AiClassModels.kt:14-18` |
 | `AiWorkingRecord` | courseRecordId / courseName / courseItemName / teachClassId | `AiClassModels.kt:21-25` |
 | `AiClassQrPayload` | rawValue / token | `AiClassQrPayload.kt:3-6` |
-| `AiClassUiState` | courses / workingRecord / isLoading / isSsoInProgress / isSigningIn / error / signResult | `AiClassViewModel.kt:20-28` |
+| `AiClassUiState` | courses / workingRecord / selectedCourse / quizList / isLoading / isSsoInProgress / isSigningIn / isQuizLoading / error / quizError / signResult | `AiClassViewModel.kt:21-33` |
 
 ### 3.2 状态所有权
 
 - `FifSessionManager` 单例持有 FIF 会话状态（Cookie + studentId + userName）
 - `AiClassUiState` 由 `AiClassViewModel` 持有
+- `selectedCourse + quizList` 同样由 `AiClassViewModel` 持有，课程详情页与首页共享同一个 ViewModel
 - `ScanState` 是 `AiClassScanScreen` 的局部 UI 状态（Scanning / Success）
 
 ## 4. 关键决策
@@ -148,14 +155,15 @@ UI 层限制输入长度 ≤6，签到按钮在输入达到 6 位且存在进行
 
 ## 5. 代码锚点
 
-- `feature/aiclass/data/AiClassApi.kt:10-68` — 6 个 FIF 接口
-- `feature/aiclass/data/AiClassRepository.kt:33-286` — SSO + 课程 + 签到 + 扫码全流程
+- `feature/aiclass/data/AiClassApi.kt:10-79` — 7 个 FIF 接口（含测验列表）
+- `feature/aiclass/data/AiClassRepository.kt:34-319` — SSO + 课程 + 测验列表 + 签到 + 扫码全流程
 - `feature/aiclass/data/AiClassRepository.kt:153-273` — 扫码签到 302 处理核心
-- `feature/aiclass/data/AiClassResponse.kt:6-78` — 响应模型
-- `feature/aiclass/domain/AiClassModels.kt:3-25` — AiCourse / AiSignInInfo / AiWorkingRecord
+- `feature/aiclass/data/AiClassResponse.kt:6-94` — 响应模型（含测验列表）
+- `feature/aiclass/domain/AiClassModels.kt:3-36` — AiCourse / AiQuiz / AiSignInInfo / AiWorkingRecord
 - `feature/aiclass/domain/AiClassQrPayload.kt:3-6` — 扫码载荷
-- `feature/aiclass/ui/AiClassViewModel.kt:30-151` — 加载 + 签到触发
-- `feature/aiclass/ui/AiClassHomeScreen.kt:55-298` — 课程列表 + 签到卡片 UI
+- `feature/aiclass/ui/AiClassViewModel.kt:32-191` — 加载 + 签到触发 + 课程详情测验列表
+- `feature/aiclass/ui/AiClassHomeScreen.kt:56-316` — 课程列表 + 签到卡片 UI
+- `feature/aiclass/ui/AiClassCourseDetailScreen.kt` — 课程基础信息 + 测验列表 UI
 - `feature/aiclass/ui/AiClassScanScreen.kt:61-416` — 扫码页 UI + CameraX + ML Kit
 - `core/network/FifSessionManager.kt` — FIF SSO + Cookie 管理
 - `core/network/FifRetrofit.kt` — 独立 Retrofit 定义
@@ -167,6 +175,9 @@ UI 层限制输入长度 ≤6，签到按钮在输入达到 6 位且存在进行
 - **扫码页不处理权限被永久拒绝** —— 如果用户拒绝相机权限，`CameraPermissionRequest` 调用 `onBack()` 返回。没有引导用户去设置页面开启权限。
 - **签到按钮禁用条件** —— `SignInCard` 的签到按钮在 `hasWorkingClass = false` 时禁用，但数字码输入框仍可输入。来源：`AiClassHomeScreen.kt:258`。
 - **FIF 会话状态不持久化** —— 进程重启后 CookieJar 丢失，需要重新 SSO。
+- **测验列表依赖 token 里的 memberId** —— `paper/getPublishPaperListOfStudent` 需要 `userId`，当前实现通过解析 FIF token 的 JWT payload 取 `memberId`。若后端改 token 结构，需要同步更新 `FifSessionManager.kt`。
+- **课程补数依赖 schoolId + memberId** —— `timetableInfo` 同时要求 `schoolId` 和 `mid(memberId)`；任一缺失时当前实现会直接跳过补数，退回 `myClassroom` 单源列表。
+- **补进课程使用教学班 ID 进详情** —— 课表条目的原始 `courseId` 不是测验详情使用的那个 ID，若误用会导致课程详情页存在但测验为空。
 - **qrcodeHandler 的 URL 构建有两种路径** —— 完整 URL 二维码直接用原值 + 追加参数；纯 token 二维码构造完整 URL。来源：`AiClassRepository.kt:174-181`。
 
 ## 7. 相关文档

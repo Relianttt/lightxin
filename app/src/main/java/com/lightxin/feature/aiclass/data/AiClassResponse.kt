@@ -1,6 +1,7 @@
 package com.lightxin.feature.aiclass.data
 
 import com.google.gson.annotations.SerializedName
+import com.google.gson.JsonElement
 
 /** 通用响应 */
 data class AiClassBaseResponse(
@@ -38,6 +39,8 @@ data class AiClassCourseResponse(
     )
 
     data class CourseItem(
+        val id: String?,
+        val code: String?,
         val classId: String?,
         val courseId: String?,
         val courseRecordId: String?,
@@ -46,6 +49,9 @@ data class AiClassCourseResponse(
         val studentNum: Int?,
         val teachClassId: String?,
         val cover: String?,
+        val termYear: String?,
+        val term: String?,
+        val typeName: String?,
     )
 }
 
@@ -76,3 +82,36 @@ data class AiClassWorkingRecordResponse(
         val teachClassId: String?,
     )
 }
+
+/** 测验列表响应 */
+data class AiClassQuizListResponse(
+    val status: String?,
+    val message: String?,
+    val data: List<QuizItem>?,
+) {
+    data class QuizItem(
+        val id: String?,
+        val title: String?,
+        val status: Any?,
+        val iscommited: Any?,
+        val refPaperId: String?,
+        val publishTime: String?,
+        val publishDateTime: String?,
+        val publishWeek: String?,
+        val answerDuration: Any?,
+    )
+}
+
+/** 课程详情页里的试卷信息，结构暂未完全稳定，先保留原始 JSON 再做前端提取 */
+data class AiClassCoursePaperInfoResponse(
+    val status: String?,
+    val message: String?,
+    val data: JsonElement?,
+)
+
+/** AI课堂课表响应，先保留原始 JSON，由 Repository 递归提取课程条目 */
+data class AiClassTimetableResponse(
+    val status: String?,
+    val message: String?,
+    val data: JsonElement?,
+)

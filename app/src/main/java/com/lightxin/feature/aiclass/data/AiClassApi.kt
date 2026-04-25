@@ -65,4 +65,33 @@ interface AiClassApi {
         @Header("authorization") auth: String,
         @Header("Visit-Type") visitType: String = "mobile",
     ): retrofit2.Response<okhttp3.ResponseBody>
+
+    /** 课程详情里的试卷信息，可能包含历史测验入口数据 */
+    @GET("coursecenter-interaction/paper/getPaperInCourseInfo")
+    suspend fun getPaperInCourseInfo(
+        @Query("courseId") courseId: String,
+        @Query("studentId") studentId: String,
+        @Header("authorization") auth: String,
+        @Header("Visit-Type") visitType: String = "mobile",
+    ): AiClassCoursePaperInfoResponse
+
+    /** 学生可见测验列表 */
+    @GET("coursecenter-interaction/paper/getPublishPaperListOfStudent")
+    suspend fun getPublishPaperListOfStudent(
+        @Query("courseId") courseId: String,
+        @Query("studentId") studentId: String,
+        @Query("userId") userId: String,
+        @Header("authorization") auth: String,
+        @Header("Visit-Type") visitType: String = "mobile",
+    ): AiClassQuizListResponse
+
+    /** AI课堂课表，用于补齐“我的课程”未返回的当前学期课程 */
+    @GET("coursecenter-interaction/liveAndRecord/timetableInfo")
+    suspend fun getTimetableInfo(
+        @Query("schoolId") schoolId: String,
+        @Query("mid") memberId: String,
+        @Query("identity") identity: String = "2",
+        @Header("authorization") auth: String,
+        @Header("Visit-Type") visitType: String = "mobile",
+    ): AiClassTimetableResponse
 }

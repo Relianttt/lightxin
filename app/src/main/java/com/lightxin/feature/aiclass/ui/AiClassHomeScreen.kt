@@ -17,9 +17,10 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Class
-import androidx.compose.material.icons.filled.Login
+import androidx.compose.material.icons.automirrored.filled.Login
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -41,21 +42,24 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.lightxin.core.designsystem.component.LxButton
 import com.lightxin.core.designsystem.component.LxCard
 import com.lightxin.core.designsystem.component.LxError
 import com.lightxin.core.designsystem.component.LxFloatingActionButton
-import com.lightxin.core.designsystem.component.LxLoading
 import com.lightxin.core.designsystem.component.LxProgressIndicator
 import com.lightxin.core.designsystem.component.LxTextField
 import com.lightxin.core.designsystem.component.LxTopBar
 import com.lightxin.feature.aiclass.domain.AiCourse
+import com.lightxin.feature.aiclass.domain.displayName
+import com.lightxin.feature.aiclass.domain.studentCountText
 
 @Composable
 fun AiClassHomeScreen(
     onBack: () -> Unit,
     onOpenScan: () -> Unit,
+    onOpenCourseDetail: (classId: String) -> Unit,
+    onOpenWorkingDetail: () -> Unit = {},
     modifier: Modifier = Modifier,
     viewModel: AiClassViewModel = hiltViewModel(),
 ) {
@@ -119,6 +123,8 @@ fun AiClassHomeScreen(
             else -> AiClassContent(
                 uiState = uiState,
                 onSubmitSignCode = viewModel::submitSignCode,
+                onOpenCourseDetail = onOpenCourseDetail,
+                onOpenWorkingDetail = onOpenWorkingDetail,
                 modifier = Modifier.padding(padding),
             )
         }
@@ -129,6 +135,8 @@ fun AiClassHomeScreen(
 private fun AiClassContent(
     uiState: AiClassUiState,
     onSubmitSignCode: (String) -> Unit,
+    onOpenCourseDetail: (String) -> Unit,
+    onOpenWorkingDetail: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     LazyColumn(
@@ -139,7 +147,7 @@ private fun AiClassContent(
         // 当前课堂状态
         uiState.workingRecord?.let { record ->
             item(key = "working") {
-                WorkingClassCard(record = record)
+                WorkingClassCard(record = record, onClick = onOpenWorkingDetail)
             }
         }
 
@@ -165,15 +173,21 @@ private fun AiClassContent(
         }
 
         // 课程列表
-        items(uiState.courses, key = { it.classId }) { course ->
-            CourseCard(course = course)
+        items(uiState.courses, key = { it.stableId }) { course ->
+            CourseCard(
+                course = course,
+                onClick = { onOpenCourseDetail(course.stableId) },
+            )
         }
     }
 }
 
 @Composable
-private fun WorkingClassCard(record: com.lightxin.feature.aiclass.domain.AiWorkingRecord) {
-    LxCard {
+private fun WorkingClassCard(
+    record: com.lightxin.feature.aiclass.domain.AiWorkingRecord,
+    onClick: () -> Unit,
+) {
+    LxCard(onClick = onClick) {
         Column(modifier = Modifier.padding(20.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(
@@ -219,7 +233,7 @@ private fun SignInCard(
         Column(modifier = Modifier.padding(20.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(
-                    imageVector = Icons.Default.Login,
+                    imageVector = Icons.AutoMirrored.Filled.Login,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(20.dp),
@@ -270,8 +284,11 @@ private fun SignInCard(
 }
 
 @Composable
-private fun CourseCard(course: AiCourse) {
-    LxCard {
+private fun CourseCard(
+    course: AiCourse,
+    onClick: () -> Unit,
+) {
+    LxCard(onClick = onClick) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -280,7 +297,7 @@ private fun CourseCard(course: AiCourse) {
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = course.courseName,
+                    text = course.displayName(),
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.SemiBold,
                     maxLines = 2,
@@ -288,11 +305,16 @@ private fun CourseCard(course: AiCourse) {
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "${course.teacherName} · ${course.studentNum}人",
+                    text = "${course.teacherName} · ${course.studentCountText()}",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = "查看课程详情",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }
