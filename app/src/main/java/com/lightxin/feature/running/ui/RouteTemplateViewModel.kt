@@ -61,6 +61,10 @@ class RouteTemplateViewModel @Inject constructor(
         _uiState.update { it.copy(errorMessage = null, pendingSaveMessage = null) }
     }
 
+    fun setError(msg: String) {
+        _uiState.update { it.copy(errorMessage = msg) }
+    }
+
     fun beginRecording(): Boolean {
         val state = _uiState.value
         if (state.isRealRunActive) {

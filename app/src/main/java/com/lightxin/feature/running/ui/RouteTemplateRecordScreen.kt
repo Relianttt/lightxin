@@ -1,5 +1,9 @@
 package com.lightxin.feature.running.ui
 
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -29,6 +33,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.lightxin.core.designsystem.component.LxButton
 import com.lightxin.core.designsystem.component.LxCard
@@ -53,6 +58,22 @@ fun RouteTemplateRecordScreen(
 
     var showSaveDialog by remember { mutableStateOf(false) }
     var nameInput by remember { mutableStateOf("") }
+
+    val locationPermLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions(),
+        onResult = { grants ->
+            val granted = grants[Manifest.permission.ACCESS_FINE_LOCATION] == true
+                || grants[Manifest.permission.ACCESS_COARSE_LOCATION] == true
+            if (granted) {
+                viewModel.clearError()
+                if (viewModel.beginRecording()) {
+                    RunTrackingService.start(context)
+                }
+            } else {
+                viewModel.setError("缺少定位权限，无法开始录制")
+            }
+        },
+    )
 
     Scaffold(
         modifier = modifier,
@@ -164,9 +185,24 @@ fun RouteTemplateRecordScreen(
                             !isRecording -> LxButton(
                                 text = "开始录制",
                                 onClick = {
-                                    viewModel.clearError()
-                                    if (viewModel.beginRecording()) {
-                                        RunTrackingService.start(context)
+                                    val hasLocation = ContextCompat.checkSelfPermission(
+                                        context, Manifest.permission.ACCESS_FINE_LOCATION
+                                    ) == PackageManager.PERMISSION_GRANTED
+                                        || ContextCompat.checkSelfPermission(
+                                            context, Manifest.permission.ACCESS_COARSE_LOCATION
+                                        ) == PackageManager.PERMISSION_GRANTED
+                                    if (hasLocation) {
+                                        viewModel.clearError()
+                                        if (viewModel.beginRecording()) {
+                                            RunTrackingService.start(context)
+                                        }
+                                    } else {
+                                        locationPermLauncher.launch(
+                                            arrayOf(
+                                                Manifest.permission.ACCESS_FINE_LOCATION,
+                                                Manifest.permission.ACCESS_COARSE_LOCATION,
+                                            )
+                                        )
                                     }
                                 },
                                 enabled = !uiState.isRealRunActive,

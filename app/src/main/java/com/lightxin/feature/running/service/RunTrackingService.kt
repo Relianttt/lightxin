@@ -1,10 +1,12 @@
 package com.lightxin.feature.running.service
 
+import android.Manifest
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
@@ -47,6 +49,11 @@ class RunTrackingService : Service() {
     }
 
     private fun startTracking() {
+        if (!hasLocationPermission()) {
+            tracker.onLocationError("缺少定位权限")
+            stopSelf()
+            return
+        }
         createChannelIfNeeded()
         startForeground(NOTIFICATION_ID, buildNotification("跑步进行中", "正在等待 GPS"))
 
@@ -113,6 +120,12 @@ class RunTrackingService : Service() {
 
     private fun notificationManager(): NotificationManager =
         getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+
+    private fun hasLocationPermission(): Boolean =
+        ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) ==
+            PackageManager.PERMISSION_GRANTED ||
+            ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) ==
+                PackageManager.PERMISSION_GRANTED
 
     companion object {
         private const val CHANNEL_ID = "lightxin_running"
