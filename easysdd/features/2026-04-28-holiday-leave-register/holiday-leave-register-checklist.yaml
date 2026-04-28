@@ -1,6 +1,6 @@
 feature: holiday-leave-register
 created: 2026-04-28
-status: approved
+status: implemented
 
 steps:
   - action: "Step 1 数据层：HolidayApi + HolidayResponse + HolidayModels + HolidayRepository + DI Module"
@@ -26,72 +26,72 @@ steps:
 checks:
   - item: "HolidayCard 放 HomeDashboard.kt 内为 private，不单独建文件"
     source: 范围守护
-    status: pending
+    status: passed
 
   - item: "复用 @CheckinRetrofit（fdygl 域），不新建 Retrofit 实例"
     source: 范围守护
-    status: pending
+    status: passed
 
   - item: "不加入 HomeBootstrap 冷启动预加载"
     source: 范围守护
-    status: pending
+    status: passed
 
   - item: "节假日列表不做分页"
     source: 范围守护
-    status: pending
+    status: passed
 
   - item: "不做审批流程（isApproval 保留不实现）"
     source: 范围守护
-    status: pending
+    status: passed
 
   - item: "不做附件上传（XXXProofMaterialsEnable 保留不实现）"
     source: 范围守护
-    status: pending
+    status: passed
 
   - item: "不修改查寝原有功能（CheckinDetailScreen / CheckinDetailViewModel 不动）"
     source: 范围守护
-    status: pending
+    status: passed
 
   - item: "首页 HolidayCard 索引不与现有 StaggeredCard 0-3 冲突"
     source: 接口契约
-    status: pending
+    status: passed
 
   - item: "列表页 sealed interface TaskListItem 统一 Checkin 和 Holiday 项"
     source: 接口契约
-    status: pending
+    status: passed
 
   - item: "DTO 字段名与 HAR 抓包一致（对照接口分析 doc §2 逐字段核对）"
     source: 数据模型
-    status: pending
+    status: passed
 
   - item: "网络错误用 mapError() 模式显示中文提示"
     source: 测试约束
-    status: pending
+    status: passed
 
   - item: "首页卡片：构造窗口内/外数据验证 shouldShowHoliday()"
     source: 测试约束
-    status: pending
+    status: passed
 
   - item: "列表双 section：查寝和节假日各自渲染，空态文案正确"
     source: 测试约束
-    status: pending
+    status: passed
 
   - item: "导航链路：查寝→详情页，节假日→表单页"
     source: 测试约束
-    status: pending
+    status: passed
 
   - item: "表单字段：必填字段为空时不可提交"
     source: 测试约束
-    status: pending
+    status: passed
 
   - item: "表单回填：getHolidayRegister 返回 data 非 null 时预填"
     source: 测试约束
-    status: pending
+    status: passed
 
   - item: "提交成功：返回列表页并触发刷新"
     source: 测试约束
-    status: pending
+    status: passed
 
   - item: "鉴权：先不带 role/roleId 头联调，返回 -100 再补"
     source: 测试约束
-    status: pending
+    status: passed

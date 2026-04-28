@@ -1,9 +1,9 @@
 ---
 doc_type: feature-design
 feature: 2026-04-28-holiday-leave-register
-status: approved
-summary: 在查寝签到模块基础上新增"节假日离返校登记"功能——首页展示节假日登记卡片，查寝列表页集成节假日 section，点击进入独立表单页填写离返校信息并提交
-tags: [holiday, checkin, home, register, leave]
+status: implemented
+summary: 在查寝签到模块基础上新增"节假日离返校登记"功能——首页展示节假日登记卡片，查寝列表页集成节假日 section，点击进入独立表单页填写离返校信息并提交。日期选择器采用自定义两步 BottomSheet（日历选日→时分确认），字段按节假日配置 Enable 标记条件显隐。
+tags: [holiday, checkin, home, register, leave, date-picker]
 ---
 
 ## 0. 术语约定
