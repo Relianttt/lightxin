@@ -4,6 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.lightxin.feature.checkin.data.CheckinRepository
 import com.lightxin.feature.checkin.domain.CheckinTask
+import com.lightxin.feature.holiday.data.HolidayRepository
+import com.lightxin.feature.holiday.domain.HolidayTask
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -13,7 +15,9 @@ import javax.inject.Inject
 
 data class CheckinUiState(
     val tasks: List<CheckinTask> = emptyList(),
+    val holidayTasks: List<HolidayTask> = emptyList(),
     val isLoading: Boolean = true,
+    val isLoadingHoliday: Boolean = false,
     val isLoadingMore: Boolean = false,
     val error: String? = null,
     val hasMore: Boolean = true,
@@ -23,6 +27,7 @@ data class CheckinUiState(
 @HiltViewModel
 class CheckinViewModel @Inject constructor(
     private val repository: CheckinRepository,
+    private val holidayRepository: HolidayRepository,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(CheckinUiState())
@@ -30,6 +35,7 @@ class CheckinViewModel @Inject constructor(
 
     init {
         loadInitial()
+        loadHolidays()
     }
 
     private fun loadInitial() {
@@ -51,6 +57,20 @@ class CheckinViewModel @Inject constructor(
                     _uiState.update {
                         it.copy(isLoading = false, error = e.message ?: "加载失败")
                     }
+                },
+            )
+        }
+    }
+
+    private fun loadHolidays() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoadingHoliday = true) }
+            holidayRepository.getRegistrationList(page = 1).fold(
+                onSuccess = { list ->
+                    _uiState.update { it.copy(holidayTasks = list, isLoadingHoliday = false) }
+                },
+                onFailure = {
+                    _uiState.update { it.copy(isLoadingHoliday = false) }
                 },
             )
         }
@@ -84,9 +104,11 @@ class CheckinViewModel @Inject constructor(
 
     fun retry() {
         loadInitial()
+        loadHolidays()
     }
 
     fun refresh() {
         loadInitial()
+        loadHolidays()
     }
 }

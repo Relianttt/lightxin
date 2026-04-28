@@ -32,6 +32,7 @@ import com.lightxin.feature.aiclass.ui.AiClassScanScreen
 import com.lightxin.feature.about.ui.AboutScreen
 import com.lightxin.feature.checkin.ui.CheckinDetailScreen
 import com.lightxin.feature.checkin.ui.CheckinListScreen
+import com.lightxin.feature.holiday.ui.HolidayRegisterScreen
 import com.lightxin.feature.home.ui.HomeScreen
 import com.lightxin.feature.labor.ui.LaborDetailScreen
 import com.lightxin.feature.labor.ui.LaborSummaryScreen
@@ -149,10 +150,28 @@ fun LightXinNavHost(
                 onTaskClick = { taskDateId ->
                     navController.navigate(Routes.checkinDetail(taskDateId))
                 },
+                onHolidayClick = { holidayId ->
+                    navController.navigate(Routes.holidayRegister(holidayId))
+                },
                 shouldRefresh = shouldRefresh,
                 onRefreshConsumed = {
                     backStackEntry.savedStateHandle["checkin_refresh"] = false
                 },
+            )
+        }
+        composable(
+            route = Routes.HOLIDAY_REGISTER,
+            arguments = listOf(navArgument("holidayId") { type = NavType.StringType }),
+        ) { backStackEntry ->
+            HolidayRegisterScreen(
+                holidayId = backStackEntry.arguments?.getString("holidayId") ?: "",
+                onSubmitSuccess = {
+                    navController.previousBackStackEntry
+                        ?.savedStateHandle
+                        ?.set("checkin_refresh", true)
+                    navController.popBackStack()
+                },
+                onBack = { navController.popBackStack() },
             )
         }
         composable(

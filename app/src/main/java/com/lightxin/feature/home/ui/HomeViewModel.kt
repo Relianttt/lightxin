@@ -5,6 +5,8 @@ import androidx.lifecycle.viewModelScope
 import com.lightxin.core.auth.TokenManager
 import com.lightxin.feature.checkin.data.CheckinRepository
 import com.lightxin.feature.checkin.domain.CheckinTask
+import com.lightxin.feature.holiday.data.HolidayRepository
+import com.lightxin.feature.holiday.domain.HolidayTask
 import com.lightxin.feature.home.domain.HomeBootstrap
 import com.lightxin.feature.home.domain.HomeBootstrapSnapshot
 import com.lightxin.feature.home.domain.HomeScene
@@ -34,6 +36,7 @@ data class HomeDashboardData(
     val tomorrowFirstSection: Int? = null, // 明天第一节课的起始节次，null表示无课
     val currentWeek: Int = 0,
     val nextCheckin: CheckinTask? = null,
+    val holidayTask: HolidayTask? = null,
     val runningProgress: RunningDashboard? = null,
     val laborHours: HoursSummary? = null,
 )
@@ -52,6 +55,7 @@ class HomeViewModel @Inject constructor(
     private val homeBootstrap: HomeBootstrap,
     private val scheduleRepository: ScheduleRepository,
     private val checkinRepository: CheckinRepository,
+    private val holidayRepository: HolidayRepository,
     private val runningRepository: RunningRepository,
     private val laborRepository: LaborRepository,
     private val tokenManager: TokenManager,
@@ -140,17 +144,21 @@ class HomeViewModel @Inject constructor(
     private suspend fun loadExtras() = coroutineScope {
         val runningDeferred = async { loadRunning() }
         val laborDeferred = async { loadLabor() }
+        val holidayDeferred = async { loadHoliday() }
         val (running, runningError) = runningDeferred.await()
         val (labor, laborError) = laborDeferred.await()
+        val (holiday, holidayError) = holidayDeferred.await()
 
         _uiState.update { current ->
             val merged = current.dashboardData.copy(
                 runningProgress = running,
                 laborHours = labor,
+                holidayTask = holiday,
             )
             val errors = current.errors.toMutableMap().apply {
                 runningError?.let { put("running", it) } ?: remove("running")
                 laborError?.let { put("labor", it) } ?: remove("labor")
+                holidayError?.let { put("holiday", it) } ?: remove("holiday")
             }
             current.copy(
                 dashboardData = merged,
@@ -168,17 +176,20 @@ class HomeViewModel @Inject constructor(
             val checkinDeferred = async { loadNextCheckin() }
             val runningDeferred = async { loadRunning() }
             val laborDeferred = async { loadLabor() }
+            val holidayDeferred = async { loadHoliday() }
 
             val (courses, tomorrowFirst, currentWeek, scheduleError) = scheduleDeferred.await()
             val (checkinTask, checkinError) = checkinDeferred.await()
             val (running, runningError) = runningDeferred.await()
             val (labor, laborError) = laborDeferred.await()
+            val (holiday, holidayError) = holidayDeferred.await()
 
             val errors = buildMap {
                 scheduleError?.let { put("schedule", it) }
                 checkinError?.let { put("checkin", it) }
                 runningError?.let { put("running", it) }
                 laborError?.let { put("labor", it) }
+                holidayError?.let { put("holiday", it) }
             }
 
             val merged = HomeDashboardData(
@@ -186,6 +197,7 @@ class HomeViewModel @Inject constructor(
                 tomorrowFirstSection = tomorrowFirst,
                 currentWeek = currentWeek,
                 nextCheckin = checkinTask,
+                holidayTask = holiday,
                 runningProgress = running,
                 laborHours = labor,
             )
@@ -254,6 +266,11 @@ class HomeViewModel @Inject constructor(
         val result = checkinRepository.getTasks(page = 1, pageSize = 5)
         val task = result.getOrNull()?.firstOrNull { !it.isSigned }
         return Pair(task, result.exceptionOrNull()?.message)
+    }
+
+    private suspend fun loadHoliday(): Pair<HolidayTask?, String?> {
+        val result = holidayRepository.getFirstUnregistered()
+        return Pair(result.getOrNull(), result.exceptionOrNull()?.message)
     }
 
     private suspend fun loadRunning(): Pair<RunningDashboard?, String?> {

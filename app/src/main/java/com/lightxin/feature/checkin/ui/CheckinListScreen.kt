@@ -38,13 +38,17 @@ import com.lightxin.core.designsystem.component.LxEmpty
 import com.lightxin.core.designsystem.component.LxError
 import com.lightxin.core.designsystem.component.LxLoading
 import com.lightxin.core.designsystem.component.LxTopBar
+import com.lightxin.core.designsystem.theme.LxAmber
+import com.lightxin.core.designsystem.theme.LxInkMuted
 import com.lightxin.core.designsystem.theme.LxSuccess
 import com.lightxin.feature.checkin.domain.CheckinTask
+import com.lightxin.feature.holiday.domain.HolidayTask
 
 @Composable
 fun CheckinListScreen(
     onBack: () -> Unit,
     onTaskClick: (taskDateId: String) -> Unit,
+    onHolidayClick: (holidayId: String) -> Unit = {},
     shouldRefresh: Boolean,
     onRefreshConsumed: () -> Unit,
     modifier: Modifier = Modifier,
@@ -71,13 +75,14 @@ fun CheckinListScreen(
                 onRetry = viewModel::retry,
                 modifier = Modifier.padding(padding),
             )
-            uiState.tasks.isEmpty() -> LxEmpty(
-                message = "暂无签到任务",
+            uiState.tasks.isEmpty() && uiState.holidayTasks.isEmpty() -> LxEmpty(
+                message = "暂无签到与节假日任务",
                 modifier = Modifier.padding(padding),
             )
             else -> TaskList(
                 uiState = uiState,
                 onTaskClick = onTaskClick,
+                onHolidayClick = onHolidayClick,
                 onLoadMore = viewModel::loadMore,
                 modifier = Modifier.padding(padding),
             )
@@ -89,6 +94,7 @@ fun CheckinListScreen(
 private fun TaskList(
     uiState: CheckinUiState,
     onTaskClick: (String) -> Unit,
+    onHolidayClick: (String) -> Unit,
     onLoadMore: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -115,12 +121,32 @@ private fun TaskList(
         ),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        items(uiState.tasks, key = { it.taskDateId }) { task ->
-            TaskCard(
-                task = task,
-                onClick = { if (!task.isSigned) onTaskClick(task.taskDateId) },
-                modifier = Modifier.animateItem(),
-            )
+        // 查寝签到 section
+        if (uiState.tasks.isNotEmpty()) {
+            item(key = "section_checkin") {
+                SectionHeader("查寝签到")
+            }
+            items(uiState.tasks, key = { "c_${it.taskDateId}" }) { task ->
+                TaskCard(
+                    task = task,
+                    onClick = { if (!task.isSigned) onTaskClick(task.taskDateId) },
+                    modifier = Modifier.animateItem(),
+                )
+            }
+        }
+
+        // 节假日登记 section
+        if (uiState.holidayTasks.isNotEmpty()) {
+            item(key = "section_holiday") {
+                SectionHeader("节假日登记")
+            }
+            items(uiState.holidayTasks, key = { "h_${it.holidayId}" }) { task ->
+                HolidayTaskCard(
+                    task = task,
+                    onClick = { onHolidayClick(task.holidayId) },
+                    modifier = Modifier.animateItem(),
+                )
+            }
         }
 
         if (uiState.isLoadingMore) {
@@ -180,6 +206,80 @@ private fun TaskCard(
             // 签到状态标记
             StatusBadge(isSigned = task.isSigned)
         }
+    }
+}
+
+@Composable
+private fun SectionHeader(title: String) {
+    Text(
+        text = title,
+        style = MaterialTheme.typography.labelLarge,
+        fontWeight = FontWeight.SemiBold,
+        color = LxInkMuted,
+        modifier = Modifier.padding(top = 4.dp, bottom = 4.dp),
+    )
+}
+
+@Composable
+private fun HolidayTaskCard(
+    task: HolidayTask,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    LxCard(onClick = onClick, modifier = modifier) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = task.name.ifBlank { "节假日登记" },
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = task.registerStartDate,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    if (task.registerEndDate.isNotBlank()) {
+                        Text(
+                            text = "~ ${task.registerEndDate}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            HolidayStatusBadge(isRegistered = task.isRegistered)
+        }
+    }
+}
+
+@Composable
+private fun HolidayStatusBadge(isRegistered: Boolean) {
+    val color = if (isRegistered) LxSuccess else LxAmber
+    val text = if (isRegistered) "已登记" else "待登记"
+
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(8.dp))
+            .background(color.copy(alpha = 0.12f))
+            .padding(horizontal = 10.dp, vertical = 4.dp),
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.SemiBold,
+            color = color,
+        )
     }
 }
 

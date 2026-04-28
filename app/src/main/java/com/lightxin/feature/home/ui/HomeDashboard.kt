@@ -66,12 +66,15 @@ import com.lightxin.core.designsystem.theme.LxSand
 import com.lightxin.core.designsystem.theme.LxTerra
 import com.lightxin.core.designsystem.theme.NewsreaderLarge
 import com.lightxin.feature.checkin.domain.CheckinTask
+import com.lightxin.feature.holiday.domain.HolidayTask
 import com.lightxin.feature.home.domain.SectionSchedule
 import com.lightxin.feature.running.domain.RunningDashboard
 import com.lightxin.feature.schedule.domain.Course
 import com.lightxin.navigation.Routes
 import kotlinx.coroutines.delay
+import java.time.LocalDateTime
 import java.time.LocalTime
+import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlin.math.max
 
@@ -191,6 +194,17 @@ fun HomeDashboard(
                         StaggeredCard(index = 3) {
                             CheckinCard(
                                 task = data.nextCheckin!!,
+                                onClick = {
+                                    navController.navigate(Routes.CHECKIN_LIST) { launchSingleTop = true }
+                                },
+                            )
+                        }
+                    }
+
+                    if (shouldShowHoliday(data.holidayTask)) {
+                        StaggeredCard(index = 4) {
+                            HolidayCard(
+                                task = data.holidayTask!!,
                                 onClick = {
                                     navController.navigate(Routes.CHECKIN_LIST) { launchSingleTop = true }
                                 },
@@ -486,6 +500,56 @@ private fun PulseDot(color: Color) {
             .clip(CircleShape)
             .background(color),
     )
+}
+
+// ═══════════════ 节假日离返校登记 ═══════════════
+
+private fun shouldShowHoliday(task: HolidayTask?): Boolean {
+    if (task == null) return false
+    val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
+    val now = LocalDateTime.now()
+    val start = runCatching { LocalDateTime.parse(task.registerStartDate, formatter) }.getOrNull() ?: return false
+    val end = runCatching { LocalDateTime.parse(task.registerEndDate, formatter) }.getOrNull() ?: return false
+    return now in start..end
+}
+
+@Composable
+private fun HolidayCard(task: HolidayTask, onClick: () -> Unit) {
+    val now = remember { LocalDateTime.now() }
+    val formatter = remember { DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm") }
+    val registerStart = remember(task.registerStartDate) {
+        runCatching { LocalDateTime.parse(task.registerStartDate, formatter) }.getOrNull()
+    }
+    val registerEnd = remember(task.registerEndDate) {
+        runCatching { LocalDateTime.parse(task.registerEndDate, formatter) }.getOrNull()
+    }
+    val isUrgent = remember(now, registerEnd) {
+        if (registerEnd == null) false
+        else java.time.Duration.between(now, registerEnd).toHours() < 24
+    }
+
+    DashboardCard(
+        title = "节假日登记",
+        onClick = onClick,
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            PulseDot(color = if (isUrgent) LxAmber else LxSage)
+            Spacer(modifier = Modifier.width(10.dp))
+            Column {
+                Text(
+                    text = task.name.ifBlank { "节假日登记" },
+                    fontSize = 14.5.sp,
+                    fontWeight = FontWeight.Medium,
+                )
+                Spacer(modifier = Modifier.height(1.dp))
+                Text(
+                    text = "登记截止 ${task.registerEndDate}",
+                    fontSize = 12.sp,
+                    color = LxInkMuted,
+                )
+            }
+        }
+    }
 }
 
 // ═══════════════ 运动进度 ═══════════════

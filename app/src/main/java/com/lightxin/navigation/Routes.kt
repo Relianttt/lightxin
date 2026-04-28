@@ -16,6 +16,10 @@ object Routes {
     const val CHECKIN_DETAIL = "checkin/detail/{taskDateId}"
     fun checkinDetail(taskDateId: String) = "checkin/detail/$taskDateId"
 
+    // Holiday
+    const val HOLIDAY_REGISTER = "holiday/register/{holidayId}"
+    fun holidayRegister(holidayId: String) = "holiday/register/$holidayId"
+
     // Running
     const val RUNNING_HOME = "running/home"
     const val RUNNING_ACTIVE = "running/active"
