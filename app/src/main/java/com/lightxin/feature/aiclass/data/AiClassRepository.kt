@@ -288,7 +288,7 @@ class AiClassRepository @Inject constructor(
     }
 
     private fun requiresQrSessionRefresh(result: QrRequestResult): Boolean =
-        result.code == 302 && result.location.contains("loginManage", ignoreCase = true)
+        result.code == 302 && result.location.contains("login", ignoreCase = true)
 
     private fun resolveQrCodeResult(result: QrRequestResult): Result<String> {
         return if (result.code == 302 && result.location.contains("codeExpired", ignoreCase = true)) {

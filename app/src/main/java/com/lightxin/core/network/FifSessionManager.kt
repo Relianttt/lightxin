@@ -12,6 +12,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
+import okhttp3.Cookie
 import okhttp3.CookieJar
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
@@ -113,6 +114,9 @@ class FifSessionManager @Inject constructor(
                 }
             }
 
+            // 同步身份 Cookie 到 OkHttp jar，让 qrcodeHandler 等原生请求能从 jar 中读取
+            saveIdentityCookies(userInfo.studentId, userInfo.userName)
+
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(Exception("AI课堂登录失败: ${e.message}", e))
@@ -167,6 +171,22 @@ class FifSessionManager @Inject constructor(
         val url = "${ApiConstants.BASE_FIF}/studycenter-nh5/?token=$token&app=axx"
         val request = Request.Builder().url(url).get().build()
         fifClient.newCall(request).execute().close()
+    }
+
+    /**
+     * 将 SSO 拿到的身份信息写回 OkHttp cookie jar，
+     * 让后续原生请求（如 qrcodeHandler）能从 jar 中拼出完整的 Cookie 头。
+     */
+    private fun saveIdentityCookies(studentId: String, userName: String) {
+        val fifUrl = ApiConstants.BASE_FIF.toHttpUrl()
+        val cookies = listOfNotNull(
+            Cookie.Builder().name("id").value(studentId).domain("fifedu.com").path("/").build().takeIf { studentId.isNotBlank() },
+            Cookie.Builder().name("studentId").value(studentId).domain("fifedu.com").path("/").build().takeIf { studentId.isNotBlank() },
+            Cookie.Builder().name("currentUserName").value(userName).domain("fifedu.com").path("/").build().takeIf { userName.isNotBlank() },
+        )
+        if (cookies.isNotEmpty()) {
+            cookieJar.saveFromResponse(fifUrl, cookies)
+        }
     }
 
     /**
