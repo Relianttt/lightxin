@@ -11,26 +11,38 @@ Designed for AI agent use: structured output, exit code reflects pass/fail,
 no required external dependencies (falls back to builtin parser if PyYAML unavailable).
 
 Usage examples:
-  # Validate all .md files under easysdd/features
-  python easysdd/tools/validate-yaml.py --dir easysdd/features
+  # Validate all .md files under codestable/features
+  python codestable/tools/validate-yaml.py --dir codestable/features
 
   # Validate a single file
-  python easysdd/tools/validate-yaml.py --file easysdd/features/2026-04-11-auth/auth-design.md
+  python codestable/tools/validate-yaml.py --file codestable/features/2026-04-11-auth/auth-design.md
 
   # Check that required fields exist in frontmatter
-  python easysdd/tools/validate-yaml.py --dir easysdd/features --require doc_type --require status
+  python codestable/tools/validate-yaml.py --dir codestable/features --require doc_type --require status
 
   # JSON output for programmatic consumption
-  python easysdd/tools/validate-yaml.py --dir docs/api --json
+  python codestable/tools/validate-yaml.py --dir docs/api --json
 
   # Validate the libdoc manifest
-  python easysdd/tools/validate-yaml.py --file docs/api/_manifest.yaml --yaml-only
+  python codestable/tools/validate-yaml.py --file docs/api/manifest.yaml --yaml-only
 """
 
 import argparse
 import json
 import sys
 from pathlib import Path
+
+# Force UTF-8 stdout/stderr on Windows where default codepage (e.g. GBK / cp936)
+# can't encode the ✓ / ✗ icons used in text output. Safe no-op on POSIX.
+# Streams that aren't a real TextIOWrapper (e.g. captured by pytest, redirected
+# through some IDEs) raise io.UnsupportedOperation — a ValueError + OSError
+# subclass — and we just leave the original encoding in place.
+for _stream in (sys.stdout, sys.stderr):
+    if hasattr(_stream, "reconfigure"):
+        try:
+            _stream.reconfigure(encoding="utf-8")
+        except (OSError, ValueError):
+            pass
 
 
 # ---------------------------------------------------------------------------
@@ -251,7 +263,7 @@ def _build_parser() -> argparse.ArgumentParser:
                         help="Output results as JSON")
     parser.add_argument("--yaml-only", action="store_true",
                         help="Treat input as pure YAML (not markdown with frontmatter). "
-                             "Use for .yaml/.yml files like _manifest.yaml.")
+                             "Use for .yaml/.yml files like manifest.yaml.")
     return parser
 
 
