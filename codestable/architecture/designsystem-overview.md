@@ -4,7 +4,7 @@ slug: designsystem-overview
 scope: core/designsystem/ 下的 Token 层（Color / Type / Shape）、LightXinTheme 入口、Light/Dark 切换机制，以及 11 个通用组件文件的形态与使用约束
 summary: token 分"Raw 字面量 + 语义 composable"两层，语义层用 isSystemInDarkTheme() 在 Light/Dark 自动切换；组件全部绕开 Material3 默认 ripple、自管 interactionSource；Compose Dark 与资源层 forceDarkAllowed=false 是两层正交机制
 status: current
-last_reviewed: 2026-04-21
+last_reviewed: 2026-05-01
 tags: [designsystem, theme, color, typography, components, dark-mode]
 depends_on: []
 ---
@@ -17,7 +17,7 @@ depends_on: []
 - **语义 token** — 外层 `val Lx*: Color @Composable @ReadOnlyComposable get() = ...`，跟随 `isSystemInDarkTheme()` 自动切换；UI 层只导入这一层
 - **光学尺寸字族** — Newsreader 按 14pt / 24pt / 36pt 提供三档光学变体，小字更粗、大字字距更紧；分别对应 `NewsreaderSmall / Large / Display`
 - **陶土色 / Terra** — `LxTerra`（Light `#C4704B` / Dark `#E59975`），项目主题色；使用密度有准则（§2.7 / §6）
-- **历史别名** — `LxSuccess` / `LxWarning` / `LxError` 三个 composable 直接指向 `LxSage` / `LxAmber` / `LxRose`，未在 UI 层严格按"语义色"迁移（§6 观察项）
+- **历史别名** — `LxSuccess` / `LxWarning` / `LxError` 三个 composable 直接指向 `LxSage` / `LxAmber` / `LxRose`；其中 `LxWarning` 与 `LxError` 在 UI 层已无引用，warning / error 语义改走"主色弱化 + 中性墨字"方案（§2.2 / §6 观察项）
 
 ## 1. 定位与受众
 
@@ -70,7 +70,7 @@ token 故意分两层：
 另外两条横切：
 
 - `LxCategoryColors` — 8 色分类色板（课表卡片、劳动图表）；Light / Dark 各一份（`Color.kt:40-49,83-92,162-164`）
-- 历史别名 `LxSuccess` / `LxWarning` / `LxError` — 直接别名到 `LxSage` / `LxAmber` / `LxRose`（`Color.kt:157-159`），语义层本想分开、实际仍沿用品牌色
+- 历史别名 `LxSuccess` / `LxWarning` / `LxError` — 直接别名到 `LxSage` / `LxAmber` / `LxRose`（`Color.kt:157-159`），其中 `LxWarning` / `LxError` 在 UI 层已无引用：warning（待办 / pending）统一走 `LxTerra` 主色弱化（软底徽章 / `PulseDot`），error（失败 / 重试）走 `LxInkSoft` 中性墨字 + 1-2dp `LxTerra` 细竖线，不再大块用色；`LxSuccess` 仍被"已签到 / 已登记"绿底徽章引用。`LxAmber` 仅作为 `LxCategoryColors` 第 5 位（思政课程小圆点）保留
 
 ### 2.3 `LightXinTheme` 是唯一入口，承载 Light + Dark 两套 ColorScheme
 
@@ -199,7 +199,7 @@ designsystem 自身**没有可变状态**——token 是常量 / 单次读取，
 - **Dark 主题会跟随系统 dark mode 自动生效** —— 暖色语义 token 在 Dark 模式下自动换到 `LxDark*Raw`（提亮的陶土 / 提亮的沙色），调用方无需感知。
 - **`forceDarkAllowed=false` 只防厂商反色，不控制 Compose Dark** —— 这两层独立；不要把它理解为"强制 Light"。
 - **观察项：DESIGN.md §4 描述偏差** —— 总入口当前写"强制 Light 主题（Phase 9B）"，但代码层 Compose Dark 已完整落地并跟随系统。下次更新 `DESIGN.md` 时应同步修正这一条描述。
-- **观察项：`LxSuccess` / `LxWarning` / `LxError` 仅做别名** —— 三条语义色直接指向 `LxSage` / `LxAmber` / `LxRose`（`Color.kt:157-159`），UI 层未严格收敛（如 `LxDialog` Destructive 直接用 `LxRose`，没走 `LxError`）。是否统一语义色留待下次决策。
+- **观察项：`LxSuccess` / `LxWarning` / `LxError` 仅做别名，且 `LxWarning` / `LxError` 已无 UI 引用** —— 三条语义色直接指向 `LxSage` / `LxAmber` / `LxRose`（`Color.kt:157-159`）。`LxSuccess` 仍被"已签到 / 已登记"绿底徽章使用；`LxWarning`（→ `LxAmber`）与 `LxError`（→ `LxRose`）的 UI 引用已在 holiday feature 一轮里全部退出——warning 统一走 `LxTerra` 主色弱化（软底徽章 / `PulseDot`），error 走 `LxInkSoft` 中性墨字 + `LxTerra` 1-2dp 细竖线（参见 `feature/checkin/ui/CheckinListScreen.kt` HolidayErrorRow / HolidayStatusBadge）。`LxAmber` 现仅在 `LxCategoryColors[4]`（思政课程小圆点）保留分类色用途。是否把这三个别名从 `Color.kt` 删掉留作下次决策。
 - **观察项：`shapes.medium` 与 `shapes.large` 同为 `RLg`（16dp）** —— Material3 提供的 large 在本项目没有差异化。未来需要"更大"圆角（如全屏 BottomSheet）时再考虑分档。
 
 ## 7. 相关文档

@@ -151,4 +151,5 @@ CheckinDetailScreen  → CheckinDetailViewModel → CheckinRepository → Checki
 - 网络层多域名 + 多 header 鉴权：`codestable/architecture/network-overview.md`
 - 查寝多 header 鉴权决策：`codestable/compound/2026-04-22-decision-checkin-multi-header-auth.md`
 - 首页消费查寝数据：`codestable/architecture/home-overview.md` §2.2 / §2.4 / §4.4
+- 节假日离返校登记搭载在查寝列表页：`CheckinViewModel` 同时持有 `tasks / holidayTasks / holidayError`，`CheckinListScreen` 双 section 渲染。详见 `codestable/features/2026-04-28-holiday-leave-register/holiday-leave-register-design.md`
 - 架构总入口：`codestable/architecture/DESIGN.md`

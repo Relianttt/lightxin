@@ -275,5 +275,6 @@ depends_on: [network-overview, running-overview]
 
 - 网络层：`codestable/architecture/network-overview.md`
 - 跑步模块：`codestable/architecture/running-overview.md`
+- 节假日离返校登记搭载在首页：`HomeViewModel.loadExtras()` 中按需加载首个未登记节假日，登记窗口内显示 `HolidayCard`。详见 `codestable/features/2026-04-28-holiday-leave-register/holiday-leave-register-design.md`
 - 架构总入口：`codestable/architecture/DESIGN.md`
 - 首页历史设计输入：`docs/项目规划/homepage-design-spec.md`
