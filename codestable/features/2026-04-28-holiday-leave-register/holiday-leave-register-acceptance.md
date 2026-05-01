@@ -27,7 +27,7 @@ tags: [holiday, checkin, home, register, leave, acceptance]
 **前端组件契约**：
 
 - [x] `HolidayCard` — 放 HomeDashboard.kt 内为 private，Props: task + onClick，复用 DashboardCard + PulseDot 模式。符合。
-- [x] `CheckinListScreen` — 新增 onHolidayClick 回调，列表模型改为 `List<TaskListItem>` sealed interface。符合。
+- [x] `CheckinListScreen` — 新增 onHolidayClick 回调，CheckinUiState 新增 holidayTasks: List<HolidayTask>，与 tasks 各自一个 section。符合。
 - [x] `HolidayRegisterScreen` — 独立页面 `/holiday/register/{holidayId}`，Props: holidayId/onSubmitSuccess/onBack，Hilt 注入 ViewModel。符合。
 
 **状态归属**：
@@ -45,7 +45,7 @@ tags: [holiday, checkin, home, register, leave, acceptance]
 
 - [x] 首页在登记窗口内显示节假日卡片 → `shouldShowHoliday()` 解析 registerStartDate/registerEndDate，now 在窗口内返回 true
 - [x] 窗口外不显示 → `shouldShowHoliday()` 返回 false，卡片不渲染
-- [x] 查寝列表页同时展示查寝和节假日 → CheckinViewModel 并发加载，`combinedItems` 为 `List<TaskListItem>`
+- [x] 查寝列表页同时展示查寝和节假日 → CheckinViewModel 并发加载，UiState 同时持有 tasks / holidayTasks 两个列表
 - [x] 登记表单支持新建和回填 → ViewModel init 并行调 getExistingRegister，有数据时预填表单字段
 - [x] 提交成功后返回列表并触发刷新 → onSubmitSuccess → savedStateHandle 设 checkin_refresh → NavGraph 监听
 
@@ -71,7 +71,7 @@ tags: [holiday, checkin, home, register, leave, acceptance]
 对照方案 doc 第 3 节测试设计：
 
 - [x] **首页卡片显示**：shouldShowHoliday() 纯函数解析日期窗口，构造窗口内 → 显示 / 窗口外 → 隐藏。实机验证通过。
-- [x] **列表双 section**：buildList<TaskListItem> 合并查寝 + 节假日，各自 section 渲染，when(item) 分支区分样式。实机验证通过。
+- [x] **列表双 section**：CheckinUiState 持有 tasks / holidayTasks，LazyColumn 中各自渲染独立 section header + items（TaskCard / HolidayTaskCard）。实机验证通过。
 - [x] **导航链路**：查寝 → CheckinDetail（taskDateId），节假日 → HolidayRegister（holidayId）。实机验证通过。
 - [x] **表单字段验证**：必填字段（开始/结束时间、事由）为空时提交按钮不可用或有提示。实机验证通过。
 - [x] **表单回填**：getHolidayRegister 返回非 null → 字段预填，null → 空白新建。已有记录联调验证通过。
@@ -86,7 +86,6 @@ tags: [holiday, checkin, home, register, leave, acceptance]
 
 - `HolidayTask` — 代码命中 5 处（HolidayModels.kt 定义 + HolidayRepository + HolidayCard + CheckinViewModel + HomeViewModel），全部一致 ✓
 - `HolidayFormData` — 代码命中 3 处（HolidayModels.kt 定义 + HolidayRepository + HolidayRegisterViewModel），全部一致 ✓
-- `TaskListItem` — 代码命中 2 处（HolidayModels.kt 定义 + CheckinListScreen 使用），全部一致 ✓
 - `StrokeOption` — 代码命中 3 处（HolidayModels.kt 定义 + HolidayRepository + HolidayRegisterScreen），全部一致 ✓
 - `HolidayCard` — HomeDashboard.kt 内 private Composable，名称与方案一致 ✓
 - `HolidayRegisterScreen` — HolidayRegisterScreen.kt 顶层 Composable，名称与方案一致 ✓

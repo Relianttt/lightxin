@@ -5,10 +5,9 @@ import com.lightxin.core.network.CheckinRetrofit
 import com.lightxin.feature.holiday.domain.HolidayFormData
 import com.lightxin.feature.holiday.domain.HolidayTask
 import com.lightxin.feature.holiday.domain.StrokeOption
-import dagger.Module
-import dagger.Provides
-import dagger.hilt.InstallIn
-import dagger.hilt.components.SingletonComponent
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import retrofit2.HttpException
 import retrofit2.Retrofit
 import java.io.IOException
@@ -25,8 +24,9 @@ class HolidayRepository @Inject constructor(
     /** 获取登记列表（分页），返回领域模型列表 */
     suspend fun getRegistrationList(page: Int): Result<List<HolidayTask>> {
         return try {
+            val studentId = getStudentId()
             val body = mapOf(
-                "studentId" to getStudentId(),
+                "studentId" to studentId,
                 "pageNum" to page,
             )
             val response = api.getRegistrationPage(body)
@@ -34,7 +34,24 @@ class HolidayRepository @Inject constructor(
                 return Result.failure(Exception(response.msg ?: "获取节假日列表失败"))
             }
             val rows = response.rows.orEmpty()
-            Result.success(rows.map { it.toDomain() })
+            // 列表接口不返回个人登记状态，对每个 holiday 并发查 getHolidayRegister 补齐
+            val tasks = coroutineScope {
+                rows.map { row ->
+                    async {
+                        val holidayId = row.id.orEmpty()
+                        val registered = if (holidayId.isBlank()) {
+                            false
+                        } else {
+                            runCatching { api.getHolidayRegister(holidayId, studentId) }
+                                .getOrNull()
+                                ?.let { it.isSuccess() && it.data != null }
+                                ?: false
+                        }
+                        row.toDomain(isRegistered = registered)
+                    }
+                }.awaitAll()
+            }
+            Result.success(tasks)
         } catch (e: Exception) {
             Result.failure(Exception(mapError("获取节假日列表", e), e))
         }
@@ -168,24 +185,14 @@ class HolidayRepository @Inject constructor(
 
     private fun SaveResponse.isSuccess(): Boolean = code == "0"
 
-    private fun HolidayRow.toDomain(): HolidayTask = HolidayTask(
+    private fun HolidayRow.toDomain(isRegistered: Boolean): HolidayTask = HolidayTask(
         holidayId = id.orEmpty(),
         name = name.orEmpty(),
         registerStartDate = registerStartDate.orEmpty(),
         registerEndDate = registerEndDate.orEmpty(),
-        isRegistered = false, // getRegistrationPage 不返回个人登记状态，由业务层决定
+        isRegistered = isRegistered,
         allowStaySchool = allowStaySchool == "1",
         startDate = startDate.orEmpty(),
         endDate = endDate.orEmpty(),
     )
-}
-
-@Module
-@InstallIn(SingletonComponent::class)
-object HolidayModule {
-
-    @Provides
-    @Singleton
-    fun provideHolidayApi(@CheckinRetrofit retrofit: Retrofit): HolidayApi =
-        retrofit.create(HolidayApi::class.java)
 }

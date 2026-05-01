@@ -20,6 +20,7 @@ data class CheckinUiState(
     val isLoadingHoliday: Boolean = false,
     val isLoadingMore: Boolean = false,
     val error: String? = null,
+    val holidayError: String? = null,
     val hasMore: Boolean = true,
     val currentPage: Int = 1,
 )
@@ -64,13 +65,24 @@ class CheckinViewModel @Inject constructor(
 
     private fun loadHolidays() {
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoadingHoliday = true) }
+            _uiState.update { it.copy(isLoadingHoliday = true, holidayError = null) }
             holidayRepository.getRegistrationList(page = 1).fold(
                 onSuccess = { list ->
-                    _uiState.update { it.copy(holidayTasks = list, isLoadingHoliday = false) }
+                    _uiState.update {
+                        it.copy(
+                            holidayTasks = list,
+                            isLoadingHoliday = false,
+                            holidayError = null,
+                        )
+                    }
                 },
-                onFailure = {
-                    _uiState.update { it.copy(isLoadingHoliday = false) }
+                onFailure = { e ->
+                    _uiState.update {
+                        it.copy(
+                            isLoadingHoliday = false,
+                            holidayError = e.message ?: "节假日加载失败",
+                        )
+                    }
                 },
             )
         }
@@ -104,6 +116,10 @@ class CheckinViewModel @Inject constructor(
 
     fun retry() {
         loadInitial()
+        loadHolidays()
+    }
+
+    fun retryHoliday() {
         loadHolidays()
     }
 

@@ -12,7 +12,6 @@ tags: [holiday, checkin, home, register, leave, date-picker]
 |------|------|-----------|
 | `HolidayTask` | 节假日登记任务领域模型，含 holidayId/name/登记窗口/是否已登记等 | grep 全项目无冲突 |
 | `HolidayFormData` | 登记表单数据，含 stroke(0=离校/1=留校)/reason/destination/urgentPhone/日期范围 | grep 无冲突 |
-| `TaskListItem` | sealed interface，统一查寝 CheckinTask 和 HolidayTask 为列表项 | grep 无冲突 |
 | `StrokeOption` | 离校/留校字典选项，label + value | grep 无冲突 |
 | `HolidayCard` | 首页节假日卡片 Composable（放在 HomeDashboard.kt 内，private） | grep 无冲突 |
 | `HolidayRegisterScreen` | 登记表单独立页面 | grep 无冲突 |
@@ -126,8 +125,8 @@ Props: task: HolidayTask, onClick: () -> Unit
 ```
 变更前 Props: onBack, onTaskClick: (taskDateId) -> Unit, shouldRefresh, onRefreshConsumed
 变更后 Props: 新增 onHolidayClick: (holidayId: String) -> Unit
-列表模型: 从 List<CheckinTask> 改为 List<TaskListItem>（sealed interface）
-Section 区分: TaskListItem.Checkin → TaskCard(查寝样式)，TaskListItem.Holiday → HolidayTaskCard(节假日样式)
+列表模型: 保留 List<CheckinTask>，CheckinUiState 新增 holidayTasks: List<HolidayTask>
+Section 区分: tasks 渲染 TaskCard(查寝样式)，holidayTasks 渲染 HolidayTaskCard(节假日样式)，各自一个 LazyColumn section header
 ```
 // 来源：CheckinListScreen.kt:45-52
 
@@ -156,7 +155,7 @@ Props: holidayId: String, onSubmitSuccess: () -> Unit, onBack: () -> Unit
 全部健康，可直接追加：
 - `HomeDashboard.kt` (637行) — 新增 HolidayCard 是已有卡片体系的延伸
 - `HomeViewModel.kt` (272行) — 新增 loadHoliday() 是 loadExtras() 的自然扩展
-- `CheckinListScreen.kt` (204行) — 引入 sealed interface 统一列表项，职责不膨胀
+- `CheckinListScreen.kt` (204行) — 新增 holidayTasks 与节假日 section，职责不膨胀
 - `CheckinViewModel.kt` (92行) — 新增节假日加载，轻量追加
 - `AuthInterceptor.kt` (109行) — 可能需要追加 role/roleId，联调后确定
 - `Routes.kt` / `NavGraph.kt` — 各新增一个路由条目
@@ -167,7 +166,7 @@ Props: holidayId: String, onSubmitSuccess: () -> Unit, onBack: () -> Unit
 1. `feature/holiday/data/HolidayApi.kt` — Retrofit 接口（5 个方法，复用 @CheckinRetrofit）
 2. `feature/holiday/data/HolidayResponse.kt` — 响应 DTO（6 个 data class）
 3. `feature/holiday/data/HolidayRepository.kt` — 数据仓库 + Hilt DI Module
-4. `feature/holiday/domain/HolidayModels.kt` — 领域模型（HolidayTask, HolidayFormData, StrokeOption, TaskListItem sealed interface）
+4. `feature/holiday/domain/HolidayModels.kt` — 领域模型（HolidayTask, HolidayFormData, StrokeOption）
 5. `feature/holiday/ui/HolidayRegisterScreen.kt` — 登记表单页 Composable
 6. `feature/holiday/ui/HolidayRegisterViewModel.kt` — 表单 ViewModel
 7. （HolidayCard 放 HomeDashboard.kt 内，不单独建文件）
@@ -197,7 +196,7 @@ Props: holidayId: String, onSubmitSuccess: () -> Unit, onBack: () -> Unit
 **Step 2 — 首页集成**：HomeViewModel.loadHoliday() + HomeDashboardData.holidayTask + HolidayCard + shouldShowHoliday()
 - 退出信号：HolidayCard 在窗口内可见，窗口外不可见；点击导航到 CHECKIN_LIST
 
-**Step 3 — 列表页集成**：CheckinViewModel 节假日加载 + CheckinListScreen 双 section + TaskListItem sealed interface + onHolidayClick
+**Step 3 — 列表页集成**：CheckinViewModel 节假日加载 + CheckinListScreen 双 section（tasks / holidayTasks 各一个）+ onHolidayClick
 - 退出信号：列表页同时展示查寝/节假日两个 section，点击查寝→详情页，点击节假日→表单页
 
 **Step 4 — 导航**：Routes + NavGraph 新增 HOLIDAY_REGISTER 路由 + 刷新信号

@@ -11,7 +11,7 @@ steps:
     exit_signal: "HolidayCard 在登记窗口内可见，窗口外不可见；点击导航到 CHECKIN_LIST"
     status: done
 
-  - action: "Step 3 列表页集成：CheckinViewModel 节假日加载 + CheckinListScreen 双 section + TaskListItem sealed interface + onHolidayClick"
+  - action: "Step 3 列表页集成：CheckinViewModel 节假日加载 + CheckinListScreen 双 section（tasks / holidayTasks 各一个）+ onHolidayClick"
     exit_signal: "列表页同时展示查寝/节假日两个 section，点击查寝→详情页，点击节假日→表单页"
     status: done
 
@@ -56,7 +56,7 @@ checks:
     source: 接口契约
     status: passed
 
-  - item: "列表页 sealed interface TaskListItem 统一 Checkin 和 Holiday 项"
+  - item: "列表页 CheckinUiState 持有 tasks / holidayTasks 两个独立列表，各自一个 section"
     source: 接口契约
     status: passed
 

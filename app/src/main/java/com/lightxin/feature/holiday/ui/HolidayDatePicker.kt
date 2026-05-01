@@ -1,13 +1,11 @@
 package com.lightxin.feature.holiday.ui
 
-import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -295,21 +293,12 @@ private fun DayCell(
             .then(if (isSelected) Modifier.background(LxTerraSoft, CircleShape) else Modifier)
             .then(
                 if (isToday && !isSelected) {
-                    Modifier.background(Color.Transparent, CircleShape)
+                    Modifier.border(1.dp, LxTerra, CircleShape)
                 } else Modifier
             )
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        // 今天外圈
-        if (isToday && !isSelected) {
-            Box(
-                modifier = Modifier
-                    .size(36.dp)
-                    .clip(CircleShape)
-                    .background(LxTerraSoft),
-            )
-        }
 
         Text(
             text = day.toString(),

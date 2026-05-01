@@ -7,6 +7,8 @@ import com.lightxin.feature.holiday.data.HolidayRepository
 import com.lightxin.feature.holiday.domain.HolidayFormData
 import com.lightxin.feature.holiday.domain.StrokeOption
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
@@ -53,9 +55,12 @@ class HolidayRegisterViewModel @Inject constructor(
             _uiState.update { it.copy(isLoading = true, error = null) }
 
             // 并行加载配置、已有记录、字典
-            val detailResult = repository.getHolidayDetail(holidayId)
-            val existingResult = repository.getExistingRegister(holidayId)
-            val strokeResult = repository.getStrokeTypes()
+            val (detailResult, existingResult, strokeResult) = coroutineScope {
+                val detailDeferred = async { repository.getHolidayDetail(holidayId) }
+                val existingDeferred = async { repository.getExistingRegister(holidayId) }
+                val strokeDeferred = async { repository.getStrokeTypes() }
+                Triple(detailDeferred.await(), existingDeferred.await(), strokeDeferred.await())
+            }
 
             val detail = detailResult.getOrNull()
             val existing = existingResult.getOrNull()

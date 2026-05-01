@@ -57,7 +57,6 @@ import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.navigation.NavHostController
 import com.lightxin.core.designsystem.component.LxCard
 import com.lightxin.core.designsystem.component.LxShimmerCard
-import com.lightxin.core.designsystem.theme.LxAmber
 import com.lightxin.core.designsystem.theme.LxCategoryColors
 import com.lightxin.core.designsystem.theme.LxInk
 import com.lightxin.core.designsystem.theme.LxInkMuted
@@ -462,7 +461,7 @@ private fun CheckinCard(task: CheckinTask, onClick: () -> Unit) {
         onClick = onClick,
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            PulseDot(color = LxAmber)
+            PulseDot(color = LxTerra)
             Spacer(modifier = Modifier.width(10.dp))
             Column {
                 Text(
@@ -533,7 +532,7 @@ private fun HolidayCard(task: HolidayTask, onClick: () -> Unit) {
         onClick = onClick,
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            PulseDot(color = if (isUrgent) LxAmber else LxSage)
+            PulseDot(color = if (isUrgent) LxTerra else LxSage)
             Spacer(modifier = Modifier.width(10.dp))
             Column {
                 Text(

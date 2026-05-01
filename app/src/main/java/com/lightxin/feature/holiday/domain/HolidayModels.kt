@@ -1,16 +1,5 @@
 package com.lightxin.feature.holiday.domain
 
-import com.lightxin.feature.checkin.domain.CheckinTask
-
-/**
- * 统一列表项 sealed interface
- * 供 CheckinListScreen 将查寝任务和节假日任务合并为单一列表
- */
-sealed interface TaskListItem {
-    data class Checkin(val task: CheckinTask) : TaskListItem
-    data class Holiday(val task: HolidayTask) : TaskListItem
-}
-
 /**
  * 节假日登记任务（列表项领域模型）
  */

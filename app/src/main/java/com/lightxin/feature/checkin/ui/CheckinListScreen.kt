@@ -4,8 +4,10 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -38,9 +40,10 @@ import com.lightxin.core.designsystem.component.LxEmpty
 import com.lightxin.core.designsystem.component.LxError
 import com.lightxin.core.designsystem.component.LxLoading
 import com.lightxin.core.designsystem.component.LxTopBar
-import com.lightxin.core.designsystem.theme.LxAmber
 import com.lightxin.core.designsystem.theme.LxInkMuted
+import com.lightxin.core.designsystem.theme.LxInkSoft
 import com.lightxin.core.designsystem.theme.LxSuccess
+import com.lightxin.core.designsystem.theme.LxTerra
 import com.lightxin.feature.checkin.domain.CheckinTask
 import com.lightxin.feature.holiday.domain.HolidayTask
 
@@ -75,7 +78,7 @@ fun CheckinListScreen(
                 onRetry = viewModel::retry,
                 modifier = Modifier.padding(padding),
             )
-            uiState.tasks.isEmpty() && uiState.holidayTasks.isEmpty() -> LxEmpty(
+            uiState.tasks.isEmpty() && uiState.holidayTasks.isEmpty() && uiState.holidayError == null -> LxEmpty(
                 message = "暂无签到与节假日任务",
                 modifier = Modifier.padding(padding),
             )
@@ -84,6 +87,7 @@ fun CheckinListScreen(
                 onTaskClick = onTaskClick,
                 onHolidayClick = onHolidayClick,
                 onLoadMore = viewModel::loadMore,
+                onRetryHoliday = viewModel::retryHoliday,
                 modifier = Modifier.padding(padding),
             )
         }
@@ -96,6 +100,7 @@ private fun TaskList(
     onTaskClick: (String) -> Unit,
     onHolidayClick: (String) -> Unit,
     onLoadMore: () -> Unit,
+    onRetryHoliday: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val listState = rememberLazyListState()
@@ -136,9 +141,14 @@ private fun TaskList(
         }
 
         // 节假日登记 section
-        if (uiState.holidayTasks.isNotEmpty()) {
+        if (uiState.holidayTasks.isNotEmpty() || uiState.holidayError != null) {
             item(key = "section_holiday") {
                 SectionHeader("节假日登记")
+            }
+            if (uiState.holidayError != null) {
+                item(key = "holiday_error") {
+                    HolidayErrorRow(message = uiState.holidayError!!, onRetry = onRetryHoliday)
+                }
             }
             items(uiState.holidayTasks, key = { "h_${it.holidayId}" }) { task ->
                 HolidayTaskCard(
@@ -264,8 +274,42 @@ private fun HolidayTaskCard(
 }
 
 @Composable
+private fun HolidayErrorRow(message: String, onRetry: () -> Unit) {
+    LxCard(onClick = onRetry) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(IntrinsicSize.Min),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(
+                modifier = Modifier
+                    .width(2.dp)
+                    .fillMaxHeight()
+                    .background(LxTerra),
+            )
+            Text(
+                text = message,
+                style = MaterialTheme.typography.bodySmall,
+                color = LxInkSoft,
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(horizontal = 14.dp, vertical = 12.dp),
+            )
+            Text(
+                text = "重试",
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.SemiBold,
+                color = LxInkSoft,
+                modifier = Modifier.padding(end = 16.dp),
+            )
+        }
+    }
+}
+
+@Composable
 private fun HolidayStatusBadge(isRegistered: Boolean) {
-    val color = if (isRegistered) LxSuccess else LxAmber
+    val color = if (isRegistered) LxSuccess else LxTerra
     val text = if (isRegistered) "已登记" else "待登记"
 
     Box(
