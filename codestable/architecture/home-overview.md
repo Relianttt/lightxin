@@ -4,7 +4,7 @@ slug: home-overview
 scope: 首页模块的启动预加载、场景判定、副标题轮换、以及 HomeDashboard 实际渲染骨架
 summary: home 以 MainActivity + HomeBootstrap 完成冷启动首屏预加载，以 HomeViewModel 聚合主页状态，并用 SceneResolver/SubtitleLibrary 把课程与查寝信号转成叙事文案；UI 层当前是固定骨架，不是单卡片状态机
 status: current
-last_reviewed: 2026-04-21
+last_reviewed: 2026-05-01
 tags: [home, bootstrap, splash, scene, subtitle]
 depends_on: [network-overview, running-overview]
 ---
@@ -173,10 +173,11 @@ depends_on: [network-overview, running-overview]
 
 ### 3.3 数据来源边界
 
-首页当前消费四类后端摘要：
+首页当前消费五类后端摘要：
 
 - 课表：`ScheduleRepository`
 - 查寝：`CheckinRepository`
+- 节假日离返校登记：`HolidayRepository`（同 fdygl 域，与查寝共用 `@CheckinRetrofit`）
 - 跑步：`RunningRepository`
 - 劳教：`LaborRepository`
 
@@ -185,7 +186,7 @@ depends_on: [network-overview, running-overview]
 但它们并不在同一阶段进入页面：
 
 - 冷启动阶段只预取课表 / 查寝
-- 首页补充阶段再取跑步 / 劳教
+- 首页补充阶段再取跑步 / 劳教 / 节假日
 
 锚点：`feature/home/domain/HomeBootstrap.kt:54-68` / `feature/home/ui/HomeViewModel.kt:140-161`。
 
@@ -201,6 +202,7 @@ depends_on: [network-overview, running-overview]
 - `TodayCourseCard`
 - `RunningCard`
 - 条件渲染的 `CheckinCard`
+- 条件渲染的 `HolidayCard`
 
 锚点：`feature/home/ui/HomeDashboard.kt:114-200`。
 
@@ -245,6 +247,14 @@ depends_on: [network-overview, running-overview]
 - 卡片层：开始前后 4 小时窗口内可显示查寝卡
 
 两者职责不同，不能混为一条逻辑。
+
+### 4.5 节假日卡片基于登记窗口可见，与查寝卡是同模式的并列条目
+
+`HolidayCard` 只有在 `shouldShowHoliday(task)` 解析 `registerStartDate ~ registerEndDate` 当前时间命中窗口时才渲染；点击跳转到 `CheckinListScreen`（节假日 section），而不是直接到登记表单页。
+
+锚点：`feature/home/ui/HomeDashboard.kt:200-217` / `feature/home/ui/HomeDashboard.kt:505-552`。
+
+紧急态判定（`registerEndDate` 离现在 < 24 小时）切换 `PulseDot` 颜色，但仍不进入 `SceneResolver`——节假日不在场景副标题体系内，纯粹是首页提醒卡。这与查寝卡片"独立可见性窗口、不绑定场景"的定位一致（§4.4）。
 
 ## 5. 关键决策
 
