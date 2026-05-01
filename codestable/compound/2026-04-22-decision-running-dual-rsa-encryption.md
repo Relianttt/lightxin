@@ -30,4 +30,4 @@ tags: [running, rsa, encryption, sports-api]
 
 - `core/auth/RSAUtils.kt:36` — `encryptSportData()`
 - `docs/接口分析/跑步接口深度分析报告.md`
-- `easysdd/architecture/network-overview.md` §6
+- `codestable/architecture/network-overview.md` §6

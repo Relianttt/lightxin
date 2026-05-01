@@ -36,4 +36,4 @@ tags: [compose, webview, native, rewrite]
 ## 相关文档
 
 - `AGENTS.md` — 项目结构说明
-- `easysdd/architecture/DESIGN.md` §1
+- `codestable/architecture/DESIGN.md` §1

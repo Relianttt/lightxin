@@ -30,4 +30,4 @@ tags: [checkin, auth, header, fdygl]
 
 - `docs/接口分析/查寝接口适配记录.md` — 踩坑实录
 - `core/network/AuthInterceptor.kt:54-69` — 查寝档实现
-- `easysdd/architecture/network-overview.md` §2.4, §6
+- `codestable/architecture/network-overview.md` §2.4, §6

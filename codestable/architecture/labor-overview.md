@@ -126,6 +126,6 @@ val newRecords = list.filter { r -> r.id !in existingIds }
 
 ## 7. 相关文档
 
-- 网络层：`easysdd/architecture/network-overview.md`
-- 首页消费 labor 数据：`easysdd/architecture/home-overview.md` §3.3
-- 架构总入口：`easysdd/architecture/DESIGN.md`
+- 网络层：`codestable/architecture/network-overview.md`
+- 首页消费 labor 数据：`codestable/architecture/home-overview.md` §3.3
+- 架构总入口：`codestable/architecture/DESIGN.md`

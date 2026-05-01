@@ -142,4 +142,4 @@ onboarding 自身没有可变状态。所有状态是局部的 Composable 状态
 
 - SessionManager / isOnboarded 状态管理：`core/auth/SessionManager.kt`
 - 导航起始页决策：`navigation/NavGraph.kt`
-- 架构总入口：`easysdd/architecture/DESIGN.md`
+- 架构总入口：`codestable/architecture/DESIGN.md`

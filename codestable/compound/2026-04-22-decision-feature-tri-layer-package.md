@@ -35,4 +35,4 @@ feature 代码按 `data / domain / ui` 三层分包，不按层分包。每个 f
 ## 相关文档
 
 - `AGENTS.md` — 项目结构说明
-- `easysdd/architecture/DESIGN.md` §2, §3
+- `codestable/architecture/DESIGN.md` §2, §3

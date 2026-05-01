@@ -37,4 +37,4 @@ tags: [running, storage, json, room]
 
 - `docs/项目规划/路线模拟实现文档.md` — 早期 Room vs JSON 讨论
 - `feature/running/domain/RouteTemplateStore.kt`
-- `easysdd/architecture/running-overview.md`
+- `codestable/architecture/running-overview.md`

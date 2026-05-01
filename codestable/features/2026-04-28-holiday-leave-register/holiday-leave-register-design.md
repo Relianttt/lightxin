@@ -222,7 +222,7 @@ Props: holidayId: String, onSubmitSuccess: () -> Unit, onBack: () -> Unit
 
 ## 4. 与项目级架构文档的关系
 
-- 关联架构 doc：`easysdd/architecture/designsystem-overview.md`（复用 LxCard 等设计系统组件）
-- 关联既有 feature：`easysdd/features/2026-04-22-manual-zoom-scan/`（查寝模块的签到流程）
+- 关联架构 doc：`codestable/architecture/designsystem-overview.md`（复用 LxCard 等设计系统组件）
+- 关联既有 feature：`codestable/features/2026-04-22-manual-zoom-scan/`（查寝模块的签到流程）
 - 不需在 `DESIGN.md` 补引用——节假日是查寝模块的自然扩展，不引入新架构概念
 - 不需新建子系统架构 doc——`feature/holiday/` 的模块边界在本文 §1 已说明

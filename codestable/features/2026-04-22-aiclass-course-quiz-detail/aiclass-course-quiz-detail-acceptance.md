@@ -33,7 +33,7 @@ tags: [aiclass, course-detail, quiz, fif, navigation]
   - `AiClassViewModel` 增加详情页状态与测验列表加载动作
 - `navigation/*`
   - 新增 `AICLASS_DETAIL/{classId}` route
-- `easysdd/architecture/aiclass-overview.md`
+- `codestable/architecture/aiclass-overview.md`
   - 归并课程详情与测验列表能力
 - `app/src/test/java/com/lightxin/core/network/FifSessionManagerTokenParsingTest.kt`
   - 新增 token 解析单测

@@ -34,4 +34,4 @@ tags: [designsystem, color, terra, visual-consistency]
 ## 相关文档
 
 - `docs/项目规划/UI改造指南.md` §9.3 陶土色使用准则
-- `easysdd/architecture/designsystem-overview.md` §2.7, §6
+- `codestable/architecture/designsystem-overview.md` §2.7, §6

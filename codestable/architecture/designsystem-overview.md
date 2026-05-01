@@ -204,9 +204,9 @@ designsystem 自身**没有可变状态**——token 是常量 / 单次读取，
 
 ## 7. 相关文档
 
-- 架构总入口：`easysdd/architecture/DESIGN.md`
+- 架构总入口：`codestable/architecture/DESIGN.md`
 - 历史设计输入（多数已实现）：`docs/项目规划/UI改造指南.md`（Phase 9A / 9B / 9C 完整决策 + 未决问题 + 组件改造清单）
 - 原型参考：`prototype/anthropic-redesign.html`（色板 CSS 变量与第 1 节 token 一一对应）
 - 使用 designsystem 的代表性模块：
-  - `easysdd/architecture/home-overview.md` — 首页叙事骨架消费 `LxCard` / 问候区衬线字等
-  - `easysdd/architecture/running-overview.md` — 跑步仪表盘 / 设置页大量使用 `LxButton` / `LxTextField` / `LxChoiceChip`
+  - `codestable/architecture/home-overview.md` — 首页叙事骨架消费 `LxCard` / 问候区衬线字等
+  - `codestable/architecture/running-overview.md` — 跑步仪表盘 / 设置页大量使用 `LxButton` / `LxTextField` / `LxChoiceChip`

@@ -35,5 +35,5 @@ tags: [mlkit, barcode, scan, zoom, camerax]
 
 ## 关联
 
-- 方案文档：`easysdd/features/2026-04-22-manual-zoom-scan/manual-zoom-scan-design.md`
-- 决策记录：`easysdd/compound/2026-04-22-decision-ml-kit-barcode.md`
+- 方案文档：`codestable/features/2026-04-22-manual-zoom-scan/manual-zoom-scan-design.md`
+- 决策记录：`codestable/compound/2026-04-22-decision-ml-kit-barcode.md`

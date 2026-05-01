@@ -98,10 +98,10 @@ tags: [holiday, checkin, home, register, leave, acceptance]
 
 对照方案 doc 第 4 节：
 
-- [x] `easysdd/architecture/designsystem-overview.md` — 本 feature 复用 LxCard/LxTopBar/LxError/LxLoading 等设计系统组件，未新增组件到设计系统库，无需更新该 doc。
+- [x] `codestable/architecture/designsystem-overview.md` — 本 feature 复用 LxCard/LxTopBar/LxError/LxLoading 等设计系统组件，未新增组件到设计系统库，无需更新该 doc。
 - [x] 关联既有 feature `2026-04-22-manual-zoom-scan` — 查寝模块的列表页被扩展（双 section），但 CheckinDetailScreen 未修改，签到流程不受影响。无需更新架构 doc。
-- [x] `easysdd/architecture/DESIGN.md` — 方案 doc 第 4 节明确"不需在 DESIGN.md 补引用"，节假日是查寝模块的自然扩展，不引入新架构概念。确认无需更新。
-- [x] `${slug}-design.md` 本身已在 easysdd/features/ 目录下，作为该 feature 的独立架构参考。无需额外新建。
+- [x] `codestable/architecture/DESIGN.md` — 方案 doc 第 4 节明确"不需在 DESIGN.md 补引用"，节假日是查寝模块的自然扩展，不引入新架构概念。确认无需更新。
+- [x] `${slug}-design.md` 本身已在 codestable/features/ 目录下，作为该 feature 的独立架构参考。无需额外新建。
 
 ## 6. 遗留
 

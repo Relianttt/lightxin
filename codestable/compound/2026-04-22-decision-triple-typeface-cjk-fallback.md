@@ -37,4 +37,4 @@ tags: [designsystem, typography, cjk, fallback]
 
 - `docs/项目规划/UI改造指南.md` §9 Phase 9C 字体 fallback
 - `core/designsystem/theme/Type.kt:11-14,20-45`
-- `easysdd/architecture/designsystem-overview.md` §2.5
+- `codestable/architecture/designsystem-overview.md` §2.5

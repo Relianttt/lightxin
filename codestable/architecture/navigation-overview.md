@@ -161,8 +161,8 @@ AI 课堂的两个页面（AICLASS_HOME / AICLASS_SCAN）共享 `AiClassViewMode
 
 ## 7. 相关文档
 
-- 首页三 tab 容器：`easysdd/architecture/home-overview.md` §2.1
-- 登录导航：`easysdd/architecture/login-overview.md` §2.3
-- 查寝详情页通信：`easysdd/architecture/checkin-overview.md` §2.4
-- 跑步模块 ViewModel 共享：`easysdd/architecture/running-overview.md`
-- 架构总入口：`easysdd/architecture/DESIGN.md`
+- 首页三 tab 容器：`codestable/architecture/home-overview.md` §2.1
+- 登录导航：`codestable/architecture/login-overview.md` §2.3
+- 查寝详情页通信：`codestable/architecture/checkin-overview.md` §2.4
+- 跑步模块 ViewModel 共享：`codestable/architecture/running-overview.md`
+- 架构总入口：`codestable/architecture/DESIGN.md`

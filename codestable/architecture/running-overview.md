@@ -179,8 +179,8 @@ navigation 层把 running 明确拆成两套共享作用域：
 
 ## 4. 关键决策
 
-- **跑步不引入地图 SDK** —— 来源 `easysdd/architecture/DESIGN.md` §4；真实跑步与模板录制都以数据仪表盘 + 原生 `LocationManager` 为主，坐标转换走本地数学变换。关联代码：`core/location/LocationProvider.kt:18-69`、`feature/running/service/RunTrackingService.kt:49-65`。
-- **路线模板用 JSON 文件而非 Room** —— 来源 `easysdd/architecture/DESIGN.md` §4；当前实现为 `RouteTemplateStore + Mutex + route_templates.json`。关联代码：`feature/running/data/RouteTemplateStore.kt:24-137`。
+- **跑步不引入地图 SDK** —— 来源 `codestable/architecture/DESIGN.md` §4；真实跑步与模板录制都以数据仪表盘 + 原生 `LocationManager` 为主，坐标转换走本地数学变换。关联代码：`core/location/LocationProvider.kt:18-69`、`feature/running/service/RunTrackingService.kt:49-65`。
+- **路线模板用 JSON 文件而非 Room** —— 来源 `codestable/architecture/DESIGN.md` §4；当前实现为 `RouteTemplateStore + Mutex + route_templates.json`。关联代码：`feature/running/data/RouteTemplateStore.kt:24-137`。
 
 ## 5. 代码锚点
 
@@ -206,7 +206,7 @@ navigation 层把 running 明确拆成两套共享作用域：
 
 ## 7. 相关文档
 
-- 网络层：`easysdd/architecture/network-overview.md`
-- 架构总入口：`easysdd/architecture/DESIGN.md`
+- 网络层：`codestable/architecture/network-overview.md`
+- 架构总入口：`codestable/architecture/DESIGN.md`
 - 历史规划：`docs/项目规划/路线模拟实现文档.md`
 - 协议与上传约束：`docs/接口分析/跑步接口深度分析报告.md`

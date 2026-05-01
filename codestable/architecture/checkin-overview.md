@@ -148,7 +148,7 @@ CheckinDetailScreen  → CheckinDetailViewModel → CheckinRepository → Checki
 
 ## 7. 相关文档
 
-- 网络层多域名 + 多 header 鉴权：`easysdd/architecture/network-overview.md`
-- 查寝多 header 鉴权决策：`easysdd/compound/2026-04-22-decision-checkin-multi-header-auth.md`
-- 首页消费查寝数据：`easysdd/architecture/home-overview.md` §2.2 / §2.4 / §4.4
-- 架构总入口：`easysdd/architecture/DESIGN.md`
+- 网络层多域名 + 多 header 鉴权：`codestable/architecture/network-overview.md`
+- 查寝多 header 鉴权决策：`codestable/compound/2026-04-22-decision-checkin-multi-header-auth.md`
+- 首页消费查寝数据：`codestable/architecture/home-overview.md` §2.2 / §2.4 / §4.4
+- 架构总入口：`codestable/architecture/DESIGN.md`

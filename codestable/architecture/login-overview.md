@@ -135,6 +135,6 @@ token 过期后的自动刷新由 `core/network/TokenRefreshInterceptor` 拦截 
 
 ## 7. 相关文档
 
-- 网络层多域名架构：`easysdd/architecture/network-overview.md`
-- RSA 双密钥决策：`easysdd/compound/2026-04-22-decision-running-dual-rsa-encryption.md`
-- 架构总入口：`easysdd/architecture/DESIGN.md`
+- 网络层多域名架构：`codestable/architecture/network-overview.md`
+- RSA 双密钥决策：`codestable/compound/2026-04-22-decision-running-dual-rsa-encryption.md`
+- 架构总入口：`codestable/architecture/DESIGN.md`

@@ -36,4 +36,4 @@ tags: [location, running, sdk]
 
 - `core/location/LocationProvider.kt` — 原生 LocationManager 封装
 - `core/location/CoordinateConverter.kt` — WGS-84 → GCJ-02 → BD-09
-- `easysdd/architecture/running-overview.md`
+- `codestable/architecture/running-overview.md`

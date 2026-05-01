@@ -182,7 +182,7 @@ UI 层限制输入长度 ≤6，签到按钮在输入达到 6 位且存在进行
 
 ## 7. 相关文档
 
-- 网络层 FIF 独立栈：`easysdd/architecture/network-overview.md`
-- FIF 独立 OkHttp 决策：`easysdd/compound/2026-04-22-decision-fif-independent-okhttp-stack.md`
-- ML Kit 扫码决策：`easysdd/compound/2026-04-22-decision-ml-kit-barcode.md`
-- 架构总入口：`easysdd/architecture/DESIGN.md`
+- 网络层 FIF 独立栈：`codestable/architecture/network-overview.md`
+- FIF 独立 OkHttp 决策：`codestable/compound/2026-04-22-decision-fif-independent-okhttp-stack.md`
+- ML Kit 扫码决策：`codestable/compound/2026-04-22-decision-ml-kit-barcode.md`
+- 架构总入口：`codestable/architecture/DESIGN.md`

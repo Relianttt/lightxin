@@ -21,8 +21,8 @@ tags: [aiclass, scan, camera, zoom, mlkit, pinch-to-zoom]
 
 其他更新：
 - `app/build.gradle.kts` — release 构建限定 arm64-v8a
-- `easysdd/architecture/aiclass-overview.md` — §2.7 补充手动捏合变焦能力
-- `easysdd/features/2026-04-22-manual-zoom-scan/manual-zoom-scan-design.md` — §2.2 回调说明对齐实际实现
+- `codestable/architecture/aiclass-overview.md` — §2.7 补充手动捏合变焦能力
+- `codestable/features/2026-04-22-manual-zoom-scan/manual-zoom-scan-design.md` — §2.2 回调说明对齐实际实现
 
 ## 2. 检查项验证
 

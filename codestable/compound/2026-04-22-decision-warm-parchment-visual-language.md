@@ -36,4 +36,4 @@ tags: [designsystem, theme, color, visual-language]
 ## 相关文档
 
 - `docs/项目规划/UI改造指南.md` §1 设计 Token
-- `easysdd/architecture/designsystem-overview.md` §2.1-2.2
+- `codestable/architecture/designsystem-overview.md` §2.1-2.2

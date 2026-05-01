@@ -136,7 +136,7 @@ UI 层用 `CELL_HEIGHT = 58.dp` 为基准，课程块按 `top = (startSection - 
 
 ## 7. 相关文档
 
-- 首页场景引擎：`easysdd/architecture/home-overview.md`
-- 网络层：`easysdd/architecture/network-overview.md`
-- 首页启动预加载：`easysdd/architecture/home-overview.md` §2.2
-- 架构总入口：`easysdd/architecture/DESIGN.md`
+- 首页场景引擎：`codestable/architecture/home-overview.md`
+- 网络层：`codestable/architecture/network-overview.md`
+- 首页启动预加载：`codestable/architecture/home-overview.md` §2.2
+- 架构总入口：`codestable/architecture/DESIGN.md`

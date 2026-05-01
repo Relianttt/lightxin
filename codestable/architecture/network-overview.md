@@ -178,7 +178,7 @@ FIF 多一层 Cookie 检查的原因是 token 本身不含过期时间，但 `SE
 
 本节只列**有明确主动来源**的决策。另有两条"从代码现状反推出的硬约束"未正式归档（Form 表单 / 查寝多头鉴权），暂放 §6 作为约束对待，是否升级为正式决策待用户评估。
 
-- **FIF 必须独立 OkHttp 栈**（§2.1）—— 来源 `docs/项目规划/AI课堂开发规划.md` §技术方案"独立的 OkHttpClient"。引用：`easysdd/compound/2026-04-22-decision-fif-independent-okhttp-stack.md`。
+- **FIF 必须独立 OkHttp 栈**（§2.1）—— 来源 `docs/项目规划/AI课堂开发规划.md` §技术方案"独立的 OkHttpClient"。引用：`codestable/compound/2026-04-22-decision-fif-independent-okhttp-stack.md`。
 
 ## 5. 代码锚点
 
@@ -214,7 +214,7 @@ FIF 多一层 Cookie 检查的原因是 token 本身不含过期时间，但 `SE
 
 ## 7. 相关文档
 
-- 架构总入口：`easysdd/architecture/DESIGN.md`
+- 架构总入口：`codestable/architecture/DESIGN.md`
 - 接口协议参考：`docs/接口分析/APK逆向分析报告.md`、`docs/接口分析/AI课堂接口分析报告.md`
 - 踩坑实录：`docs/接口分析/查寝接口适配记录.md`、`docs/接口分析/跑步接口深度分析报告.md`
 - 历史规划（多数已实现）：`docs/项目规划/项目规划.md` §多域名网络层、`docs/项目规划/AI课堂开发规划.md` §技术方案

@@ -4,7 +4,7 @@ track: knowledge
 date: 2026-04-21
 updated: 2026-04-21
 slug: code-anchored-architecture-backfill
-component: easysdd/architecture
+component: codestable/architecture
 tags: [architecture, documentation, learning-boundary, workflow, home, running, network]
 ---
 
@@ -92,7 +92,7 @@ Learning 该记的是：当设计稿预期"单智慧卡片状态机"，而代码
 参考：
 
 - `docs/项目规划/homepage-design-spec.md`
-- `easysdd/architecture/home-overview.md`
+- `codestable/architecture/home-overview.md`
 
 ## 5.2 `running` 和 `network`：先锁主链，再补特例
 
@@ -106,8 +106,8 @@ Learning 该记的是：当设计稿预期"单智慧卡片状态机"，而代码
 
 参考：
 
-- `easysdd/architecture/running-overview.md`
-- `easysdd/architecture/network-overview.md`
+- `codestable/architecture/running-overview.md`
+- `codestable/architecture/network-overview.md`
 
 ## 5.3 自检
 

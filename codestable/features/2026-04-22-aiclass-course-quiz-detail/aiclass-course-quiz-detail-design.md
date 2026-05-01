@@ -178,7 +178,7 @@ suspend fun getTimetableInfo(
    - 退出信号：点击课程卡片进入详情页，能看到课程信息与测验区块
 
 5. **架构归并与最小验证**
-   - 修改：`easysdd/architecture/aiclass-overview.md`
+   - 修改：`codestable/architecture/aiclass-overview.md`
    - 新建：`app/src/test/...` 相关单测（至少覆盖 token memberId 提取）
    - 退出信号：测试通过，架构文档补到课程详情/测验能力
 
@@ -214,16 +214,16 @@ suspend fun getTimetableInfo(
 | `feature/aiclass/ui/AiClassCourseDetailScreen.kt` | 新建 | 课程详情与测验列表 UI |
 | `navigation/Routes.kt` | 修改 | 新增详情 route |
 | `navigation/NavGraph.kt` | 修改 | 注册详情页并共享 ViewModel |
-| `easysdd/architecture/aiclass-overview.md` | 修改 | 归并课程详情/测验列表能力 |
+| `codestable/architecture/aiclass-overview.md` | 修改 | 归并课程详情/测验列表能力 |
 | `app/src/test/java/...` | 新建 | 最小单测 |
 
 ## 4. 与项目级架构文档的关系
 
-本 feature 改变了 `feature/aiclass/` 的公开能力边界：模块不再只有首页签到与扫码，还新增“课程详情页 + 测验列表读取 + 当前学期课程补数”。因此 acceptance 阶段需要更新 `easysdd/architecture/aiclass-overview.md`：
+本 feature 改变了 `feature/aiclass/` 的公开能力边界：模块不再只有首页签到与扫码，还新增“课程详情页 + 测验列表读取 + 当前学期课程补数”。因此 acceptance 阶段需要更新 `codestable/architecture/aiclass-overview.md`：
 
 - `2.1` 三层结构补上 `AiClassCourseDetailScreen`
 - `2.4` 从“课程加载”扩成“课程加载 + 课程补数 + 课程详情测验列表”
 - `3.1` 数据模型表补上 `AiQuiz`
 - `5` 代码锚点补上新页面与新仓储方法
 
-`easysdd/architecture/DESIGN.md` 无需新增入口。
+`codestable/architecture/DESIGN.md` 无需新增入口。

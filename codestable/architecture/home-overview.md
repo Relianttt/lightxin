@@ -273,7 +273,7 @@ depends_on: [network-overview, running-overview]
 
 ## 8. 相关文档
 
-- 网络层：`easysdd/architecture/network-overview.md`
-- 跑步模块：`easysdd/architecture/running-overview.md`
-- 架构总入口：`easysdd/architecture/DESIGN.md`
+- 网络层：`codestable/architecture/network-overview.md`
+- 跑步模块：`codestable/architecture/running-overview.md`
+- 架构总入口：`codestable/architecture/DESIGN.md`
 - 首页历史设计输入：`docs/项目规划/homepage-design-spec.md`
