@@ -91,9 +91,10 @@ class AiClassRepository @Inject constructor(
             }.getOrDefault(emptyList())
 
             Result.success(
-                mergeCourses(
+                AiClassCourseMerger.mergeCourses(
                     primary = primaryCourses,
                     supplemental = supplementalCourses,
+                    log = { message -> Log.i(REPOSITORY_LOG_TAG, message) },
                 ),
             )
         } catch (e: Exception) {
@@ -184,7 +185,7 @@ class AiClassRepository @Inject constructor(
                 studentId = studentId,
                 auth = auth,
             )
-            val coursePaperList = extractQuizzesFromCoursePaperInfo(coursePaperResp.data)
+            val coursePaperList = AiClassQuizParser.extractQuizzesFromCoursePaperInfo(coursePaperResp.data)
             val publishPaperList = if (userId.isBlank()) {
                 emptyList()
             } else {
@@ -207,7 +208,7 @@ class AiClassRepository @Inject constructor(
                 }
             }
 
-            val mergedQuizList = mergeQuizLists(
+            val mergedQuizList = AiClassQuizParser.mergeQuizLists(
                 primary = publishPaperList,
                 secondary = coursePaperList,
             )
@@ -234,13 +235,13 @@ class AiClassRepository @Inject constructor(
             )
             var auth = ensureSession()
             var attempt = executeQrCodeRequest(payload, auth)
-            if (requiresQrSessionRefresh(attempt)) {
+            if (AiClassQrResultResolver.requiresSessionRefresh(attempt)) {
                 Log.w(REPOSITORY_LOG_TAG, "qrcodeHandler redirected to loginManage, forcing SSO retry")
                 auth = ensureSession(forceRefresh = true)
                 attempt = executeQrCodeRequest(payload, auth)
             }
 
-            resolveQrCodeResult(attempt)
+            AiClassQrResultResolver.resolveResult(attempt)
         } catch (e: Exception) {
             Log.e(REPOSITORY_LOG_TAG, "submitQrCode failed", e)
             Result.failure(Exception(mapError("扫码签到", e), e))
@@ -275,31 +276,6 @@ class AiClassRepository @Inject constructor(
         }
 
         return mergedCookies.entries.joinToString("; ") { (name, value) -> "$name=$value" }
-    }
-
-    private fun resolveQrRedirectMessage(location: String): String {
-        if (location.isBlank()) return "扫码签到失败：服务端未返回跳转地址"
-        return when {
-            location.contains("loginManage", ignoreCase = true) -> "扫码签到失败：AI课堂登录态已失效"
-            location.contains("login", ignoreCase = true) -> "扫码签到失败：AI课堂登录态已失效"
-            location.contains("course", ignoreCase = true) -> "扫码签到失败：二维码跳转到了课程页"
-            else -> "扫码签到失败：未识别的跳转结果"
-        }
-    }
-
-    private fun requiresQrSessionRefresh(result: QrRequestResult): Boolean =
-        result.code == 302 && result.location.contains("login", ignoreCase = true)
-
-    private fun resolveQrCodeResult(result: QrRequestResult): Result<String> {
-        return if (result.code == 302 && result.location.contains("codeExpired", ignoreCase = true)) {
-            Result.failure(Exception("二维码已过期"))
-        } else if (result.code == 302 && result.location.contains("signSuccess", ignoreCase = true)) {
-            Result.success("扫码签到成功")
-        } else if (result.code == 302) {
-            Result.failure(Exception(resolveQrRedirectMessage(result.location)))
-        } else {
-            Result.failure(Exception("签到失败（HTTP ${result.code}）"))
-        }
     }
 
     private suspend fun executeQrCodeRequest(payload: AiClassQrPayload, auth: String): QrRequestResult {
@@ -392,39 +368,6 @@ private fun String.previewForLog(maxLen: Int = 16): String {
     return if (length <= maxLen) this else take(maxLen) + "..."
 }
 
-private data class QrRequestResult(
-    val code: Int,
-    val location: String,
-    val requestUrl: String,
-)
-
-private fun Any?.asBoolean(): Boolean {
-    return when (this) {
-        is Boolean -> this
-        is Number -> toInt() != 0
-        is String -> equals("true", ignoreCase = true) || this == "1"
-        else -> false
-    }
-}
-
-private fun Any?.asIntOrNull(): Int? {
-    return when (this) {
-        is Number -> toInt()
-        is String -> toIntOrNull()
-        else -> null
-    }
-}
-
-private fun Any?.asDisplayString(): String {
-    return when (this) {
-        null -> ""
-        is String -> this
-        is Number -> toInt().toString()
-        is Boolean -> if (this) "1" else "0"
-        else -> toString()
-    }
-}
-
 private fun buildCourseStableId(item: AiClassCourseResponse.CourseItem): String {
     return listOf(
         item.id,
@@ -440,120 +383,6 @@ private fun buildCourseStableId(item: AiClassCourseResponse.CourseItem): String 
     ).filter { !it.isNullOrBlank() }
         .joinToString("|")
         .ifBlank { "course:${item.hashCode()}" }
-}
-
-private fun buildCourseStableId(course: AiCourse): String {
-    return listOf(
-        course.id,
-        course.classId,
-        course.teachClassId,
-        course.courseId,
-        course.courseRecordId,
-        course.termYear,
-        course.term,
-        course.courseName,
-        course.teacherName,
-        course.typeName,
-    ).filter { it.isNotBlank() }
-        .joinToString("|")
-        .ifBlank { "course:${course.hashCode()}" }
-}
-
-private fun mergeCourses(
-    primary: List<AiCourse>,
-    supplemental: List<AiCourse>,
-): List<AiCourse> {
-    val merged = primary.map { it.normalize() }.toMutableList()
-
-    supplemental.forEach { course ->
-        val normalized = course.normalize()
-        val exactMatchIndex = merged.indexOfFirst { it.matchesByIdentity(normalized) }
-        if (exactMatchIndex >= 0) {
-            Log.i(REPOSITORY_LOG_TAG, "Course merge: exact match \"${normalized.courseName}\" (typeName=${normalized.typeName}) with index $exactMatchIndex")
-            merged[exactMatchIndex] = merged[exactMatchIndex].mergeWithSupplement(normalized)
-            return@forEach
-        }
-
-        val fuzzyMatchIndexes = merged.withIndex()
-            .filter { (_, existing) -> existing.matchesByName(normalized) }
-            .map { it.index }
-
-        if (fuzzyMatchIndexes.size == 1) {
-            val index = fuzzyMatchIndexes.first()
-            Log.i(REPOSITORY_LOG_TAG, "Course merge: fuzzy match \"${normalized.courseName}\" (typeName=${normalized.typeName}) with index $index")
-            merged[index] = merged[index].mergeWithSupplement(normalized)
-        } else {
-            Log.i(REPOSITORY_LOG_TAG, "Course merge: new entry \"${normalized.courseName}\" (typeName=${normalized.typeName}, fuzzyMatches=${fuzzyMatchIndexes.size})")
-            merged += normalized
-        }
-    }
-
-    Log.i(REPOSITORY_LOG_TAG, "Course merge result: primary=${primary.size}, supplemental=${supplemental.size}, merged=${merged.size}")
-    return merged
-}
-
-private fun AiCourse.normalize(): AiCourse {
-    val normalized = copy(
-        termYear = termYear.trim(),
-        term = term.trim(),
-        courseName = courseName.trim(),
-        teacherName = teacherName.trim(),
-        typeName = typeName.trim(),
-    )
-    return normalized.copy(stableId = buildCourseStableId(normalized))
-}
-
-private fun AiCourse.mergeKey(): String {
-    return teachClassId.ifBlank { classId }
-        .ifBlank { id }
-        .ifBlank { "$termYear|$term|$courseName|$teacherName|$typeName" }
-}
-
-private fun AiCourse.matchesByIdentity(other: AiCourse): Boolean {
-    val thisIds = listOf(id, classId, teachClassId, courseId)
-        .filter { it.isNotBlank() }
-        .toSet()
-    val otherIds = listOf(other.id, other.classId, other.teachClassId, other.courseId)
-        .filter { it.isNotBlank() }
-        .toSet()
-    if (thisIds.isEmpty() || otherIds.isEmpty()) return false
-    if (thisIds.intersect(otherIds).isEmpty()) return false
-    // 同一门课的理论/实验班 ID 可能不同班——若 typeName 都有值但不同，视为独立条目
-    if (typeName.isNotBlank() && other.typeName.isNotBlank() && typeName != other.typeName) {
-        return false
-    }
-    return true
-}
-
-private fun AiCourse.matchesByName(other: AiCourse): Boolean {
-    if (termYear != other.termYear || term != other.term) return false
-    if (courseName.normalizedCourseName() != other.courseName.normalizedCourseName()) return false
-    if (teacherName.isNotBlank() && other.teacherName.isNotBlank() && teacherName != other.teacherName) {
-        return false
-    }
-    if (typeName.isNotBlank() && other.typeName.isNotBlank() && typeName != other.typeName) {
-        return false
-    }
-    return true
-}
-
-private fun AiCourse.mergeWithSupplement(supplement: AiCourse): AiCourse {
-    val merged = copy(
-        id = id.ifBlank { supplement.id },
-        code = code.ifBlank { supplement.code },
-        classId = classId.ifBlank { supplement.classId },
-        courseId = courseId.ifBlank { supplement.courseId },
-        courseRecordId = courseRecordId.ifBlank { supplement.courseRecordId },
-        courseName = courseName.ifBlank { supplement.courseName },
-        teacherName = teacherName.ifBlank { supplement.teacherName },
-        studentNum = if (studentNum > 0) studentNum else supplement.studentNum,
-        teachClassId = teachClassId.ifBlank { supplement.teachClassId },
-        cover = cover.ifBlank { supplement.cover },
-        termYear = termYear.ifBlank { supplement.termYear },
-        term = term.ifBlank { supplement.term },
-        typeName = typeName.ifBlank { supplement.typeName },
-    )
-    return merged.copy(stableId = buildCourseStableId(merged))
 }
 
 private fun extractTimetableCourses(
@@ -615,115 +444,6 @@ private fun JsonObject.toTimetableCourseOrNull(termYear: String, term: String): 
         "Timetable entry parsed: name=$courseName, teachClassId=$teachClassId, typeName=$typeName, className=$className",
     )
     return course.copy(stableId = buildCourseStableId(course))
-}
-
-private fun extractQuizzesFromCoursePaperInfo(element: JsonElement?): List<AiQuiz> {
-    val results = mutableListOf<AiQuiz>()
-
-    fun walk(node: JsonElement?) {
-        when {
-            node == null || node.isJsonNull -> Unit
-            node.isJsonArray -> node.asJsonArray.forEach(::walk)
-            node.isJsonObject -> {
-                val obj = node.asJsonObject
-                obj.toAiQuizOrNull()?.let(results::add)
-                obj.entrySet().forEach { (_, child) -> walk(child) }
-            }
-        }
-    }
-
-    walk(element)
-    return results
-        .distinctBy { it.id.ifBlank { "${it.title}|${it.publishDateTime}|${it.publishTime}" } }
-}
-
-private fun mergeQuizLists(
-    primary: List<AiQuiz>,
-    secondary: List<AiQuiz>,
-): List<AiQuiz> {
-    val merged = LinkedHashMap<String, AiQuiz>()
-
-    primary.forEach { quiz ->
-        merged[quiz.stableKey()] = quiz
-    }
-    secondary.forEach { quiz ->
-        val key = quiz.stableKey()
-        merged[key] = merged[key]?.fillMissingFrom(quiz) ?: quiz
-    }
-
-    return merged.values.toList()
-}
-
-private fun AiQuiz.fillMissingFrom(fallback: AiQuiz): AiQuiz {
-    return copy(
-        id = id.ifBlank { fallback.id },
-        title = title.ifBlank { fallback.title },
-        status = status.ifBlank { fallback.status },
-        publishTime = publishTime.ifBlank { fallback.publishTime },
-        publishDateTime = publishDateTime.ifBlank { fallback.publishDateTime },
-        publishWeek = publishWeek.ifBlank { fallback.publishWeek },
-        answerDurationMinutes = answerDurationMinutes ?: fallback.answerDurationMinutes,
-    )
-}
-
-private fun AiQuiz.stableKey(): String {
-    return id.ifBlank { "${title}|${publishDateTime}|${publishTime}|${publishWeek}" }
-}
-
-private fun JsonObject.toAiQuizOrNull(): AiQuiz? {
-    val id = stringValue("id", "paperId", "refPaperId")
-    val title = stringValue("title", "paperTitle", "name", "paperName")
-    if (title.isBlank()) return null
-
-    return AiQuiz(
-        id = id,
-        title = title,
-        isCommitted = anyValue("iscommited", "isCommitted", "committed", "submitStatus").asBoolean(),
-        status = anyValue("status", "paperStatus", "submitStatus").asDisplayString(),
-        publishTime = stringValue("publishTime", "startTime"),
-        publishDateTime = stringValue("publishDateTime", "createTime", "publishDate"),
-        publishWeek = stringValue("publishWeek", "week"),
-        answerDurationMinutes = anyValue("answerDuration", "duration", "limitTime").asIntOrNull(),
-    )
-}
-
-private fun JsonObject.stringValue(vararg keys: String): String {
-    return keys.firstNotNullOfOrNull { key ->
-        get(key)?.takeIf { !it.isJsonNull }?.let { element ->
-            if (element.isJsonPrimitive) element.asJsonPrimitive.asString else null
-        }?.takeIf { it.isNotBlank() }
-    }.orEmpty()
-}
-
-private fun JsonObject.anyValue(vararg keys: String): Any? {
-    return keys.firstNotNullOfOrNull { key ->
-        get(key)?.takeIf { !it.isJsonNull }?.toPrimitiveValue()
-    }
-}
-
-private fun parseTypeName(rawClassName: String): String {
-    return when {
-        rawClassName.contains("(实验)") || rawClassName.contains("实验") -> "实验"
-        rawClassName.contains("(理论)") || rawClassName.contains("理论") -> "理论"
-        else -> ""
-    }
-}
-
-private fun String.normalizedCourseName(): String {
-    return replace(Regex("\\s+"), "")
-        .replace(Regex("[（(]实验[）)]|[（(]理论[）)]"), "")
-        .trim()
-}
-
-private fun JsonElement.toPrimitiveValue(): Any? {
-    if (!isJsonPrimitive) return null
-    val primitive = asJsonPrimitive
-    return when {
-        primitive.isBoolean -> primitive.asBoolean
-        primitive.isNumber -> primitive.asNumber
-        primitive.isString -> primitive.asString
-        else -> null
-    }
 }
 
 @Module
