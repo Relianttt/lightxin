@@ -3,8 +3,6 @@
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <!-- StatusBar 图标明暗由 MainActivity 的 SystemBarStyle 在运行时决定，此处不再硬编码 -->
-        <!-- 禁止系统（如 MIUI/HyperOS）对应用强制应用深色滤镜，保证暖色 token 不被反色 -->
-        <item name="android:forceDarkAllowed">false</item>
     </style>
 
     <!-- Splash 主题：承载 Android 12+ 官方 SplashScreen（以及 compat 兼容低版本）。 -->

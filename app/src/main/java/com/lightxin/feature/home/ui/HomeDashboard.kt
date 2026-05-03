@@ -56,6 +56,8 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.navigation.NavHostController
 import com.lightxin.core.designsystem.component.LxCard
+import com.lightxin.core.designsystem.component.LxEmptyHint
+import com.lightxin.core.designsystem.component.LxErrorHint
 import com.lightxin.core.designsystem.component.LxShimmerCard
 import com.lightxin.core.designsystem.theme.LxCategoryColors
 import com.lightxin.core.designsystem.theme.LxInk
@@ -189,10 +191,10 @@ fun HomeDashboard(
                         )
                     }
 
-                    if (shouldShowCheckin(data.nextCheckin)) {
+                    data.nextCheckin?.takeIf(::shouldShowCheckin)?.let { task ->
                         StaggeredCard(index = 3) {
                             CheckinCard(
-                                task = data.nextCheckin!!,
+                                task = task,
                                 onClick = {
                                     navController.navigate(Routes.CHECKIN_LIST) { launchSingleTop = true }
                                 },
@@ -200,10 +202,10 @@ fun HomeDashboard(
                         }
                     }
 
-                    if (shouldShowHoliday(data.holidayTask)) {
+                    data.holidayTask?.takeIf(::shouldShowHoliday)?.let { task ->
                         StaggeredCard(index = 4) {
                             HolidayCard(
-                                task = data.holidayTask!!,
+                                task = task,
                                 onClick = {
                                     navController.navigate(Routes.CHECKIN_LIST) { launchSingleTop = true }
                                 },
@@ -382,8 +384,8 @@ private fun TodayCourseCard(
         onClick = onClick,
     ) {
         when {
-            error != null -> ErrorHint(error)
-            courses.isEmpty() -> EmptyHint("今天没有课，好好休息")
+            error != null -> LxErrorHint(error)
+            courses.isEmpty() -> LxEmptyHint("今天没有课，好好休息")
             else -> {
                 courses.take(3).forEach { course ->
                     Row(
@@ -563,8 +565,8 @@ private fun RunningCard(dashboard: RunningDashboard?, error: String?, onClick: (
         onClick = onClick,
     ) {
         when {
-            error != null -> ErrorHint(error)
-            dashboard == null -> EmptyHint("暂无运动数据")
+            error != null -> LxErrorHint(error)
+            dashboard == null -> LxEmptyHint("暂无运动数据")
             else -> {
                 val dailyProgress = (dashboard.todayKm / DAILY_TARGET_KM).coerceIn(0.0, 1.0).toFloat()
                 val remaining = max(DAILY_TARGET_KM - dashboard.todayKm, 0.0)
@@ -670,26 +672,6 @@ private fun BadgeText(text: String) {
     Text(
         text = text,
         fontSize = 12.sp,
-        color = LxInkMuted,
-    )
-}
-
-@Composable
-private fun ErrorHint(message: String) {
-    Text(
-        text = message,
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.error,
-        maxLines = 1,
-        overflow = TextOverflow.Ellipsis,
-    )
-}
-
-@Composable
-private fun EmptyHint(message: String) {
-    Text(
-        text = message,
-        style = MaterialTheme.typography.bodyMedium,
         color = LxInkMuted,
     )
 }

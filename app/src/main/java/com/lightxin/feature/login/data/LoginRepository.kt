@@ -22,12 +22,13 @@ class LoginRepository @Inject constructor(
             val encryptedPassword = RSAUtils.encryptPassword(password)
             val response = api.login(userCode, encryptedPassword)
             val token = response.data?.token
+            val accessToken = token?.accessToken
 
-            if (token?.accessToken.isNullOrBlank()) {
+            if (token == null || accessToken.isNullOrBlank()) {
                 Result.failure(Exception(response.msg ?: "登录失败"))
             } else {
                 tokenManager.saveLoginData(
-                    accessToken = token!!.accessToken!!,
+                    accessToken = accessToken,
                     refreshToken = token.refreshToken ?: "",
                     userCode = token.userCode ?: userCode,
                     userName = token.userName ?: "",
@@ -46,11 +47,12 @@ class LoginRepository @Inject constructor(
             val refreshToken = tokenManager.getRefreshToken() ?: return false
             val response = api.refreshToken(refreshToken)
             val token = response.data?.token
+            val accessToken = token?.accessToken
 
-            if (token?.accessToken.isNullOrBlank()) return false
+            if (token == null || accessToken.isNullOrBlank()) return false
 
             tokenManager.saveLoginData(
-                accessToken = token!!.accessToken!!,
+                accessToken = accessToken,
                 refreshToken = token.refreshToken ?: refreshToken,
                 userCode = token.userCode ?: tokenManager.getUserCode() ?: "",
                 userName = token.userName ?: tokenManager.getUserName() ?: "",

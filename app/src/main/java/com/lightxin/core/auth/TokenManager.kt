@@ -16,6 +16,15 @@ import javax.inject.Singleton
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "lightxin_auth")
 
+data class AuthCredentials(
+    val accessToken: String?,
+    val refreshToken: String?,
+    val userCode: String?,
+    val userName: String?,
+    val userType: String?,
+    val fileAddress: String?,
+)
+
 @Singleton
 class TokenManager @Inject constructor(
     @ApplicationContext private val context: Context,
@@ -86,6 +95,18 @@ class TokenManager @Inject constructor(
 
     suspend fun getUserType(): String? =
         context.dataStore.data.first()[KEY_USER_TYPE]
+
+    suspend fun snapshot(): AuthCredentials {
+        val prefs = context.dataStore.data.first()
+        return AuthCredentials(
+            accessToken = prefs[KEY_ACCESS_TOKEN],
+            refreshToken = prefs[KEY_REFRESH_TOKEN],
+            userCode = prefs[KEY_USER_CODE],
+            userName = prefs[KEY_USER_NAME],
+            userType = prefs[KEY_USER_TYPE],
+            fileAddress = prefs[KEY_FILE_ADDRESS],
+        )
+    }
 
     /** 仅清除会话相关 key；onboarded 标志保留，避免退出登录后重现欢迎页。 */
     suspend fun clear() {

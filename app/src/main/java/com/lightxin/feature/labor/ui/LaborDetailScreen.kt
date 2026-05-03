@@ -35,6 +35,7 @@ fun LaborDetailScreen(
     viewModel: LaborDetailViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val error = uiState.error
 
     Scaffold(
         modifier = modifier,
@@ -43,15 +44,17 @@ fun LaborDetailScreen(
     ) { padding ->
         when {
             uiState.isLoading -> LxLoading(modifier = Modifier.padding(padding))
-            uiState.error != null -> LxError(
-                message = uiState.error!!,
+            error != null -> LxError(
+                message = error,
                 onRetry = viewModel::retry,
                 modifier = Modifier.padding(padding),
             )
-            uiState.detail != null -> DetailContent(
-                detail = uiState.detail!!,
-                modifier = Modifier.padding(padding),
-            )
+            else -> uiState.detail?.let { detail ->
+                DetailContent(
+                    detail = detail,
+                    modifier = Modifier.padding(padding),
+                )
+            }
         }
     }
 }

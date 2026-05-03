@@ -57,6 +57,7 @@ fun HolidayRegisterScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val datePickerState = rememberHolidayDatePickerState()
+    val error = uiState.error
 
     LaunchedEffect(uiState.submitSuccess) {
         if (uiState.submitSuccess) {
@@ -86,8 +87,8 @@ fun HolidayRegisterScreen(
     ) { padding ->
         when {
             uiState.isLoading -> LxLoading(modifier = Modifier.padding(padding))
-            uiState.error != null && uiState.holidayName.isBlank() -> LxError(
-                message = uiState.error!!,
+            error != null && uiState.holidayName.isBlank() -> LxError(
+                message = error,
                 onRetry = viewModel::retry,
                 modifier = Modifier.padding(padding),
             )
@@ -128,9 +129,9 @@ private fun RegisterForm(
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         // 错误提示
-        if (uiState.error != null) {
+        uiState.error?.let { error ->
             Text(
-                text = uiState.error!!,
+                text = error,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.error,
             )

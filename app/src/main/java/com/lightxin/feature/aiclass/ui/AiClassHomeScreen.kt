@@ -65,6 +65,7 @@ fun AiClassHomeScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
+    val error = uiState.error
 
     LaunchedEffect(uiState.signResult) {
         uiState.signResult?.let { msg ->
@@ -79,7 +80,7 @@ fun AiClassHomeScreen(
         topBar = { LxTopBar(title = "AI课堂", onBack = onBack) },
         snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
-            if (!uiState.isLoading && uiState.error == null) {
+            if (!uiState.isLoading && error == null) {
                 LxFloatingActionButton(
                     onClick = onOpenScan,
                 ) {
@@ -114,8 +115,8 @@ fun AiClassHomeScreen(
                 }
             }
 
-            uiState.error != null -> LxError(
-                message = uiState.error!!,
+            error != null -> LxError(
+                message = error,
                 onRetry = viewModel::retry,
                 modifier = Modifier.padding(padding),
             )

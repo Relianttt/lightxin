@@ -33,9 +33,10 @@ class AuthInterceptor @Inject constructor(
 
             // 运动接口: header注入 studentCode
             host.contains("sports.aiit.edu.cn") -> {
-                val token = runBlocking { tokenManager.getAccessToken() } ?: ""
-                val userCode = runBlocking { tokenManager.getUserCode() } ?: ""
-                val userType = runBlocking { tokenManager.getUserType() } ?: "1"
+                val credentials = runBlocking { tokenManager.snapshot() }
+                val token = credentials.accessToken.orEmpty()
+                val userCode = credentials.userCode.orEmpty()
+                val userType = credentials.userType ?: "1"
                 original.newBuilder()
                     .header("studentCode", userCode)
                     .header("accessToken", token)
@@ -52,9 +53,10 @@ class AuthInterceptor @Inject constructor(
 
             // 查寝接口: H5 实际请求会携带 accessToken/userCode/userType/xh 等身份头
             host.contains("fdygl.aiit.edu.cn") -> {
-                val token = runBlocking { tokenManager.getAccessToken() } ?: ""
-                val userCode = runBlocking { tokenManager.getUserCode() } ?: ""
-                val userType = runBlocking { tokenManager.getUserType() } ?: "1"
+                val credentials = runBlocking { tokenManager.snapshot() }
+                val token = credentials.accessToken.orEmpty()
+                val userCode = credentials.userCode.orEmpty()
+                val userType = credentials.userType ?: "1"
                 original.newBuilder()
                     .header("Authorization", "Bearer $token")
                     .header("accessToken", token)
@@ -70,10 +72,11 @@ class AuthInterceptor @Inject constructor(
 
             // 主站 & 劳动教育: Form表单追加通用参数
             else -> {
-                val token = runBlocking { tokenManager.getAccessToken() } ?: ""
-                val userCode = runBlocking { tokenManager.getUserCode() } ?: ""
-                val userName = runBlocking { tokenManager.getUserName() } ?: ""
-                val userType = runBlocking { tokenManager.getUserType() } ?: "1"
+                val credentials = runBlocking { tokenManager.snapshot() }
+                val token = credentials.accessToken.orEmpty()
+                val userCode = credentials.userCode.orEmpty()
+                val userName = credentials.userName.orEmpty()
+                val userType = credentials.userType ?: "1"
                 val encodedName = URLEncoder.encode(userName, "UTF-8")
 
                 val body = original.body

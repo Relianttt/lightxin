@@ -213,10 +213,10 @@ fun RunningSimScreen(
                             },
                         )
 
-                        if (!uiState.simError.isNullOrBlank()) {
+                        uiState.simError?.takeIf { it.isNotBlank() }?.let { simError ->
                             Spacer(modifier = Modifier.height(8.dp))
                             Text(
-                                text = uiState.simError!!,
+                                text = simError,
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.error,
                             )

@@ -51,6 +51,7 @@ fun LaborSummaryScreen(
     viewModel: LaborViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val error = uiState.error
 
     Scaffold(
         modifier = modifier,
@@ -59,8 +60,8 @@ fun LaborSummaryScreen(
     ) { padding ->
         when {
             uiState.isLoading -> LxLoading(modifier = Modifier.padding(padding))
-            uiState.error != null -> LxError(
-                message = uiState.error!!,
+            error != null -> LxError(
+                message = error,
                 onRetry = viewModel::retry,
                 modifier = Modifier.padding(padding),
             )

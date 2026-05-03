@@ -12,12 +12,16 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ErrorOutline
@@ -35,8 +39,13 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
+import com.lightxin.core.designsystem.theme.LxInkMuted
+import com.lightxin.core.designsystem.theme.LxInkSoft
+import com.lightxin.core.designsystem.theme.LxTerra
 
 @Composable
 fun LxProgressIndicator(
@@ -119,6 +128,73 @@ fun LxError(
         if (onRetry != null) {
             Spacer(modifier = Modifier.height(16.dp))
             LxOutlinedButton(text = "重试", onClick = onRetry)
+        }
+    }
+}
+
+@Composable
+fun LxErrorHint(
+    message: String,
+    modifier: Modifier = Modifier,
+    maxLines: Int = 1,
+) {
+    Text(
+        text = message,
+        modifier = modifier,
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.error,
+        maxLines = maxLines,
+        overflow = TextOverflow.Ellipsis,
+    )
+}
+
+@Composable
+fun LxEmptyHint(
+    message: String,
+    modifier: Modifier = Modifier,
+) {
+    Text(
+        text = message,
+        modifier = modifier,
+        style = MaterialTheme.typography.bodyMedium,
+        color = LxInkMuted,
+    )
+}
+
+@Composable
+fun LxInlineErrorCard(
+    message: String,
+    onRetry: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    LxCard(onClick = onRetry, modifier = modifier) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(IntrinsicSize.Min),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(
+                modifier = Modifier
+                    .width(2.dp)
+                    .fillMaxHeight()
+                    .background(LxTerra),
+            )
+            Text(
+                text = message,
+                style = MaterialTheme.typography.bodySmall,
+                color = LxInkSoft,
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(horizontal = 14.dp, vertical = 12.dp),
+            )
+            Text(
+                text = "重试",
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.SemiBold,
+                color = LxInkSoft,
+                modifier = Modifier.padding(end = 16.dp),
+            )
         }
     }
 }

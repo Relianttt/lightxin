@@ -64,6 +64,7 @@ fun RunningHomeScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var permissionError by remember { mutableStateOf<String?>(null) }
+    val dashboardError = uiState.dashboardError
 
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions(),
@@ -108,8 +109,8 @@ fun RunningHomeScreen(
     ) { padding ->
         when {
             uiState.isDashboardLoading -> LxLoading(modifier = Modifier.padding(padding))
-            uiState.dashboardError != null -> LxError(
-                message = uiState.dashboardError!!,
+            dashboardError != null -> LxError(
+                message = dashboardError,
                 onRetry = viewModel::refreshDashboard,
                 modifier = Modifier.padding(padding),
             )

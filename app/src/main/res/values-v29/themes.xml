@@ -1,0 +1,6 @@
+<resources>
+    <style name="Theme.LightXin" parent="android:Theme.Material.Light.NoActionBar">
+        <!-- 禁止系统（如 MIUI/HyperOS）对应用强制应用深色滤镜，保证暖色 token 不被反色 -->
+        <item name="android:forceDarkAllowed">false</item>
+    </style>
+</resources>

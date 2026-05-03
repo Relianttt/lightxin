@@ -80,6 +80,7 @@ fun ScheduleScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var selectedCourse by remember { mutableStateOf<Course?>(null) }
+    val error = uiState.error
 
     Scaffold(
         modifier = modifier,
@@ -97,8 +98,8 @@ fun ScheduleScreen(
 
             when {
                 uiState.isLoading -> LxLoading()
-                uiState.error != null -> LxError(
-                    message = uiState.error!!,
+                error != null -> LxError(
+                    message = error,
                     onRetry = viewModel::retry,
                 )
                 uiState.courses.isEmpty() -> LxEmpty(message = "本周没有课程")
@@ -111,14 +112,14 @@ fun ScheduleScreen(
         }
     }
 
-    if (selectedCourse != null) {
+    selectedCourse?.let { course ->
         ModalBottomSheet(
             onDismissRequest = { selectedCourse = null },
             sheetState = rememberModalBottomSheetState(),
             containerColor = MaterialTheme.colorScheme.surface,
             shape = MaterialTheme.shapes.medium,
         ) {
-            CourseDetail(course = selectedCourse!!)
+            CourseDetail(course = course)
         }
     }
 }

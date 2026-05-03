@@ -69,6 +69,7 @@ fun CheckinDetailScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
+    val error = uiState.error
 
     // 签到成功后返回
     LaunchedEffect(uiState.submitSuccess) {
@@ -95,27 +96,30 @@ fun CheckinDetailScreen(
     ) { padding ->
         when {
             uiState.isLoading -> LxLoading(modifier = Modifier.padding(padding))
-            uiState.error != null -> LxError(
-                message = uiState.error!!,
+            error != null -> LxError(
+                message = error,
                 onRetry = viewModel::retry,
                 modifier = Modifier.padding(padding),
             )
-            uiState.detail != null -> DetailContent(
-                uiState = uiState,
-                viewModel = viewModel,
-                modifier = Modifier.padding(padding),
-            )
+            else -> uiState.detail?.let { detail ->
+                DetailContent(
+                    detail = detail,
+                    uiState = uiState,
+                    viewModel = viewModel,
+                    modifier = Modifier.padding(padding),
+                )
+            }
         }
     }
 }
 
 @Composable
 private fun DetailContent(
+    detail: TaskDetail,
     uiState: CheckinDetailUiState,
     viewModel: CheckinDetailViewModel,
     modifier: Modifier = Modifier,
 ) {
-    val detail = uiState.detail!!
     val context = LocalContext.current
 
     // 相机拍照文件

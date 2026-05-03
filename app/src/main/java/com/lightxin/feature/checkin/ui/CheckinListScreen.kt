@@ -4,10 +4,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -38,10 +36,10 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.lightxin.core.designsystem.component.LxCard
 import com.lightxin.core.designsystem.component.LxEmpty
 import com.lightxin.core.designsystem.component.LxError
+import com.lightxin.core.designsystem.component.LxInlineErrorCard
 import com.lightxin.core.designsystem.component.LxLoading
 import com.lightxin.core.designsystem.component.LxTopBar
 import com.lightxin.core.designsystem.theme.LxInkMuted
-import com.lightxin.core.designsystem.theme.LxInkSoft
 import com.lightxin.core.designsystem.theme.LxSuccess
 import com.lightxin.core.designsystem.theme.LxTerra
 import com.lightxin.feature.checkin.domain.CheckinTask
@@ -58,6 +56,7 @@ fun CheckinListScreen(
     viewModel: CheckinViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val error = uiState.error
 
     LaunchedEffect(shouldRefresh) {
         if (shouldRefresh) {
@@ -73,8 +72,8 @@ fun CheckinListScreen(
     ) { padding ->
         when {
             uiState.isLoading -> LxLoading(modifier = Modifier.padding(padding))
-            uiState.error != null -> LxError(
-                message = uiState.error!!,
+            error != null -> LxError(
+                message = error,
                 onRetry = viewModel::retry,
                 modifier = Modifier.padding(padding),
             )
@@ -145,9 +144,9 @@ private fun TaskList(
             item(key = "section_holiday") {
                 SectionHeader("节假日登记")
             }
-            if (uiState.holidayError != null) {
+            uiState.holidayError?.let { holidayError ->
                 item(key = "holiday_error") {
-                    HolidayErrorRow(message = uiState.holidayError!!, onRetry = onRetryHoliday)
+                    LxInlineErrorCard(message = holidayError, onRetry = onRetryHoliday)
                 }
             }
             items(uiState.holidayTasks, key = { "h_${it.holidayId}" }) { task ->
@@ -269,40 +268,6 @@ private fun HolidayTaskCard(
             Spacer(modifier = Modifier.width(12.dp))
 
             HolidayStatusBadge(isRegistered = task.isRegistered)
-        }
-    }
-}
-
-@Composable
-private fun HolidayErrorRow(message: String, onRetry: () -> Unit) {
-    LxCard(onClick = onRetry) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(IntrinsicSize.Min),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Box(
-                modifier = Modifier
-                    .width(2.dp)
-                    .fillMaxHeight()
-                    .background(LxTerra),
-            )
-            Text(
-                text = message,
-                style = MaterialTheme.typography.bodySmall,
-                color = LxInkSoft,
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(horizontal = 14.dp, vertical = 12.dp),
-            )
-            Text(
-                text = "重试",
-                style = MaterialTheme.typography.labelSmall,
-                fontWeight = FontWeight.SemiBold,
-                color = LxInkSoft,
-                modifier = Modifier.padding(end = 16.dp),
-            )
         }
     }
 }

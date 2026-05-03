@@ -189,8 +189,8 @@ fun LightXinNavHost(
         }
 
         // Running
-        composable(Routes.RUNNING_HOME) {
-            val homeEntry = remember(navController) { navController.getBackStackEntry(Routes.HOME) }
+        composable(Routes.RUNNING_HOME) { backStackEntry ->
+            val homeEntry = remember(backStackEntry) { navController.getBackStackEntry(Routes.HOME) }
             val runningViewModel: RunningViewModel = hiltViewModel(homeEntry)
             RunningHomeScreen(
                 viewModel = runningViewModel,
@@ -207,8 +207,8 @@ fun LightXinNavHost(
                 },
             )
         }
-        composable(Routes.RUNNING_ACTIVE) {
-            val homeEntry = remember(navController) { navController.getBackStackEntry(Routes.HOME) }
+        composable(Routes.RUNNING_ACTIVE) { backStackEntry ->
+            val homeEntry = remember(backStackEntry) { navController.getBackStackEntry(Routes.HOME) }
             val runningViewModel: RunningViewModel = hiltViewModel(homeEntry)
             RunningActiveScreen(
                 viewModel = runningViewModel,
@@ -220,8 +220,8 @@ fun LightXinNavHost(
                 },
             )
         }
-        composable(Routes.RUNNING_SIM) {
-            val homeEntry = remember(navController) { navController.getBackStackEntry(Routes.HOME) }
+        composable(Routes.RUNNING_SIM) { backStackEntry ->
+            val homeEntry = remember(backStackEntry) { navController.getBackStackEntry(Routes.HOME) }
             val runningViewModel: RunningViewModel = hiltViewModel(homeEntry)
             RunningSimScreen(
                 viewModel = runningViewModel,
@@ -233,8 +233,8 @@ fun LightXinNavHost(
                 },
             )
         }
-        composable(Routes.RUNNING_RESULT) {
-            val homeEntry = remember(navController) { navController.getBackStackEntry(Routes.HOME) }
+        composable(Routes.RUNNING_RESULT) { backStackEntry ->
+            val homeEntry = remember(backStackEntry) { navController.getBackStackEntry(Routes.HOME) }
             val runningViewModel: RunningViewModel = hiltViewModel(homeEntry)
             RunningResultScreen(
                 viewModel = runningViewModel,
@@ -259,8 +259,8 @@ fun LightXinNavHost(
         }
 
         // Route Simulation (Phase 1)
-        composable(Routes.RUNNING_ROUTE_SETTINGS) {
-            val settingsEntry = remember(navController) {
+        composable(Routes.RUNNING_ROUTE_SETTINGS) { backStackEntry ->
+            val settingsEntry = remember(backStackEntry) {
                 navController.getBackStackEntry(Routes.RUNNING_ROUTE_SETTINGS)
             }
             val routeVm: RouteTemplateViewModel = hiltViewModel(settingsEntry)
@@ -275,8 +275,8 @@ fun LightXinNavHost(
                 },
             )
         }
-        composable(Routes.RUNNING_ROUTE_RECORD) {
-            val settingsEntry = remember(navController) {
+        composable(Routes.RUNNING_ROUTE_RECORD) { backStackEntry ->
+            val settingsEntry = remember(backStackEntry) {
                 navController.getBackStackEntry(Routes.RUNNING_ROUTE_SETTINGS)
             }
             val routeVm: RouteTemplateViewModel = hiltViewModel(settingsEntry)
@@ -285,8 +285,8 @@ fun LightXinNavHost(
                 onBack = { navController.popBackStack() },
             )
         }
-        composable(Routes.RUNNING_ROUTE_LIST) {
-            val settingsEntry = remember(navController) {
+        composable(Routes.RUNNING_ROUTE_LIST) { backStackEntry ->
+            val settingsEntry = remember(backStackEntry) {
                 navController.getBackStackEntry(Routes.RUNNING_ROUTE_SETTINGS)
             }
             val routeVm: RouteTemplateViewModel = hiltViewModel(settingsEntry)
@@ -302,7 +302,7 @@ fun LightXinNavHost(
             route = Routes.RUNNING_ROUTE_DETAIL,
             arguments = listOf(navArgument("templateId") { type = NavType.StringType }),
         ) { backStackEntry ->
-            val settingsEntry = remember(navController) {
+            val settingsEntry = remember(backStackEntry) {
                 navController.getBackStackEntry(Routes.RUNNING_ROUTE_SETTINGS)
             }
             val routeVm: RouteTemplateViewModel = hiltViewModel(settingsEntry)
@@ -337,8 +337,8 @@ fun LightXinNavHost(
         }
 
         // AI Class
-        composable(Routes.AICLASS_HOME) {
-            val aiClassEntry = remember(navController) { navController.getBackStackEntry(Routes.AICLASS_HOME) }
+        composable(Routes.AICLASS_HOME) { backStackEntry ->
+            val aiClassEntry = remember(backStackEntry) { navController.getBackStackEntry(Routes.AICLASS_HOME) }
             val aiClassViewModel: com.lightxin.feature.aiclass.ui.AiClassViewModel = hiltViewModel(aiClassEntry)
             AiClassHomeScreen(
                 viewModel = aiClassViewModel,
@@ -361,8 +361,8 @@ fun LightXinNavHost(
                 },
             )
         }
-        composable(Routes.AICLASS_SCAN) {
-            val aiClassEntry = remember(navController) { navController.getBackStackEntry(Routes.AICLASS_HOME) }
+        composable(Routes.AICLASS_SCAN) { backStackEntry ->
+            val aiClassEntry = remember(backStackEntry) { navController.getBackStackEntry(Routes.AICLASS_HOME) }
             val aiClassViewModel: com.lightxin.feature.aiclass.ui.AiClassViewModel = hiltViewModel(aiClassEntry)
             AiClassScanScreen(
                 onBack = { navController.popBackStack() },
@@ -376,7 +376,7 @@ fun LightXinNavHost(
             route = Routes.AICLASS_DETAIL,
             arguments = listOf(navArgument("classId") { type = NavType.StringType }),
         ) { backStackEntry ->
-            val aiClassEntry = remember(navController) { navController.getBackStackEntry(Routes.AICLASS_HOME) }
+            val aiClassEntry = remember(backStackEntry) { navController.getBackStackEntry(Routes.AICLASS_HOME) }
             val aiClassViewModel: com.lightxin.feature.aiclass.ui.AiClassViewModel = hiltViewModel(aiClassEntry)
             AiClassCourseDetailScreen(
                 classId = Uri.decode(backStackEntry.arguments?.getString("classId").orEmpty()),

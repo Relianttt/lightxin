@@ -175,10 +175,10 @@ private fun RunningActiveContent(
                         text = trackerState.locationLabel,
                         style = MaterialTheme.typography.bodyMedium,
                     )
-                    if (!trackerState.errorMessage.isNullOrBlank()) {
+                    trackerState.errorMessage?.takeIf { it.isNotBlank() }?.let { errorMessage ->
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            text = trackerState.errorMessage!!,
+                            text = errorMessage,
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.error,
                         )
