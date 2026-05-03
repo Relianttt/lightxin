@@ -8,9 +8,6 @@ object Routes {
     const val LOGIN = "login"
     const val HOME = "home"
 
-    // Schedule
-    const val SCHEDULE = "schedule"
-
     // Checkin
     const val CHECKIN_LIST = "checkin/list"
     const val CHECKIN_DETAIL = "checkin/detail/{taskDateId}"

@@ -1,17 +1,13 @@
 package com.lightxin.feature.running.service
 
 import android.location.Location
+import com.lightxin.feature.running.domain.GeoDistance
 import com.lightxin.feature.running.domain.RunningSnapshot
 import com.lightxin.feature.running.domain.RunningStartInfo
 import com.lightxin.feature.running.domain.RunningTrackerState
 import com.lightxin.feature.running.domain.TrackPoint
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlin.math.asin
-import kotlin.math.cos
-import kotlin.math.pow
-import kotlin.math.sin
-import kotlin.math.sqrt
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -64,7 +60,7 @@ class RunningTracker @Inject constructor() {
         val segmentMeters = if (previous == null) {
             0.0
         } else {
-            haversineMeters(previous.latitude, previous.longitude, point.latitude, point.longitude)
+            GeoDistance.metersBetween(previous.latitude, previous.longitude, point.latitude, point.longitude)
         }
 
         val acceptedSegment = when {
@@ -123,15 +119,5 @@ class RunningTracker @Inject constructor() {
 
     fun cancelSession() {
         _state.value = RunningTrackerState()
-    }
-
-    private fun haversineMeters(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
-        val earthRadius = 6_371_000.0
-        val dLat = Math.toRadians(lat2 - lat1)
-        val dLon = Math.toRadians(lon2 - lon1)
-        val a = sin(dLat / 2).pow(2) +
-            cos(Math.toRadians(lat1)) * cos(Math.toRadians(lat2)) * sin(dLon / 2).pow(2)
-        val c = 2 * asin(sqrt(a))
-        return earthRadius * c
     }
 }

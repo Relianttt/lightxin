@@ -5,6 +5,10 @@ import com.lightxin.core.network.CheckinRetrofit
 import com.lightxin.feature.holiday.domain.HolidayFormData
 import com.lightxin.feature.holiday.domain.HolidayTask
 import com.lightxin.feature.holiday.domain.StrokeOption
+import dagger.Module
+import dagger.Provides
+import dagger.hilt.InstallIn
+import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -16,11 +20,9 @@ import javax.inject.Singleton
 
 @Singleton
 class HolidayRepository @Inject constructor(
-    @CheckinRetrofit private val retrofit: Retrofit,
+    private val api: HolidayApi,
     private val tokenManager: TokenManager,
 ) {
-    private val api: HolidayApi = retrofit.create(HolidayApi::class.java)
-
     /** 获取登记列表（分页），返回领域模型列表 */
     suspend fun getRegistrationList(page: Int): Result<List<HolidayTask>> {
         return try {
@@ -195,4 +197,14 @@ class HolidayRepository @Inject constructor(
         startDate = startDate.orEmpty(),
         endDate = endDate.orEmpty(),
     )
+}
+
+@Module
+@InstallIn(SingletonComponent::class)
+object HolidayModule {
+
+    @Provides
+    @Singleton
+    fun provideHolidayApi(@CheckinRetrofit retrofit: Retrofit): HolidayApi =
+        retrofit.create(HolidayApi::class.java)
 }

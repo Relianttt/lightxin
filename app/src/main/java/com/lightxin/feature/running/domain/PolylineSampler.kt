@@ -1,11 +1,8 @@
 package com.lightxin.feature.running.domain
 
-import kotlin.math.asin
 import kotlin.math.ceil
 import kotlin.math.cos
-import kotlin.math.pow
 import kotlin.math.sin
-import kotlin.math.sqrt
 import kotlin.random.Random
 
 /**
@@ -20,7 +17,6 @@ import kotlin.random.Random
  */
 object PolylineSampler {
 
-    private const val EARTH_RADIUS_METERS = 6_371_000.0
     private const val MIN_TEMPLATE_METERS = 50.0
 
     fun sampleFromTemplate(
@@ -73,7 +69,7 @@ object PolylineSampler {
         for (i in 1 until points.size) {
             val a = points[i - 1]
             val b = points[i]
-            val meters = haversine(a.latitude, a.longitude, b.latitude, b.longitude)
+            val meters = GeoDistance.metersBetween(a.latitude, a.longitude, b.latitude, b.longitude)
             if (meters > 0.0) result += Segment(a, b, meters)
         }
         return result
@@ -105,14 +101,5 @@ object PolylineSampler {
             latitude = point.latitude + latOffset,
             longitude = point.longitude + lngOffset,
         )
-    }
-
-    private fun haversine(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
-        val dLat = Math.toRadians(lat2 - lat1)
-        val dLon = Math.toRadians(lon2 - lon1)
-        val a = sin(dLat / 2).pow(2) +
-            cos(Math.toRadians(lat1)) * cos(Math.toRadians(lat2)) * sin(dLon / 2).pow(2)
-        val c = 2 * asin(sqrt(a))
-        return EARTH_RADIUS_METERS * c
     }
 }

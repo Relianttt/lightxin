@@ -2,6 +2,7 @@ package com.lightxin.feature.login.data
 
 import com.lightxin.core.auth.RSAUtils
 import com.lightxin.core.auth.TokenManager
+import com.lightxin.core.auth.TokenRefresher
 import com.lightxin.core.network.AuthRetrofit
 import dagger.Module
 import dagger.Provides
@@ -15,7 +16,7 @@ import javax.inject.Singleton
 class LoginRepository @Inject constructor(
     private val api: LoginApi,
     private val tokenManager: TokenManager,
-) {
+) : TokenRefresher {
     suspend fun login(userCode: String, password: String): Result<Unit> {
         return try {
             val encryptedPassword = RSAUtils.encryptPassword(password)
@@ -40,7 +41,7 @@ class LoginRepository @Inject constructor(
         }
     }
 
-    suspend fun refreshToken(): Boolean {
+    override suspend fun refreshToken(): Boolean {
         return try {
             val refreshToken = tokenManager.getRefreshToken() ?: return false
             val response = api.refreshToken(refreshToken)
@@ -71,4 +72,9 @@ object LoginModule {
     @Singleton
     fun provideLoginApi(@AuthRetrofit retrofit: Retrofit): LoginApi =
         retrofit.create(LoginApi::class.java)
+
+    @Provides
+    @Singleton
+    fun provideTokenRefresher(repository: LoginRepository): TokenRefresher =
+        repository
 }

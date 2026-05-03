@@ -4,7 +4,7 @@ slug: network-overview
 scope: 项目的网络层架构，含多域名 Retrofit 分发、AuthInterceptor 按 host 注入身份、401 自动刷新、以及 AI 课堂 FIF 的独立 SSO 会话
 summary: 共享 OkHttpClient + 6 个校内默认栈 Retrofit + 独立 FIF 栈；身份注入由 AuthInterceptor 按 host 四档路由；补充到各 feature 的消费映射与 FIF 扫码直连链路
 status: current
-last_reviewed: 2026-04-21
+last_reviewed: 2026-05-03
 tags: [network, auth, fif, retrofit, okhttp]
 depends_on: []
 ---
@@ -70,16 +70,16 @@ FifOkHttpClient    → 区分 FIF 与默认两个 OkHttpClient 实例
 
 | Provider | 当前消费者 | 说明 |
 |---|---|---|
-| `@AuthRetrofit` | `LoginRepository` | 只承载登录与 refresh token（`mobile/getToken.do` / `mobile/refresh.do`） |
+| `@AuthRetrofit` | `LoginRepository` | 只承载登录与 refresh token（`mobile/getToken.do` / `mobile/refresh.do`）；同时作为 `TokenRefresher` 实现供 401 重试链路调用 |
 | `@MainRetrofit` | 暂无直接消费者 | provider 已注册，但当前 feature 尚未注入使用 |
 | `@CshRetrofit` | `ScheduleRepository` | 课表与周次 |
-| `@CheckinRetrofit` | `CheckinRepository` / `FileUploadApi` | 同一 host 下同时承载 JSON 业务接口和 Multipart 文件上传 |
+| `@CheckinRetrofit` | `CheckinRepository` / `FileUploadApi` / `HolidayApi` | 同一 host 下同时承载 JSON 业务接口、Multipart 文件上传、节假日登记接口 |
 | `@SportsRetrofit` | `RunningApi` | 跑步业务接口 |
 | `@LaborRetrofit` | `LaborRepository` | 劳教只读查询接口 |
 | `@FifRetrofit` | `AiClassApi` | AI 课堂课程、签到、课堂状态 |
 | `@FifOkHttpClient` | `FifSessionManager` / `AiClassRepository` | 前者做 SSO，会话建立；后者做扫码签到的原始 OkHttp 请求 |
 
-锚点：`feature/login/data/LoginRepository.kt:72` / `feature/schedule/data/ScheduleRepository.kt:108-109` / `feature/checkin/data/CheckinRepository.kt:189-195` / `feature/running/data/RunningApi.kt:52-55` / `feature/labor/data/LaborRepository.kt:118-121` / `feature/aiclass/data/AiClassRepository.kt:33-38,305-306`。
+锚点：`feature/login/data/LoginRepository.kt:16-19,78-79` / `feature/schedule/data/ScheduleRepository.kt:108-109` / `feature/checkin/data/CheckinRepository.kt:189-195` / `feature/holiday/data/HolidayRepository.kt:204-209` / `feature/running/data/RunningApi.kt:52-55` / `feature/labor/data/LaborRepository.kt:118-121` / `feature/aiclass/data/AiClassRepository.kt:33-38,305-306`。
 
 这张映射表回答两个实现问题：
 
@@ -106,7 +106,7 @@ FifOkHttpClient    → 区分 FIF 与默认两个 OkHttpClient 实例
 拦截器链的第二道闸（`core/network/NetworkModule.kt:43-44` 保证顺序：Auth 先、Refresh 后）。
 
 - 触发：`response.code == 401`（`core/network/TokenRefreshInterceptor.kt:21`）
-- 处理：通过 `dagger.Lazy<LoginRepository>` 懒注入（`core/network/TokenRefreshInterceptor.kt:15`，因为 `LoginRepository` 反过来依赖网络栈，Lazy 打破循环），调用 `refreshToken()`
+- 处理：通过 `dagger.Lazy<TokenRefresher>` 懒注入（`core/network/TokenRefreshInterceptor.kt:15`），调用 core 接口 `refreshToken()`；当前实现由 `LoginRepository` 提供（`feature/login/data/LoginRepository.kt:16-19,78-79`）
 - 重放：刷新成功重放一次（`core/network/TokenRefreshInterceptor.kt:25-28`），只重放一次 —— 二次 401 不再重试
 
 **不在 FIF 栈里**：FIF token 失效由 `FifSessionManager.isSessionValid()` 在业务调用前判定，失效时重新 `performSso()`；FIF `OkHttpClient` 本身就没装 `TokenRefreshInterceptor`（`core/network/NetworkModule.kt:99-110`）。
@@ -186,6 +186,7 @@ FIF 多一层 Cookie 检查的原因是 token 本身不含过期时间，但 `SE
 - `core/network/ApiConstants.kt` — 9 个域名常量（含 FIF SSO / FIF）+ `APP_ID`
 - `core/network/AuthInterceptor.kt:30-105` — 按 host 四档路由
 - `core/network/TokenRefreshInterceptor.kt:21-29` — 401 重试逻辑
+- `core/auth/TokenRefresher.kt:3-5` — token 刷新抽象，避免 `core/network` 直接依赖 login feature
 - `core/network/FifSessionManager.kt:74-108` — SSO 三步主入口
 - `core/network/FifSessionManager.kt:109-149` — 手动 302 提取 token
 - `core/network/FifSessionManager.kt:198-234` — 为扫码链路补齐 FIF 登录 query
@@ -221,4 +222,5 @@ FIF 多一层 Cookie 检查的原因是 token 本身不含过期时间，但 `SE
 
 ## 变更日志
 
+- 2026-05-03：同步 401 自动刷新链路的依赖方向：`TokenRefreshInterceptor` 改依赖 `TokenRefresher` 接口；`HolidayApi` 改由 `@CheckinRetrofit` provider 注入。
 - 2026-04-21：补齐 `@Qualifier` 到 feature 的消费映射、FIF 扫码签到直连链路，以及退出登录与 FIF 会话解耦等当前边界。

@@ -4,7 +4,7 @@ slug: checkin-overview
 scope: feature/checkin/ 的查寝签到全流程（任务列表 / 详情 / 拍照 / 定位 / 提交），并作为 fdygl 域同源任务的寄生入口（当前承载节假日离返校登记，未来可扩返校登记等同源任务）
 summary: checkin 以分页列表 + 详情两页式交互，详情页集成了原生定位（WGS-84 → BD-09 坐标转换）、照片上传、与多字段鉴权提交；独立 FileUploadApi 处理图片上传。列表页同时双 section 承载同 fdygl 域的节假日任务（feature/holiday/），数据各自独立加载、错误彼此隔离、UI 共用一屏
 status: current
-last_reviewed: 2026-05-01
+last_reviewed: 2026-05-03
 tags: [checkin, sign-in, location, photo-upload, pagination, holiday]
 depends_on: [network-overview]
 ---
@@ -115,9 +115,11 @@ CheckinDetailScreen  → CheckinDetailViewModel → CheckinRepository → Checki
 - `AuthInterceptor` 的 fdygl 档（多 header 鉴权对节假日同样有效）
 - 列表页本身（作为入口寄生）
 
+`HolidayApi` 由 `HolidayModule` 通过 `@CheckinRetrofit` 提供，`HolidayRepository` 直接注入 API，不在构造函数内自行 `retrofit.create()`。这样节假日和查寝同源接口共用同一个 fdygl 网络栈，同时保持 Repository 只依赖业务 API。
+
 这种"主任务 + 同域寄生 section"模式有意为后续同 fdygl 域扩展（如返校登记、其他学工在线任务）预留——新增同类任务时沿用 `holidayTasks` / `holidayError` / `retryHoliday` 这套字段命名与并发加载风格，不必单独建一级导航或独立 tab。
 
-锚点：`feature/checkin/ui/CheckinViewModel.kt:14-26,38-42,66-87,113-115` / `feature/checkin/ui/CheckinListScreen.kt:140-157` / `codestable/features/2026-04-28-holiday-leave-register/holiday-leave-register-design.md`。
+锚点：`feature/checkin/ui/CheckinViewModel.kt:14-26,38-42,66-87,113-115` / `feature/checkin/ui/CheckinListScreen.kt:140-157` / `feature/holiday/data/HolidayRepository.kt:22-25,204-209` / `codestable/features/2026-04-28-holiday-leave-register/holiday-leave-register-design.md`。
 
 ## 3. 数据与状态
 

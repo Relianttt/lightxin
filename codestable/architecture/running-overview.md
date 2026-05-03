@@ -4,7 +4,7 @@ slug: running-overview
 scope: 跑步模块的整体架构，覆盖真实 GPS 跑步、前台 Service 跟踪、模拟提交、路线模板录制与管理、以及跑步数据加密上传链路
 summary: running 以 RunningRepository + RunningTracker 为主干，把真实跑步、模拟提交、模板录制三条路径收束到同一套 TrackPoint/RunningSnapshot 模型，再通过 SportsRetrofit 完成加密上传
 status: current
-last_reviewed: 2026-04-21
+last_reviewed: 2026-05-03
 tags: [running, gps, service, route-template, rsa, sports]
 depends_on: [network-overview]
 ---
@@ -17,6 +17,7 @@ depends_on: [network-overview]
 - **模板录制会话** — 不申请 `exerciseId`，只复用 `RunningTracker + RunTrackingService` 采点，结束后经质量校验存成 `RouteTemplate`
 - **路线模板** — 保存在 `route_templates.json` 的本地轨迹资产；可设默认、重命名、删除，并在模拟提交时驱动 `PolylineSampler`
 - **上传快照** — `RunningSnapshot`，是“可上传一次跑步”的统一中间态；真实跑步与模拟提交都先归一成它再走加密上传
+- **距离计算** — `GeoDistance.metersBetween()` 提供统一 Haversine 米制距离，供 GPS 采集、模板采样和路线质量校验复用
 
 ## 1. 定位与受众
 
@@ -75,6 +76,10 @@ depends_on: [network-overview]
 - `> 120m` 的单段视为异常跳点，丢弃
 
 锚点：`feature/running/service/RunningTracker.kt:63-89`。
+
+距离计算不在 `RunningTracker` 内重复实现，而是调用 `GeoDistance.metersBetween()`。同一个工具也被 `PolylineSampler` 和 `RouteQualityChecker` 复用，避免真实跑步、模拟路线和模板质量校验出现三套距离口径。
+
+锚点：`feature/running/domain/GeoDistance.kt:9-18` / `feature/running/service/RunningTracker.kt:63` / `feature/running/domain/PolylineSampler.kt:72` / `feature/running/domain/RouteQualityChecker.kt:27`。
 
 ### 2.4 前台 Service 只负责采集，不负责上传
 
@@ -160,6 +165,7 @@ navigation 层把 running 明确拆成两套共享作用域：
 | `RunningTrackerState` | 当前采集中的内存态 | `feature/running/domain/RunningModels.kt:30-40` |
 | `RunningSnapshot` | 上传前的统一中间态 | `feature/running/domain/RunningModels.kt:42-49` |
 | `RouteTemplate` | 本地可复用模板资产 | `feature/running/domain/RouteTemplate.kt:3-18` |
+| `GeoDistance` | 统一 Haversine 米制距离计算 | `feature/running/domain/GeoDistance.kt:9-18` |
 
 ### 3.2 状态归属
 
@@ -188,6 +194,7 @@ navigation 层把 running 明确拆成两套共享作用域：
 - `feature/running/data/RunningRepository.kt:33-202` — 首页统计、开始跑步、统一上传链路
 - `feature/running/service/RunningTracker.kt:24-118` — 共享采集状态机
 - `feature/running/service/RunTrackingService.kt:34-89` — 前台 Service 与 GPS 采集
+- `feature/running/domain/GeoDistance.kt:9-18` — 统一距离计算
 - `feature/running/data/RunningEncryption.kt:27-59` — 跑步上传 RSA 加密
 - `feature/running/domain/TrajectoryGenerator.kt:42-70` — 内置路线 / 模板路线双生成入口
 - `feature/running/domain/PolylineSampler.kt:26-63` — 模板 polyline 采样
