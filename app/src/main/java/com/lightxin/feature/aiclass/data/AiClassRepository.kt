@@ -109,13 +109,14 @@ class AiClassRepository @Inject constructor(
             val studentId = fifSession.getStudentId().orEmpty()
             val resp = api.getWorkingCourseRecord(studentId, auth)
             val data = resp.data.orEmpty().firstOrNull()
+            val courseRecordId = data?.courseRecordId?.takeIf { it.isNotBlank() }
 
-            if (data?.courseRecordId.isNullOrBlank()) {
+            if (courseRecordId == null) {
                 Result.success(null)
             } else {
                 Result.success(
                     AiWorkingRecord(
-                        courseRecordId = data!!.courseRecordId!!,
+                        courseRecordId = courseRecordId,
                         courseName = data.courseName.orEmpty(),
                         courseItemName = data.courseItemName.orEmpty(),
                         teachClassId = data.teachClassId
@@ -136,13 +137,14 @@ class AiClassRepository @Inject constructor(
             val studentId = fifSession.getStudentId().orEmpty()
             val resp = api.getSignInInfo(teachClassId, courseRecordId, studentId, auth)
             val data = resp.data
+            val signId = data?.signId?.takeIf { it.isNotBlank() }
 
-            if (data?.signId.isNullOrBlank()) {
+            if (signId == null) {
                 Result.success(null)
             } else {
                 Result.success(
                     AiSignInInfo(
-                        signId = data!!.signId!!,
+                        signId = signId,
                         teacherName = data.teacherName.orEmpty(),
                         hasActiveSign = true,
                     ),

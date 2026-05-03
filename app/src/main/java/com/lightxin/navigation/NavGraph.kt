@@ -68,7 +68,8 @@ fun LightXinNavHost(
     }
     val startRoute by startStateFlow.collectAsState(initial = null)
 
-    if (startRoute == null) {
+    val resolvedStartRoute = startRoute
+    if (resolvedStartRoute == null) {
         LxLoading()
         return
     }
@@ -77,7 +78,7 @@ fun LightXinNavHost(
 
     NavHost(
         navController = navController,
-        startDestination = startRoute!!,
+        startDestination = resolvedStartRoute,
         enterTransition = {
             fadeIn(tween(300)) + slideInHorizontally(tween(300)) { it / 4 }
         },

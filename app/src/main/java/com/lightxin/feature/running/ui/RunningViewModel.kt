@@ -209,9 +209,8 @@ class RunningViewModel @Inject constructor(
         val config = validateSimulation() ?: return
         val template = _uiState.value.defaultTemplate
         val overridePoints = template?.let { TrajectoryGenerator.generateFromTemplate(config, it) }
-        val useTemplate = overridePoints != null && overridePoints.size >= 2
-        val trajectorySize = if (useTemplate) overridePoints!!.size
-            else TrajectoryGenerator.generate(config).size
+        val templatePoints = overridePoints?.takeIf { it.size >= 2 }
+        val trajectorySize = templatePoints?.size ?: TrajectoryGenerator.generate(config).size
 
         _uiState.update {
             it.copy(
@@ -222,10 +221,10 @@ class RunningViewModel @Inject constructor(
             )
         }
 
-        val submitCall = if (useTemplate) {
+        val submitCall = if (templatePoints != null) {
             repository.submitSimulation(
                 config = config,
-                overridePoints = overridePoints,
+                overridePoints = templatePoints,
                 overrideIsBd09 = false,
             )
         } else {
@@ -234,7 +233,7 @@ class RunningViewModel @Inject constructor(
 
         submitCall.fold(
             onSuccess = { result ->
-                if (useTemplate && template != null) {
+                if (templatePoints != null) {
                     templateStore.markUsed(template.id)
                 }
                 _uiState.update {

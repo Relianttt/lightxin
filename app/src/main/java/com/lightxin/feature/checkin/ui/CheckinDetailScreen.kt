@@ -138,8 +138,8 @@ private fun DetailContent(
     val cameraPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
     ) { granted ->
-        if (granted && tempPhotoUri != null) {
-            cameraLauncher.launch(tempPhotoUri!!)
+        if (granted) {
+            tempPhotoUri?.let { uri -> cameraLauncher.launch(uri) }
         }
     }
 
