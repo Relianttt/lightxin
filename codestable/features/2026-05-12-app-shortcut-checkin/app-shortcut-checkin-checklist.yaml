@@ -1,0 +1,85 @@
+feature: 2026-05-12-app-shortcut-checkin
+created: 2026-05-12
+status: pending
+
+steps:
+  - action: "Step 1 Shortcut 入口骨架：静态 shortcut 资源与内部 ShortcutTarget"
+    exit_signal: "普通启动 target 为 null，两个 action 能映射到对应目标，且‘扫码签到’在 launcher shortcut 列表中排第一"
+    status: done
+
+  - action: "Step 2 冷/热启动目标传递：MainActivity 持有 pending target 并传入 LightXinNavHost"
+    exit_signal: "冷启动与后台热启动都能在 Compose 层看到 pending target"
+    status: done
+
+  - action: "Step 3 导航消费编排：已登录执行扫码/查寝导航，未登录保留 target 到登录成功后恢复"
+    exit_signal: "扫码返回栈、查寝详情/列表落点、登录后恢复路径符合验收场景"
+    status: done
+
+  - action: "Step 4 查寝目标预解析与 splash 协调"
+    exit_signal: "有任务时复用预解析 taskDateId，无任务或失败时进入列表并提示，失败或超时不阻塞启动"
+    status: done
+
+  - action: "Step 5 扫码结果反馈替换：signResult 从 Snackbar 改为 BottomSheet"
+    exit_signal: "扫码成功/失败结果都以 Sheet 出现，关闭后不会重复弹"
+    status: done
+
+  - action: "Step 6 编译与人工验证"
+    exit_signal: "构建通过，关键手工路径有验证记录或明确说明无法验证的设备条件"
+    status: pending
+
+checks:
+  - item: "安装后桌面长按图标可见两个 shortcut，且‘扫码签到’排在第一位"
+    source: 验收场景
+    status: pending
+
+  - item: "已登录点击‘扫码签到’进入 AI 课堂扫码页，返回栈为 HOME → AICLASS_HOME → AICLASS_SCAN"
+    source: 编排骨架
+    status: pending
+
+  - item: "扫码识别后返回 AI 课堂首页，签到结果以 BottomSheet 展示"
+    source: 验收场景
+    status: pending
+
+  - item: "已登录点击‘查寝签到’且有未签任务时进入对应查寝详情页，返回键回查寝列表"
+    source: 验收场景
+    status: pending
+
+  - item: "已登录点击‘查寝签到’且无待签任务时进入查寝列表页并 Toast 提示"
+    source: 验收场景
+    status: pending
+
+  - item: "未登录点击任一 shortcut 先显示登录页，登录成功后继续进入原 shortcut 目标"
+    source: 编排骨架
+    status: pending
+
+  - item: "App 在后台时点击 shortcut 能按新 target 导航并只消费一次"
+    source: 验收场景
+    status: pending
+
+  - item: "查寝预解析超时或失败时 splash 短超时放行，App 不崩溃"
+    source: 跨层纪律
+    status: pending
+
+  - item: "不出现外部 URL deep link 或 exported 子 Activity"
+    source: 范围守护
+    status: pending
+
+  - item: "不改变 CheckinRepository.getTasks() 的请求协议字段"
+    source: 范围守护
+    status: pending
+
+  - item: "不改变 FIF 扫码 token 提取与 302 判断语义"
+    source: 范围守护
+    status: pending
+
+  - item: "不新增数据库、DataStore 或长期持久化 pending shortcut"
+    source: 范围守护
+    status: pending
+
+  - item: "不把 AI 课堂扫码页改成独立入口导致 AICLASS_HOME 缺失"
+    source: 范围守护
+    status: pending
+
+  - item: "不让‘查寝签到’排在‘扫码签到’之前"
+    source: 范围守护
+    status: pending

@@ -6,16 +6,19 @@ import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
 import android.os.Build
+import android.widget.Toast
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.platform.LocalContext
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.navigation.NavHostController
@@ -55,6 +58,10 @@ import kotlinx.coroutines.launch
 fun LightXinNavHost(
     sessionManager: SessionManager,
     navController: NavHostController = rememberNavController(),
+    shortcutTarget: ShortcutTarget? = null,
+    pendingDormTaskId: String? = null,
+    isDormShortcutResolved: Boolean = false,
+    onShortcutConsumed: () -> Unit = {},
 ) {
     // 合并 onboarded + loggedIn 两态决定起始页
     val startStateFlow = remember(sessionManager) {
@@ -75,6 +82,35 @@ fun LightXinNavHost(
     }
 
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val currentOnShortcutConsumed by rememberUpdatedState(onShortcutConsumed)
+
+    LaunchedEffect(shortcutTarget, resolvedStartRoute, pendingDormTaskId, isDormShortcutResolved) {
+        val target = shortcutTarget ?: return@LaunchedEffect
+        if (resolvedStartRoute != Routes.HOME) return@LaunchedEffect
+        if (target == ShortcutTarget.DORM_CHECKIN && !isDormShortcutResolved) return@LaunchedEffect
+
+        navController.navigate(Routes.HOME) {
+            launchSingleTop = true
+            popUpTo(Routes.HOME) { inclusive = false }
+        }
+        when (target) {
+            ShortcutTarget.SCAN_CHECKIN -> {
+                navController.navigate(Routes.AICLASS_HOME) { launchSingleTop = true }
+                navController.navigate(Routes.AICLASS_SCAN) { launchSingleTop = true }
+            }
+
+            ShortcutTarget.DORM_CHECKIN -> {
+                navController.navigate(Routes.CHECKIN_LIST) { launchSingleTop = true }
+                if (pendingDormTaskId != null) {
+                    navController.navigate(Routes.checkinDetail(pendingDormTaskId)) { launchSingleTop = true }
+                } else {
+                    Toast.makeText(context, "当前没有待签到的查寝任务", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+        currentOnShortcutConsumed()
+    }
 
     NavHost(
         navController = navController,

@@ -4,7 +4,7 @@ slug: navigation-overview
 scope: navigation/ 包的路由定义、导航图结构、起始页决策、页面转场动画、与跨页面 ViewModel 共享模式
 summary: navigation 以 Routes 常量 + NavGraph 集中管理 14 条路由，起始页由 isOnboarded / isLoggedIn 两态 Flow 合并决定，支持页面间 SavedStateHandle 传参与跨页面 ViewModel 共享
 status: current
-last_reviewed: 2026-04-22
+last_reviewed: 2026-05-03
 tags: [navigation, navgraph, routes, viewmodel-sharing, transition]
 depends_on: [home-overview, login-overview, checkin-overview, running-overview, labor-overview, aiclass-overview, about-overview]
 ---
@@ -16,7 +16,7 @@ depends_on: [home-overview, login-overview, checkin-overview, running-overview, 
 - **Routes** — `Routes.kt` 中定义的字符串常量与参数化路由函数；所有路由集中在单文件管理
 - **NavGraph** — `NavGraph.kt` 中的 `LightXinNavHost`，集中注册所有 composable 路由
 - **起始页决策** — 通过合并 `sessionManager.isOnboarded` 与 `sessionManager.isLoggedIn` 两个 Flow 决定 App 启动时显示 onboarding / login / home 三页之一
-- **跨页面 ViewModel 共享** — 运行相关页面（running 四条路由）通过 `hiltViewModel(navController.getBackStackEntry(Routes.HOME))` 共享同一个 ViewModel 实例
+- **跨页面 ViewModel 共享** — 运行相关页面（running 四条路由）通过 `remember(backStackEntry) { navController.getBackStackEntry(Routes.HOME) }` 取得父 BackStackEntry，再交给 `hiltViewModel(parentEntry)` 共享同一个 ViewModel 实例
 
 ## 1. 定位与受众
 
@@ -60,7 +60,7 @@ fun laborDetail(id: String, type: String) = "labor/detail/$id/$type"
 
 ### 2.2 起始页决策
 
-锚点：`navigation/NavGraph.kt:56-64`
+锚点：`navigation/NavGraph.kt:56-81`
 
 `startStateFlow` 合并 `sessionManager.isOnboarded` 与 `sessionManager.isLoggedIn` 两个 Flow：
 
@@ -71,6 +71,8 @@ onboarded && loggedIn  → HOME
 ```
 
 决策逻辑在 Compose 层通过 `collectAsState(initial = null)` 订阅，初始值为 null 时显示 `LxLoading` 占位。这种设计避免了启动时的白屏闪烁——在 Flow 发出第一个值之前，用户看到的是加载指示器而非错误页面。
+
+`NavHost.startDestination` 要求非空字符串，当前代码先把 `startRoute` 绑定为局部 `resolvedStartRoute`，若为 null 则 return，非空后再进入 `NavHost`。这样避免在起始页尚未解析时使用非空断言。
 
 ### 2.3 页面转场动画
 
@@ -91,15 +93,17 @@ onboarded && loggedIn  → HOME
 
 ### 2.4 跨页面 ViewModel 共享
 
-锚点：`navigation/NavGraph.kt:170-237`
+锚点：`navigation/NavGraph.kt:190-380`
 
-跑步模块的四个页面（RUNNING_HOME / RUNNING_ACTIVE / RUNNING_SIM / RUNNING_RESULT）通过 `hiltViewModel(navController.getBackStackEntry(Routes.HOME))` 共享同一个 `RunningViewModel` 实例。这个 ViewModel 的生命周期绑定到 HOME 路由的 BackStackEntry，而非各个跑步页面自身。
+跑步模块的四个页面（RUNNING_HOME / RUNNING_ACTIVE / RUNNING_SIM / RUNNING_RESULT）通过 `remember(backStackEntry) { navController.getBackStackEntry(Routes.HOME) }` 取得 HOME 的 BackStackEntry，再用 `hiltViewModel(homeEntry)` 共享同一个 `RunningViewModel` 实例。这个 ViewModel 的生命周期绑定到 HOME 路由的 BackStackEntry，而非各个跑步页面自身。
 
-同理，路线模板的三个页面（RUNNING_ROUTE_SETTINGS / RUNNING_ROUTE_RECORD / RUNNING_ROUTE_LIST）共享 `RouteTemplateViewModel`，绑定到 RUNNING_ROUTE_SETTINGS 的 BackStackEntry。
+同理，路线模板页面（RUNNING_ROUTE_SETTINGS / RUNNING_ROUTE_RECORD / RUNNING_ROUTE_LIST / RUNNING_ROUTE_DETAIL）共享 `RouteTemplateViewModel`，绑定到 RUNNING_ROUTE_SETTINGS 的 BackStackEntry。
 
-AI 课堂的两个页面（AICLASS_HOME / AICLASS_SCAN）共享 `AiClassViewModel`，绑定到 AICLASS_HOME。
+AI 课堂页面（AICLASS_HOME / AICLASS_SCAN / AICLASS_DETAIL）共享 `AiClassViewModel`，绑定到 AICLASS_HOME。
 
 这种模式避免了 ViewModel 在页面跳转时重建，让跑步过程中的状态（计时、轨迹等）在页面切换时保持。
+
+`getBackStackEntry()` 不能在组合期间裸调用；所有共享 ViewModel 的父 entry 获取都必须包在 `remember(backStackEntry) { ... }` 中。这里的 key 用当前目的地 `backStackEntry`，而不是 `navController`，用于满足 Compose Navigation 的生命周期 lint，同时在目的地实例变化时重新解析父 entry。
 
 ### 2.5 页面间数据传递
 
@@ -125,7 +129,7 @@ AI 课堂的两个页面（AICLASS_HOME / AICLASS_SCAN）共享 `AiClassViewMode
 |---|---|---|
 | `Routes` 常量 | 所有路由的字符串定义 | `Routes.kt` |
 | `NavHostController` | 导航控制器，由 `rememberNavController()` 创建 | `NavGraph.kt` |
-| `startRoute` | 当前起始页，由两态 Flow 合并计算 | `NavGraph.kt:56-64` |
+| `startRoute` / `resolvedStartRoute` | 当前起始页，由两态 Flow 合并计算；进入 NavHost 前先绑定局部非空值 | `NavGraph.kt:56-81` |
 | `SavedStateHandle` | 页面间键值对传递 | NavGraph 各 composable |
 
 ## 4. 关键决策
@@ -139,21 +143,22 @@ AI 课堂的两个页面（AICLASS_HOME / AICLASS_SCAN）共享 `AiClassViewMode
 ## 5. 代码锚点
 
 - `navigation/Routes.kt:5-40` — 全部 18 条路由定义
-- `navigation/NavGraph.kt:56-64` — 起始页决策逻辑
-- `navigation/NavGraph.kt:77-88` — 默认转场动画
+- `navigation/NavGraph.kt:56-81` — 起始页决策逻辑 + `resolvedStartRoute` 非空绑定
+- `navigation/NavGraph.kt:78-89` — 默认转场动画
 - `navigation/NavGraph.kt:90-115` — OnboardingScreen 路由
 - `navigation/NavGraph.kt:117-129` — LoginScreen 路由
 - `navigation/NavGraph.kt:131-137` — HomeScreen 路由
 - `navigation/NavGraph.kt:140-167` — Checkin 路由 + SavedStateHandle 通信
-- `navigation/NavGraph.kt:169-237` — Running 路由 + ViewModel 共享
-- `navigation/NavGraph.kt:239-292` — Route Simulation 路由 + ViewModel 共享
+- `navigation/NavGraph.kt:190-257` — Running 路由 + ViewModel 共享
+- `navigation/NavGraph.kt:260-316` — Route Simulation 路由 + ViewModel 共享
 - `navigation/NavGraph.kt:294-315` — Labor 路由
-- `navigation/NavGraph.kt:317-341` — AI Class 路由 + ViewModel 共享
-- `navigation/NavGraph.kt:343-346` — About 路由
+- `navigation/NavGraph.kt:338-386` — AI Class 路由 + ViewModel 共享
+- `navigation/NavGraph.kt:389-391` — About 路由
 
 ## 6. 已知约束 / 边界情况
 
 - **RunningViewModel 绑定到 HOME 的 BackStackEntry** —— 这意味着即使所有跑步页面都已弹出，HOME 页面存在时 RunningViewModel 仍然存活。只有当 HOME 页面也被弹出时（即退出登录），RunningViewModel 才会销毁。
+- **共享 ViewModel 的 parent BackStackEntry 获取必须 `remember(backStackEntry)`** —— 避免在 composition 中裸调用 `getBackStackEntry()`，同时让 lint 能确认生命周期安全。
 - **路线模板的 ViewModel 绑定到 RUNNING_ROUTE_SETTINGS** —— 如果用户直接导航到 ROUTE_LIST 或 ROUTE_DETAIL（如通过 deep link），而没有经过 SETTINGS 页面，ViewModel 获取会失败。当前没有 deep link 支持，所以这不是问题。
 - **CHECKIN_LIST 使用 `getStateFlow` 订阅 refresh 信号** —— 这是 Compose 安全的订阅方式，但需要记得在消费后置回 false，否则下次进入列表页时会错误触发刷新。
 - **schedule 路由未在 NavHost 中注册** —— `Routes.SCHEDULE` 已定义但未出现在 `NavGraph.kt` 中，因为课表是 HomeScreen 的 tab 1，由 HomeScreen 内部管理，不经过 NavHost。
@@ -166,3 +171,7 @@ AI 课堂的两个页面（AICLASS_HOME / AICLASS_SCAN）共享 `AiClassViewMode
 - 查寝详情页通信：`codestable/architecture/checkin-overview.md` §2.4
 - 跑步模块 ViewModel 共享：`codestable/architecture/running-overview.md`
 - 架构总入口：`codestable/architecture/DESIGN.md`
+
+## 变更日志
+
+- 2026-05-03：同步起始页非空绑定与共享 ViewModel parent BackStackEntry 的 `remember(backStackEntry)` 模式。

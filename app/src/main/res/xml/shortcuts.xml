@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="scan_checkin"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_scan"
+        android:shortcutShortLabel="@string/shortcut_scan_checkin"
+        android:shortcutLongLabel="@string/shortcut_scan_checkin_long">
+        <intent
+            android:action="com.lightxin.action.SCAN_CHECKIN"
+            android:targetPackage="com.lightxin"
+            android:targetClass="com.lightxin.MainActivity" />
+    </shortcut>
+
+    <shortcut
+        android:shortcutId="dorm_checkin"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_dorm"
+        android:shortcutShortLabel="@string/shortcut_dorm_checkin"
+        android:shortcutLongLabel="@string/shortcut_dorm_checkin_long">
+        <intent
+            android:action="com.lightxin.action.DORM_CHECKIN"
+            android:targetPackage="com.lightxin"
+            android:targetClass="com.lightxin.MainActivity" />
+    </shortcut>
+</shortcuts>

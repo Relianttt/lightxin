@@ -1,3 +1,7 @@
 <resources>
     <string name="app_name">轻小信</string>
+    <string name="shortcut_scan_checkin">扫码签到</string>
+    <string name="shortcut_scan_checkin_long">扫码签到</string>
+    <string name="shortcut_dorm_checkin">查寝签到</string>
+    <string name="shortcut_dorm_checkin_long">查寝签到</string>
 </resources>

@@ -4,7 +4,7 @@ slug: designsystem-overview
 scope: core/designsystem/ 下的 Token 层（Color / Type / Shape）、LightXinTheme 入口、Light/Dark 切换机制，以及 11 个通用组件文件的形态与使用约束
 summary: token 分"Raw 字面量 + 语义 composable"两层，语义层用 isSystemInDarkTheme() 在 Light/Dark 自动切换；组件全部绕开 Material3 默认 ripple、自管 interactionSource；Compose Dark 与资源层 forceDarkAllowed=false 是两层正交机制
 status: current
-last_reviewed: 2026-05-01
+last_reviewed: 2026-05-03
 tags: [designsystem, theme, color, typography, components, dark-mode]
 depends_on: []
 ---
@@ -84,10 +84,12 @@ token 故意分两层：
 
 资源层两套主题都显式声明 `android:forceDarkAllowed=false`：
 
-- `res/values/themes.xml:7` — Light 资源主题（父主题 `android:Theme.Material.Light.NoActionBar`）
-- `res/values-night/themes.xml:6` — Dark 资源主题（父主题 `android:Theme.Material.NoActionBar`）
+- `res/values-v29/themes.xml:2-5` — Light 资源主题在 API 29+ 关闭 force dark
+- `res/values-night-v29/themes.xml:2-4` — Dark 资源主题在 API 29+ 关闭 force dark
 
 这**不是**为了禁用 Compose Dark，而是拦截厂商（MIUI / HyperOS 等）对 Light 应用强加的反色滤镜。暖色 token 一旦被反色就失去设计意图（`LxParchment` 羊皮纸会变成深蓝黑），所以在资源层关掉这条路。
+
+`android:forceDarkAllowed` 只在 API 29 引入；minSdk 仍为 26，因此通用 `values/` 与 `values-night/` 只保留基础主题，force dark 开关放在 `values-v29/` 与 `values-night-v29/` 覆盖主题里。这样 API 26-28 不会解析到高版本属性，API 29+ 仍保持厂商反色滤镜关闭。
 
 Compose Dark Scheme 与资源层 `forceDarkAllowed` 是**两层正交机制**——前者是应用自己的视觉语言切换，后者是"防系统插手"。同时打开 MIUI 全局深色 + 系统 Dark 模式时，应用内会走 Compose Dark，而不是被滤镜强改的 Light。
 
@@ -139,7 +141,7 @@ RPill = 20dp  → 胶囊（Badge / 周选择器 chip）   → shapes.extraLarge
 | `LxDialog.kt` | `LxDialog` + `LxDialogConfirmTone` | 基于 `LxCard` 的自定义 Dialog；`Destructive` 色走 `LxRose`，`Primary` 走 `LxTerra` |
 | `LxTopBar.kt` | `LxTopBar` | 60dp 高、中心标题 + 可选返回；自带 `statusBarsPadding`、`LxParchment` 底 |
 | `LxDetailRow.kt` | `LxDetailRow` | 72dp 标签列 + 右值；value 为空直接 `return` |
-| `LxLoadingState.kt` | `LxProgressIndicator` / `LxLoading` / `LxEmpty` / `LxError` / `LxShimmerCard` | 加载 / 空态 / 错误 / 骨架的统一出口 |
+| `LxLoadingState.kt` | `LxProgressIndicator` / `LxLoading` / `LxEmpty` / `LxError` / `LxErrorHint` / `LxEmptyHint` / `LxInlineErrorCard` / `LxShimmerCard` | 整屏加载 / 空态 / 错误、卡片内轻量提示、可重试行内错误、骨架的统一出口 |
 | `LxAnimatedNumber.kt` | `LxAnimatedNumber` | Float 插值 + 800ms tween；跑步里程等数字计量场景 |
 
 所有可点击组件（Card / Button / IconButton / FAB / ChoiceChip / TextButton）都**绕开 Material3 默认 ripple**，用 `indication = null` + 自管 `MutableInteractionSource` 做 pressed 色切换——这是项目选择"暖色质感 + 自控按压"路线的直接体现。
@@ -159,6 +161,8 @@ designsystem 自身**没有可变状态**——token 是常量 / 单次读取，
 - `LxCard`（可点击分支）/ `LxButton` 族 / `LxIconButton` / `LxFloatingActionButton` / `LxChoiceChip` / `LxTextButton`
 
 这些 interaction 状态只影响当前组件视觉，不对外暴露、不持久化。
+
+整屏状态与局部状态分层：`LxLoading` / `LxEmpty` / `LxError` 默认占满传入容器，适合页面级 loading/empty/error；`LxErrorHint` / `LxEmptyHint` 只渲染一行或一段轻量文字，适合卡片 body；`LxInlineErrorCard` 是可点击重试的列表内错误行。锚点：`core/designsystem/component/LxLoadingState.kt:55-205`。这一层下沉后，feature 页面不再各自私有 `ErrorHint` / `HolidayErrorRow`。
 
 ## 4. 关键决策
 
@@ -182,9 +186,11 @@ designsystem 自身**没有可变状态**——token 是常量 / 单次读取，
 - `core/designsystem/theme/Type.kt:154` — `LxTabularNums` 等宽数字 feature
 - `core/designsystem/theme/Shape.kt:8-19` — 四档圆角常量 + `LightXinShapes`
 - `core/designsystem/component/` — 11 个组件文件逐个
+- `core/designsystem/component/LxLoadingState.kt:136-205` — 局部状态组件 `LxErrorHint` / `LxEmptyHint` / `LxInlineErrorCard`
 - `MainActivity.kt:45-57` — 状态栏 / 导航栏明暗切换
 - `MainActivity.kt:62-66` — 唯一 `LightXinTheme` 挂载点
-- `res/values/themes.xml:2-8` / `res/values-night/themes.xml:2-7` — 资源主题 + `forceDarkAllowed=false`
+- `res/values/themes.xml:2-6` / `res/values-night/themes.xml:2-6` — API 26+ 基础资源主题
+- `res/values-v29/themes.xml:2-5` / `res/values-night-v29/themes.xml:2-4` — API 29+ `forceDarkAllowed=false`
 
 ## 6. 已知约束 / 边界情况
 
@@ -198,6 +204,7 @@ designsystem 自身**没有可变状态**——token 是常量 / 单次读取，
 - **陶土色（`LxTerra`）一屏最多 2 次、Badge / Icon 不用** —— 使用密度约束。来源：`docs/项目规划/UI改造指南.md:296-300`。新建 UI 时要自查。
 - **Dark 主题会跟随系统 dark mode 自动生效** —— 暖色语义 token 在 Dark 模式下自动换到 `LxDark*Raw`（提亮的陶土 / 提亮的沙色），调用方无需感知。
 - **`forceDarkAllowed=false` 只防厂商反色，不控制 Compose Dark** —— 这两层独立；不要把它理解为"强制 Light"。
+- **局部错误 / 空态优先复用 `LxErrorHint` / `LxEmptyHint` / `LxInlineErrorCard`** —— 整屏状态继续用 `LxError` / `LxEmpty`，卡片内或列表内不要再新建私有 `ErrorHint` / `ErrorRow`。来源：`LxLoadingState.kt:136-205`。
 - **观察项：DESIGN.md §4 描述偏差** —— 总入口当前写"强制 Light 主题（Phase 9B）"，但代码层 Compose Dark 已完整落地并跟随系统。下次更新 `DESIGN.md` 时应同步修正这一条描述。
 - **观察项：`LxSuccess` / `LxWarning` / `LxError` 仅做别名，且 `LxWarning` / `LxError` 已无 UI 引用** —— 三条语义色直接指向 `LxSage` / `LxAmber` / `LxRose`（`Color.kt:157-159`）。`LxSuccess` 仍被"已签到 / 已登记"绿底徽章使用；`LxWarning`（→ `LxAmber`）与 `LxError`（→ `LxRose`）的 UI 引用已在 holiday feature 一轮里全部退出——warning 统一走 `LxTerra` 主色弱化（软底徽章 / `PulseDot`），error 走 `LxInkSoft` 中性墨字 + `LxTerra` 1-2dp 细竖线（参见 `feature/checkin/ui/CheckinListScreen.kt` HolidayErrorRow / HolidayStatusBadge）。`LxAmber` 现仅在 `LxCategoryColors[4]`（思政课程小圆点）保留分类色用途。是否把这三个别名从 `Color.kt` 删掉留作下次决策。
 - **观察项：`shapes.medium` 与 `shapes.large` 同为 `RLg`（16dp）** —— Material3 提供的 large 在本项目没有差异化。未来需要"更大"圆角（如全屏 BottomSheet）时再考虑分档。
@@ -210,3 +217,7 @@ designsystem 自身**没有可变状态**——token 是常量 / 单次读取，
 - 使用 designsystem 的代表性模块：
   - `codestable/architecture/home-overview.md` — 首页叙事骨架消费 `LxCard` / 问候区衬线字等
   - `codestable/architecture/running-overview.md` — 跑步仪表盘 / 设置页大量使用 `LxButton` / `LxTextField` / `LxChoiceChip`
+
+## 变更日志
+
+- 2026-05-03：补充局部状态组件（`LxErrorHint` / `LxEmptyHint` / `LxInlineErrorCard`）和 `forceDarkAllowed` 的 v29 资源分层现状。

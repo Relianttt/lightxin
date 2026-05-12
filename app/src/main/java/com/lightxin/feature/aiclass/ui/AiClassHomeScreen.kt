@@ -1,5 +1,6 @@
 package com.lightxin.feature.aiclass.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,19 +15,24 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Class
 import androidx.compose.material.icons.automirrored.filled.Login
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -50,10 +56,13 @@ import com.lightxin.core.designsystem.component.LxFloatingActionButton
 import com.lightxin.core.designsystem.component.LxProgressIndicator
 import com.lightxin.core.designsystem.component.LxTextField
 import com.lightxin.core.designsystem.component.LxTopBar
+import com.lightxin.core.designsystem.theme.LxSage
+import com.lightxin.core.designsystem.theme.LxSageSoft
 import com.lightxin.feature.aiclass.domain.AiCourse
 import com.lightxin.feature.aiclass.domain.displayName
 import com.lightxin.feature.aiclass.domain.studentCountText
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AiClassHomeScreen(
     onBack: () -> Unit,
@@ -64,14 +73,13 @@ fun AiClassHomeScreen(
     viewModel: AiClassViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    val snackbarHostState = remember { SnackbarHostState() }
     val error = uiState.error
+    val signResult = uiState.signResult
+    val snackbarHostState = remember { SnackbarHostState() }
+    var showSignResultSheet by rememberSaveable { mutableStateOf(false) }
 
-    LaunchedEffect(uiState.signResult) {
-        uiState.signResult?.let { msg ->
-            snackbarHostState.showSnackbar(msg)
-            viewModel.consumeSignResult()
-        }
+    LaunchedEffect(signResult) {
+        showSignResultSheet = signResult != null
     }
 
     Scaffold(
@@ -129,6 +137,71 @@ fun AiClassHomeScreen(
                 modifier = Modifier.padding(padding),
             )
         }
+    }
+
+    if (showSignResultSheet && signResult != null) {
+        ModalBottomSheet(
+            onDismissRequest = {
+                showSignResultSheet = false
+                viewModel.consumeSignResult()
+            },
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+            containerColor = MaterialTheme.colorScheme.surface,
+            shape = MaterialTheme.shapes.medium,
+        ) {
+            SignResultSheet(
+                message = signResult,
+                onConfirm = {
+                    showSignResultSheet = false
+                    viewModel.consumeSignResult()
+                },
+            )
+        }
+    }
+}
+
+@Composable
+private fun SignResultSheet(
+    message: String,
+    onConfirm: () -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp, vertical = 28.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Box(
+            modifier = Modifier
+                .size(56.dp)
+                .background(LxSageSoft, CircleShape),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                imageVector = Icons.Default.CheckCircle,
+                contentDescription = null,
+                tint = LxSage,
+                modifier = Modifier.size(30.dp),
+            )
+        }
+        Spacer(modifier = Modifier.height(16.dp))
+        Text(
+            text = "签到结果",
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.SemiBold,
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = message,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(modifier = Modifier.height(24.dp))
+        LxButton(
+            text = "知道了",
+            onClick = onConfirm,
+            modifier = Modifier.fillMaxWidth(),
+        )
     }
 }
 
