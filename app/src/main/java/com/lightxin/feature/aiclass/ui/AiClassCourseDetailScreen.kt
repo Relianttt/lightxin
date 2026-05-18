@@ -44,6 +44,7 @@ import com.lightxin.feature.aiclass.domain.studentCountText
 fun AiClassCourseDetailScreen(
     classId: String,
     onBack: () -> Unit,
+    onOpenHomeworkDetail: (String) -> Unit = {},
     modifier: Modifier = Modifier,
     viewModel: AiClassViewModel = hiltViewModel(),
 ) {
@@ -72,6 +73,10 @@ fun AiClassCourseDetailScreen(
                 isQuizLoading = uiState.isQuizLoading,
                 quizError = uiState.quizError,
                 onRetryQuiz = viewModel::retryQuiz,
+                homeworkList = uiState.homeworkList,
+                isHomeworkLoading = uiState.isHomeworkLoading,
+                homeworkError = uiState.homeworkError,
+                onHomeworkClick = onOpenHomeworkDetail,
                 modifier = Modifier.padding(padding),
             )
         }
@@ -85,6 +90,10 @@ private fun AiClassCourseDetailContent(
     isQuizLoading: Boolean,
     quizError: String?,
     onRetryQuiz: () -> Unit,
+    homeworkList: List<com.lightxin.feature.aiclass.domain.AiHomework> = emptyList(),
+    isHomeworkLoading: Boolean = false,
+    homeworkError: String? = null,
+    onHomeworkClick: (String) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     LazyColumn(
@@ -130,6 +139,56 @@ private fun AiClassCourseDetailContent(
             else -> {
                 items(quizList, key = { quizItemKey(it) }) { quiz ->
                     QuizCard(quiz = quiz)
+                }
+            }
+        }
+
+        // ── 作业 section ──
+        item(key = "homework_title") {
+            Text(
+                text = "作业",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(top = 8.dp, bottom = 4.dp),
+            )
+        }
+
+        when {
+            isHomeworkLoading -> {
+                item(key = "homework_loading") {
+                    LxLoading()
+                }
+            }
+
+            homeworkError != null -> {
+                item(key = "homework_error") {
+                    LxCard {
+                        Text(
+                            text = homeworkError,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.padding(16.dp),
+                        )
+                    }
+                }
+            }
+
+            homeworkList.isEmpty() -> {
+                item(key = "homework_empty") {
+                    LxCard {
+                        Text(
+                            text = "当前课程暂无作业",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(20.dp),
+                        )
+                    }
+                }
+            }
+
+            else -> {
+                items(homeworkList, key = { it.id }) { homework ->
+                    HomeworkCard(homework = homework, onClick = { onHomeworkClick(homework.id) })
                 }
             }
         }
@@ -241,4 +300,60 @@ private fun buildQuizMeta(quiz: AiQuiz): String {
 
 private fun quizItemKey(quiz: AiQuiz): String {
     return quiz.id.ifBlank { "${quiz.title}|${quiz.publishDateTime}|${quiz.publishTime}|${quiz.publishWeek}" }
+}
+
+@Composable
+private fun HomeworkCard(
+    homework: com.lightxin.feature.aiclass.domain.AiHomework,
+    onClick: () -> Unit,
+) {
+    LxCard(onClick = onClick) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = homework.title.ifBlank { "未命名作业" },
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "截止: ${homework.endTime}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Spacer(modifier = Modifier.width(12.dp))
+            HomeworkStatusBadge(homework)
+        }
+    }
+}
+
+@Composable
+private fun HomeworkStatusBadge(homework: com.lightxin.feature.aiclass.domain.AiHomework) {
+    val color = when {
+        homework.score.isNotBlank() && homework.score != "null" -> LxSuccess
+        homework.jobState == "2" -> MaterialTheme.colorScheme.error
+        else -> MaterialTheme.colorScheme.secondary
+    }
+
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(8.dp))
+            .background(color.copy(alpha = 0.12f))
+            .padding(horizontal = 10.dp, vertical = 4.dp),
+    ) {
+        Text(
+            text = homework.statusText,
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.SemiBold,
+            color = color,
+        )
+    }
 }

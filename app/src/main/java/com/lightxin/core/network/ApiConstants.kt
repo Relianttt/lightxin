@@ -9,9 +9,15 @@ object ApiConstants {
     const val BASE_SPORTS = "http://sports.aiit.edu.cn:8082"
     const val BASE_LABOR = "https://ldjy.aiit.edu.cn"
 
+    // 素质学分
+    const val BASE_CREDIT = "https://cqc.aiit.edu.cn"
+
     // FIF AI课堂
     const val BASE_FIF_SSO = "https://aiitpass.fifedu.com"
     const val BASE_FIF = "https://sttp.fifedu.com"
+
+    // 爱作业平台
+    const val BASE_IZUOYE = "https://izuoye.fifedu.com"
 
     const val APP_ID = "11111111111111111111111111111111"
 }

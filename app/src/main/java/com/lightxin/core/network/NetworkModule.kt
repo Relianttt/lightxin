@@ -22,8 +22,10 @@ import javax.inject.Singleton
 @Qualifier @Retention(AnnotationRetention.BINARY) annotation class CheckinRetrofit
 @Qualifier @Retention(AnnotationRetention.BINARY) annotation class SportsRetrofit
 @Qualifier @Retention(AnnotationRetention.BINARY) annotation class LaborRetrofit
+@Qualifier @Retention(AnnotationRetention.BINARY) annotation class CreditRetrofit
 @Qualifier @Retention(AnnotationRetention.BINARY) annotation class FifRetrofit
 @Qualifier @Retention(AnnotationRetention.BINARY) annotation class FifOkHttpClient
+@Qualifier @Retention(AnnotationRetention.BINARY) annotation class IzuoyeRetrofit
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -81,6 +83,10 @@ object NetworkModule {
     fun provideLaborRetrofit(client: OkHttpClient): Retrofit =
         buildRetrofit(client, ApiConstants.BASE_LABOR + "/")
 
+    @Provides @Singleton @CreditRetrofit
+    fun provideCreditRetrofit(client: OkHttpClient): Retrofit =
+        buildRetrofit(client, ApiConstants.BASE_CREDIT + "/")
+
     // ─── FIF AI课堂 ───
 
     @Provides @Singleton
@@ -112,4 +118,8 @@ object NetworkModule {
     @Provides @Singleton @FifRetrofit
     fun provideFifRetrofit(@FifOkHttpClient client: OkHttpClient): Retrofit =
         buildRetrofit(client, ApiConstants.BASE_FIF + "/")
+
+    @Provides @Singleton @IzuoyeRetrofit
+    fun provideIzuoyeRetrofit(@FifOkHttpClient client: OkHttpClient): Retrofit =
+        buildRetrofit(client, ApiConstants.BASE_IZUOYE + "/")
 }

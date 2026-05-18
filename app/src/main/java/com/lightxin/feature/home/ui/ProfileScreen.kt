@@ -22,11 +22,11 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Apps
 import androidx.compose.material.icons.outlined.Bed
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Route
 import androidx.compose.material.icons.outlined.School
-import androidx.compose.material.icons.outlined.WorkHistory
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -62,8 +62,8 @@ import com.lightxin.core.designsystem.theme.NewsreaderLarge
 @Composable
 fun ProfileScreen(
     onNavigateCheckin: () -> Unit,
-    onNavigateLabor: () -> Unit,
     onNavigateAiClass: () -> Unit,
+    onNavigateMore: () -> Unit,
     onNavigateRouteSimulation: () -> Unit,
     onNavigateAbout: () -> Unit,
     onLogout: () -> Unit,
@@ -136,12 +136,6 @@ fun ProfileScreen(
                 )
                 MenuDivider()
                 ProfileMenuRow(
-                    icon = Icons.Outlined.WorkHistory,
-                    title = "劳动教育",
-                    onClick = onNavigateLabor,
-                )
-                MenuDivider()
-                ProfileMenuRow(
                     icon = Icons.Outlined.School,
                     title = "AI课堂",
                     onClick = onNavigateAiClass,
@@ -154,6 +148,12 @@ fun ProfileScreen(
                         onClick = onNavigateRouteSimulation,
                     )
                 }
+                MenuDivider()
+                ProfileMenuRow(
+                    icon = Icons.Outlined.Apps,
+                    title = "更多功能",
+                    onClick = onNavigateMore,
+                )
             }
         }
 

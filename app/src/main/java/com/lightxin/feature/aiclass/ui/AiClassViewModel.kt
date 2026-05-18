@@ -23,12 +23,15 @@ data class AiClassUiState(
     val workingRecord: AiWorkingRecord? = null,
     val selectedCourse: AiCourse? = null,
     val quizList: List<AiQuiz> = emptyList(),
+    val homeworkList: List<com.lightxin.feature.aiclass.domain.AiHomework> = emptyList(),
     val isLoading: Boolean = true,
     val isSsoInProgress: Boolean = false,
     val isSigningIn: Boolean = false,
     val isQuizLoading: Boolean = false,
+    val isHomeworkLoading: Boolean = false,
     val error: String? = null,
     val quizError: String? = null,
+    val homeworkError: String? = null,
     val signResult: String? = null,
 )
 
@@ -162,7 +165,9 @@ class AiClassViewModel @Inject constructor(
                 it.copy(
                     selectedCourse = null,
                     quizList = emptyList(),
+                    homeworkList = emptyList(),
                     isQuizLoading = false,
+                    isHomeworkLoading = false,
                     quizError = "课程信息不存在，请返回重试",
                 )
             }
@@ -173,8 +178,11 @@ class AiClassViewModel @Inject constructor(
             it.copy(
                 selectedCourse = course,
                 quizList = emptyList(),
+                homeworkList = emptyList(),
                 isQuizLoading = true,
+                isHomeworkLoading = true,
                 quizError = null,
+                homeworkError = null,
             )
         }
 
@@ -186,6 +194,18 @@ class AiClassViewModel @Inject constructor(
                     quizList = quizResult.getOrDefault(emptyList()),
                     isQuizLoading = false,
                     quizError = quizResult.exceptionOrNull()?.message,
+                )
+            }
+        }
+
+        viewModelScope.launch {
+            val hwResult = repository.getHomeworkList(course.courseId, course.teachClassId)
+            _uiState.update { current ->
+                if (current.selectedCourse?.stableId != classId) return@update current
+                current.copy(
+                    homeworkList = hwResult.getOrDefault(emptyList()),
+                    isHomeworkLoading = false,
+                    homeworkError = hwResult.exceptionOrNull()?.message,
                 )
             }
         }

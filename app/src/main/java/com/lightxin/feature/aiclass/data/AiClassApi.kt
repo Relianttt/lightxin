@@ -94,4 +94,31 @@ interface AiClassApi {
         @Header("authorization") auth: String,
         @Header("Visit-Type") visitType: String = "mobile",
     ): AiClassTimetableResponse
+
+    /** 课程作业列表 */
+    @GET("coursecenter-interaction/izuoye/homework/public/listStudent")
+    suspend fun listStudentHomework(
+        @Query("courseId") courseId: String,
+        @Query("teachClassId") teachClassId: String,
+        @Query("isAll") isAll: String = "0",
+        @Query("page") page: String = "1",
+        @Query("size") size: String = "1000",
+        @Query("type") type: String = "1",
+        @Query("appKey") appKey: String = "aikt",
+        @Query("userName") userName: String,
+        @Header("authorization") auth: String,
+        @Header("Visit-Type") visitType: String = "mobile",
+    ): AiClassHomeworkListResponse
+
+    /** 获取作业详情入口URL（含jtzy token） */
+    @GET("coursecenter-interaction/ai/homework/getHomeworkDetaisIndexUrl")
+    suspend fun getHomeworkDetailUrl(
+        @Query("userName") userName: String,
+        @Query("appId") appId: String = "akt",
+        @Query("classId") classId: String,
+        @Query("applyType") applyType: String = "1",
+        @Query("cwId") cwId: String,
+        @Header("authorization") auth: String,
+        @Header("Visit-Type") visitType: String = "mobile",
+    ): AiClassHomeworkUrlResponse
 }

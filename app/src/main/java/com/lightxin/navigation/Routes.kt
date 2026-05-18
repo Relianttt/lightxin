@@ -39,6 +39,20 @@ object Routes {
     const val AICLASS_DETAIL = "aiclass/detail/{classId}"
     fun aiClassDetail(classId: String) = "aiclass/detail/${Uri.encode(classId)}"
 
+    // More Features
+    const val MORE_FEATURES = "more"
+
+    // Exam
+    const val EXAM_SCORES = "exam/scores"
+
+    // Credit
+    const val CREDIT_OVERVIEW = "credit/overview"
+
+    // AI Homework
+    const val AICLASS_HOMEWORK_DETAIL = "aiclass/homework/{cwId}/{teachClassId}"
+    fun aiClassHomeworkDetail(cwId: String, teachClassId: String) =
+        "aiclass/homework/${Uri.encode(cwId)}/${Uri.encode(teachClassId)}"
+
     // About
     const val ABOUT = "about"
 }

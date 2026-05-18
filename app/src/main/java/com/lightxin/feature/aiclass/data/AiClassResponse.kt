@@ -115,3 +115,44 @@ data class AiClassTimetableResponse(
     val message: String?,
     val data: JsonElement?,
 )
+
+/** 作业列表响应 */
+data class AiClassHomeworkListResponse(
+    val status: String?,
+    val message: String?,
+    val data: HomeworkListData?,
+) {
+    data class HomeworkListData(
+        val pageConfig: PageConfig?,
+        val dataList: List<HomeworkDayGroup>?,
+    )
+
+    data class PageConfig(
+        val totalPage: Int?,
+        val totalCount: Int?,
+    )
+
+    data class HomeworkDayGroup(
+        val dayTime: String?,
+        val fileList: List<HomeworkItem>?,
+    )
+
+    data class HomeworkItem(
+        val id: String?,
+        val jobTitle: String?,
+        val typeName: String?,
+        val jobState: String?,
+        val endState: String?,
+        val allowOvertime: String?,
+        val startTime: String?,
+        val endTime: String?,
+        val score: String?,
+    )
+}
+
+/** 作业详情URL响应 */
+data class AiClassHomeworkUrlResponse(
+    val status: Int?,
+    val message: String?,
+    val data: String?,
+)

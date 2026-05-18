@@ -32,14 +32,18 @@ import com.lightxin.core.designsystem.component.LxLoading
 import com.lightxin.feature.aiclass.ui.AiClassHomeScreen
 import com.lightxin.feature.aiclass.ui.AiClassCourseDetailScreen
 import com.lightxin.feature.aiclass.ui.AiClassScanScreen
+import com.lightxin.feature.aiclass.ui.AiHomeworkDetailScreen
 import com.lightxin.feature.about.ui.AboutScreen
 import com.lightxin.feature.checkin.ui.CheckinDetailScreen
 import com.lightxin.feature.checkin.ui.CheckinListScreen
+import com.lightxin.feature.credit.ui.CreditScreen
+import com.lightxin.feature.exam.ui.ExamScreen
 import com.lightxin.feature.holiday.ui.HolidayRegisterScreen
 import com.lightxin.feature.home.ui.HomeScreen
 import com.lightxin.feature.labor.ui.LaborDetailScreen
 import com.lightxin.feature.labor.ui.LaborSummaryScreen
 import com.lightxin.feature.login.ui.LoginScreen
+import com.lightxin.feature.more.ui.MoreFeaturesScreen
 import com.lightxin.feature.onboarding.ui.OnboardingScreen
 import com.lightxin.feature.running.ui.RouteSimulationSettingsScreen
 import com.lightxin.feature.running.ui.RouteTemplateDetailScreen
@@ -419,7 +423,54 @@ fun LightXinNavHost(
                 classId = Uri.decode(backStackEntry.arguments?.getString("classId").orEmpty()),
                 viewModel = aiClassViewModel,
                 onBack = { navController.popBackStack() },
+                onOpenHomeworkDetail = { cwId ->
+                    val teachClassId = aiClassViewModel.uiState.value.selectedCourse?.teachClassId.orEmpty()
+                    navController.navigate(Routes.aiClassHomeworkDetail(cwId, teachClassId)) {
+                        launchSingleTop = true
+                    }
+                },
             )
+        }
+
+        // AI Homework Detail
+        composable(
+            route = Routes.AICLASS_HOMEWORK_DETAIL,
+            arguments = listOf(
+                navArgument("cwId") { type = NavType.StringType },
+                navArgument("teachClassId") { type = NavType.StringType },
+            ),
+        ) { backStackEntry ->
+            AiHomeworkDetailScreen(
+                cwId = Uri.decode(backStackEntry.arguments?.getString("cwId").orEmpty()),
+                teachClassId = Uri.decode(backStackEntry.arguments?.getString("teachClassId").orEmpty()),
+                onBack = { navController.popBackStack() },
+            )
+        }
+
+        // More Features
+        composable(Routes.MORE_FEATURES) {
+            MoreFeaturesScreen(
+                onBack = { navController.popBackStack() },
+                onNavigateLabor = {
+                    navController.navigate(Routes.LABOR_SUMMARY) { launchSingleTop = true }
+                },
+                onNavigateExam = {
+                    navController.navigate(Routes.EXAM_SCORES) { launchSingleTop = true }
+                },
+                onNavigateCredit = {
+                    navController.navigate(Routes.CREDIT_OVERVIEW) { launchSingleTop = true }
+                },
+            )
+        }
+
+        // Exam
+        composable(Routes.EXAM_SCORES) {
+            ExamScreen(onBack = { navController.popBackStack() })
+        }
+
+        // Credit
+        composable(Routes.CREDIT_OVERVIEW) {
+            CreditScreen(onBack = { navController.popBackStack() })
         }
 
         // About

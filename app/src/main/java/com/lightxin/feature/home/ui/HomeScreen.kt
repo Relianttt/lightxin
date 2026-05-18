@@ -114,13 +114,13 @@ fun HomeScreen(
                             launchSingleTop = true
                         }
                     },
-                    onNavigateLabor = {
-                        navController.navigate(Routes.LABOR_SUMMARY) {
+                    onNavigateAiClass = {
+                        navController.navigate(Routes.AICLASS_HOME) {
                             launchSingleTop = true
                         }
                     },
-                    onNavigateAiClass = {
-                        navController.navigate(Routes.AICLASS_HOME) {
+                    onNavigateMore = {
+                        navController.navigate(Routes.MORE_FEATURES) {
                             launchSingleTop = true
                         }
                     },

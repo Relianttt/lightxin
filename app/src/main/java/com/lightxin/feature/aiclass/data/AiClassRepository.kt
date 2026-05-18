@@ -1,10 +1,13 @@
 package com.lightxin.feature.aiclass.data
 
+import android.net.Uri
+import android.text.TextUtils
 import android.util.Log
 import com.lightxin.core.network.ApiConstants
 import com.lightxin.core.network.FifOkHttpClient
 import com.lightxin.core.network.FifRetrofit
 import com.lightxin.core.network.FifSessionManager
+import com.lightxin.core.network.IzuoyeRetrofit
 import com.lightxin.feature.aiclass.domain.AiCourse
 import com.lightxin.feature.aiclass.domain.AiQuiz
 import com.lightxin.feature.aiclass.domain.AiClassQrPayload
@@ -35,6 +38,7 @@ private const val WEBVIEW_REQUESTED_WITH = "com.lightxin"
 @Singleton
 class AiClassRepository @Inject constructor(
     private val api: AiClassApi,
+    private val izuoyeApi: IzuoyeApi,
     private val fifSession: FifSessionManager,
     private val cookieJar: CookieJar,
     @FifOkHttpClient private val fifClient: OkHttpClient,
@@ -223,6 +227,213 @@ class AiClassRepository @Inject constructor(
         } catch (e: Exception) {
             Result.failure(Exception(mapError("获取测验列表", e), e))
         }
+    }
+
+    // ─── 作业相关 ───
+
+    /** jtzy token 内存缓存 */
+    private var cachedJtzy: String? = null
+    private var cachedJtzyParams: JtzyParams? = null
+
+    private data class JtzyParams(
+        val cwId: String,
+        val teachClassId: String,
+        val schoolId: String,
+        val userId: String,
+        val teaCwId: String,
+        val uid: String,
+    )
+
+    /** 获取课程作业列表 */
+    suspend fun getHomeworkList(courseId: String, teachClassId: String): Result<List<com.lightxin.feature.aiclass.domain.AiHomework>> {
+        return try {
+            val auth = ensureSession()
+            val userName = fifSession.getUserName().orEmpty()
+            val resp = api.listStudentHomework(
+                courseId = courseId,
+                teachClassId = teachClassId,
+                userName = userName,
+                auth = auth,
+            )
+            val items = resp.data?.dataList.orEmpty().flatMap { group ->
+                group.fileList.orEmpty().map { item ->
+                    com.lightxin.feature.aiclass.domain.AiHomework(
+                        id = item.id.orEmpty(),
+                        title = item.jobTitle.orEmpty(),
+                        endTime = item.endTime.orEmpty(),
+                        jobState = item.jobState.orEmpty(),
+                        score = item.score.orEmpty(),
+                    )
+                }
+            }
+            Result.success(items)
+        } catch (e: Exception) {
+            Result.failure(Exception(mapError("获取作业列表", e), e))
+        }
+    }
+
+    /** 获取jtzy token并缓存，返回解析后的参数 */
+    private suspend fun ensureJtzy(cwId: String, teachClassId: String): Result<JtzyParams> {
+        cachedJtzyParams?.let {
+            if (cachedJtzy != null && it.cwId == cwId && it.teachClassId == teachClassId) {
+                return Result.success(it)
+            }
+        }
+
+        return try {
+            val auth = ensureSession()
+            val userName = fifSession.getUserName().orEmpty()
+            val resp = api.getHomeworkDetailUrl(
+                userName = userName,
+                classId = teachClassId,
+                cwId = cwId,
+                auth = auth,
+            )
+            val url = resp.data ?: return Result.failure(Exception("获取作业详情入口失败"))
+
+            // 从URL中解析参数
+            val jtzy = extractParam(url, "jtzy") ?: return Result.failure(Exception("jtzy token 解析失败"))
+            val schoolId = extractParam(url, "schoolId").orEmpty()
+            val userId = extractParam(url, "userId").orEmpty()
+            val teaCwId = extractParam(url, "cwId").orEmpty()
+            val uid = extractParam(url, "uid").orEmpty()
+
+            cachedJtzy = jtzy
+            val params = JtzyParams(
+                cwId = cwId,
+                teachClassId = teachClassId,
+                schoolId = schoolId,
+                userId = userId,
+                teaCwId = teaCwId,
+                uid = uid,
+            )
+            cachedJtzyParams = params
+            Result.success(params)
+        } catch (e: Exception) {
+            Result.failure(Exception(mapError("获取作业认证", e), e))
+        }
+    }
+
+    /** 获取教师作业详情 */
+    suspend fun getHomeworkDetail(cwId: String, teachClassId: String): Result<com.lightxin.feature.aiclass.domain.AiHomeworkDetail> {
+        return try {
+            val params = ensureJtzy(cwId, teachClassId).getOrThrow()
+            val jtzy = cachedJtzy!!
+            val resp = izuoyeApi.getTeaWorkDetail(
+                schoolId = params.schoolId,
+                userId = params.userId,
+                teaCwId = params.teaCwId,
+                uid = params.uid,
+                classId = teachClassId,
+                studentId = params.userId,
+                jtzy = jtzy,
+            )
+            val data = resp.data ?: return Result.failure(Exception("作业详情为空"))
+            Result.success(
+                com.lightxin.feature.aiclass.domain.AiHomeworkDetail(
+                    teaCwId = data.teaCwId.orEmpty(),
+                    title = data.cwTitle.orEmpty(),
+                    htmlContent = data.teaCwContent ?: data.showContent.orEmpty(),
+                    startTime = data.cwStartTimeFormat.orEmpty(),
+                    deadline = data.cwDeadlineFormat.orEmpty(),
+                    teacherName = data.creatorUserName.orEmpty(),
+                    cwDeadlineFormat = data.cwDeadlineFormat.orEmpty(),
+                ),
+            )
+        } catch (e: Exception) {
+            Result.failure(Exception(mapError("获取作业详情", e), e))
+        }
+    }
+
+    /** 获取学生提交列表 */
+    suspend fun getStuWorkList(cwId: String, teachClassId: String, page: Int = 1): Result<List<com.lightxin.feature.aiclass.domain.AiStudentWork>> {
+        return try {
+            val params = ensureJtzy(cwId, teachClassId).getOrThrow()
+            val jtzy = cachedJtzy!!
+            val resp = izuoyeApi.getStuWorkList(
+                schoolId = params.schoolId,
+                userId = params.userId,
+                teaCwId = params.teaCwId,
+                classId = teachClassId,
+                studentId = params.userId,
+                currentPage = page.toString(),
+                cwDeadline = "",
+                jtzy = jtzy,
+            )
+            val items = resp.data?.datalist.orEmpty().map { item ->
+                com.lightxin.feature.aiclass.domain.AiStudentWork(
+                    stuCwId = item.stuCwId ?: item.uid.orEmpty(),
+                    studentName = item.studentName.orEmpty(),
+                    showContent = item.showContent.orEmpty(),
+                    cwStatus = item.cwStatus ?: 0,
+                    correctStatus = item.correctStatus ?: 0,
+                    score = item.score.orEmpty(),
+                    submitTime = item.submitTimeFormat.orEmpty(),
+                )
+            }
+            Result.success(items)
+        } catch (e: Exception) {
+            Result.failure(Exception(mapError("获取提交列表", e), e))
+        }
+    }
+
+    /** 提交纯文本作业 */
+    suspend fun submitHomework(cwId: String, teachClassId: String, textContent: String): Result<String> {
+        return try {
+            val params = ensureJtzy(cwId, teachClassId).getOrThrow()
+            val jtzy = cachedJtzy!!
+
+            // 获取 storageId（即 stuCwId）
+            val storageResp = izuoyeApi.getStorageId(
+                schoolId = params.schoolId,
+                userId = params.userId,
+                teaCwId = params.teaCwId,
+                classId = teachClassId,
+                jtzy = jtzy,
+            )
+            val stuCwId = storageResp.data ?: return Result.failure(Exception("获取提交ID失败"))
+
+            // 包装为HTML并提交
+            val htmlContent = toHtmlParagraph(textContent)
+            val resp = izuoyeApi.submitWork(
+                schoolId = params.schoolId,
+                userId = params.userId,
+                teaCwId = params.teaCwId,
+                classId = teachClassId,
+                stuCwId = stuCwId,
+                showContent = htmlContent,
+                jtzy = jtzy,
+            )
+
+            if (resp.code == 200 || resp.code == 0) {
+                Result.success("提交成功")
+            } else {
+                Result.failure(Exception(resp.message ?: "提交失败"))
+            }
+        } catch (e: Exception) {
+            Result.failure(Exception(mapError("提交作业", e), e))
+        }
+    }
+
+    /** 清除jtzy缓存（切换作业时调用） */
+    fun clearJtzyCache() {
+        cachedJtzy = null
+        cachedJtzyParams = null
+    }
+
+    private fun extractParam(url: String, key: String): String? {
+        // 优先使用 Uri 解析，自动 URL decode；失败时再回退 regex
+        runCatching {
+            return Uri.parse(url).getQueryParameter(key)
+        }
+        val regex = Regex("[?&]$key=([^&]+)")
+        return regex.find(url)?.groupValues?.get(1)
+    }
+
+    private fun toHtmlParagraph(text: String): String {
+        val encoded = TextUtils.htmlEncode(text)
+            .replace("\n", "<br/>")
+        return "<p>$encoded</p>"
     }
 
     /**
@@ -456,4 +667,9 @@ object AiClassModule {
     @Singleton
     fun provideAiClassApi(@FifRetrofit retrofit: Retrofit): AiClassApi =
         retrofit.create(AiClassApi::class.java)
+
+    @Provides
+    @Singleton
+    fun provideIzuoyeApi(@IzuoyeRetrofit retrofit: Retrofit): IzuoyeApi =
+        retrofit.create(IzuoyeApi::class.java)
 }

@@ -2,37 +2,40 @@
 doc_type: learning
 track: pitfall
 date: 2026-05-13
+updated: 2026-05-13
 slug: flyme-shortcut-launch-transition
 component: [shortcut, splash, navigation, rom]
 severity: low
-tags: [flyme, shortcut, splashscreen-api, quickstep-launch-app, system-ui, rom-quirk, task-transition, libchecker]
+tags: [shortcut, splashscreen-api, quickstep-launch-app, system-ui, rom-quirk, task-transition, libchecker, static-shortcut]
 ---
 
-# Flyme 上 shortcut 启动时的对角平移动画无解
+# 已有 task 时点 static shortcut 会触发 SystemUI 对角展开
 
 ## 问题
 
-`app-shortcut-checkin` feature 实现完成后，在 Flyme 设备上从桌面长按图标 → 点击 shortcut 进入 app 时，splash 显示前后会出现一段明显的**由左向右**（早期观察以为是左上→右下对角线）的全屏遮罩平移动画，约 300-500ms，视觉嘈杂。从普通桌面图标进入则没有这个动画。
+`app-shortcut-checkin` feature 实现完成后，在 app 已有后台 task 时，从桌面长按图标 → 点击 shortcut 进入 app，会出现一段明显的**左上至右下对角展开**动画，约 300-500ms，视觉嘈杂。从普通桌面图标热启动则没有 splash 和这段动画；force stop / 划掉 task 后再点 shortcut 属于冷启动，只出现更自然的从上而下过渡。
 
-本次为修这个动画花了大半天，绕过四五条死胡同后定位到根因是 OEM SystemUI 行为，应用层无法干预，最终选择接受。本文把全部弯路写下来，避免下次再陷进去，也给后人留一份可参考的入手点（如果有人想再尝试）。
+本次为修这个动画花了大半天，绕过多条死胡同后定位到根因是 static shortcut 在已有 task 时触发的 SystemUI / WindowManagerShell task transition。后续又用 Pixel、LibChecker 和拆 SplashScreen API 做过交叉验证：这是 Android / Quickstep 路径上的行为，SplashScreen API 不是决定性根因，Compose Navigation 动画也已被排除。本文把全部弯路写下来，避免下次再陷进去。
 
 ## 症状
 
-不同启动路径在 Flyme 上的表现：
+不同启动路径的表现：
 
-| 入口 | 对角动画 | 解读 |
+| 入口 | 动画表现 | 解读 |
 |---|---|---|
-| 普通桌面图标冷启动 | 无 | launcher → app 默认 transition 简单 |
-| 普通桌面图标后台点击 | 无 | task reorder to front，无新 transition |
+| force stop 后点 shortcut | 从上而下褪去，较自然 | 无既有 task，属于冷启动 |
+| Recents 划掉 task 后点 shortcut | 同冷启动 | task 已移除 |
+| app 在后台时点 shortcut | 左上至右下对角展开 | 既有 task 被 static shortcut 路径清理/重建 |
+| app 在前台，回桌面立刻点 shortcut | 同后台 shortcut | 仍然存在既有 task |
+| 普通桌面图标后台点击 | 无 splash，无对角展开 | 普通热启动只是把 task 带回前台 |
 | Recents 任务列表切回 | 无 | 同上 |
-| **长按图标的 shortcut（冷启动）** | **有** | 走特殊 task transition |
-| **长按图标的 shortcut（后台）** | **有** | 同上 |
 
 跨 ROM 对比：
 
 - **Flyme**：shortcut 启动时由左向右平移
 - **联想平板**（另一台 ROM）：**没有 splash**但有相同的对角动画——证明动画与 splash 显示与否解耦
-- **类原生 ROM**：未实测，按 LibChecker 在 Flyme 上无此问题推断，类原生大概率也无此问题
+- **多台国产 ROM**：均能观察到类似遮罩/平移动画
+- **Pixel**：已有 task 时点 shortcut 同样有对角展开；证明这不是国产 ROM 专属行为，而是 Android / Quickstep 路径上的通用行为，OEM 只可能影响视觉强弱
 
 辅助证据（关键 logcat）：
 
@@ -41,7 +44,7 @@ V/WindowManagerShell: onTransitionReady (#10492) ... QuickstepLaunchApp
 W/PerfCore: perf hint acquire release scene = splashscreen_exit_anim not exist
 ```
 
-`QuickstepLaunchApp` 是 Android 12+ SystemUI / WindowManagerShell 用的 launcher → app **启动 transition handler**，基于 Launcher3 / Quickstep 框架。Flyme 把它在 shortcut intent 路径上的视觉自定义成对角平移。
+`QuickstepLaunchApp` 是 Android 12+ SystemUI / WindowManagerShell 用的 launcher → app **启动 transition handler**，基于 Launcher3 / Quickstep 框架。当前证据指向：已有 task 时触发 static shortcut，会走不同于普通图标热启动的 Quickstep task transition，并产生对角展开动画。
 
 `splashscreen_exit_anim not exist` 是 Flyme PerfCore 的私有性能 hint 查询，**和这个动画的因果关系没有证据支持**——曾被一度误读为根因，详见下面"没用的做法"。
 
@@ -53,9 +56,9 @@ W/PerfCore: perf hint acquire release scene = splashscreen_exit_anim not exist
 
 **假设**：以为是 Android 12+ SplashScreen API 的退出动画，listener 内立即 remove view 跳过默认动画。
 
-**结果**：冷启动普通图标的 splash 退出动画确实被压制（侧面证明 listener 起作用），但 **shortcut 路径的对角动画还在**。
+**结果**：冷启动普通图标的 splash 退出动画确实被压制（侧面证明 listener 起作用），但 **已有 task 时点 shortcut 的对角展开还在**。
 
-**为什么不成立**：splash exit 阶段发生在 SystemUI task transition 之**后**——SystemUI 的对角动画在 app 进程都还没起来时就已经播完，listener 注册时机太晚。
+**为什么不成立**：splash exit 阶段发生在 SystemUI task transition 之**后**。已有 task 时点 static shortcut 触发的是 launcher / SystemUI 层 task transition，不是 app 内 splash view 的退出动画，listener 注册时机和作用域都不对。
 
 ### 2. shortcut XML 加 `android:flags="0x10000"`（`FLAG_ACTIVITY_NO_ANIMATION`）
 
@@ -75,7 +78,7 @@ xml/shortcuts.xml:13: error: attribute android:flags not found.
 
 **结果**：对角动画**仍在**。
 
-**为什么不成立**：SystemUI 的 task transition 选 handler 是基于 intent 路径（是否 launcher 启动、是否 NEW_TASK 等），与 Activity 实例化方式无关。Activity 不重建只省了 `onCreate`，省不了 SystemUI 那一帧。
+**为什么不成立**：SystemUI 的 task transition 选 handler 是基于 launcher shortcut 路径和 task 操作语义，而不是只看 Activity 实例是否复用。Activity 不重建只省了 `onCreate`，省不了 SystemUI 那一帧。
 
 **注意**：这条改动**最终保留了**，理由独立——它落实了 design Step 2 的"热启动 onNewIntent 更新 pending target"假设，对单 Activity Compose 架构是更合理的 launchMode。和本对角动画问题无关。
 
@@ -103,20 +106,36 @@ xml/shortcuts.xml:13: error: attribute android:flags not found.
 
 **为什么放弃**：经过 logcat 完整还原后认定时间线上对角动画发生在 splash 显示之**前**（SystemUI 阶段），splash exit anim 无论怎么配都干预不了那个阶段。`splashscreen_exit_anim not exist` 这条 PerfCore log 与对角动画的因果关系**没有证据支持**，是被过度解读了一次。
 
+### 7. 拆 SplashScreen API，改回传统 `windowBackground`
+
+**假设**：LibChecker 没有调用 `installSplashScreen()`，所以它的 shortcut 虽然有 splash，但没有明显退出遮罩。由此推测 lightxin 只要把 `Theme.SplashScreen + installSplashScreen()` 拆掉，改成传统 `android:windowBackground` layer-list，就能复刻 LibChecker 的观感。
+
+**结果**：实测无效。改动包括：
+
+1. `Theme.LightXin.Splash` 不再继承 `Theme.SplashScreen`，改成普通主题并设置 `android:windowBackground`
+2. 新建 `splash_window_background.xml`，用羊皮纸底色 + 居中 logo 复刻 splash 视觉
+3. 删除 `MainActivity.installSplashScreen()`、`setKeepOnScreenCondition` 和 splash 放行协程
+
+已有 task 时点 shortcut 的对角展开仍然存在，改动已回滚；新建的未跟踪 `splash_window_background.xml` 也已删除。
+
+**为什么不成立**：交叉验证 LibChecker 后发现它并不是“完全没有 Android 12 splash”。它没有 `installSplashScreen()`，但 `values-v31/themes.xml` 配置了 `android:windowSplashScreenBackground`、`android:windowSplashScreenAnimatedIcon`、`android:windowSplashScreenAnimationDuration`。所以“LibChecker 没遮罩 = 不用 SplashScreen API”这个因果链不成立。更关键的是，lightxin 拆掉 API 后仍复现，直接排除 SplashScreen API 作为决定性根因。
+
 ## 解法
 
-**没有应用层解法。接受为 Flyme ROM 已知行为。**
+**没有已验证的应用层解法。接受为 SystemUI / launcher shortcut transition 行为。**
 
 回滚所有诊断改动到无效的部分；保留 `MainActivity` 的 `launchMode="singleTask"`（独立于本问题的合理改动）。具体见"代码锚点"。
 
 ## 为什么应用层无解
 
-`QuickstepLaunchApp` 是 Android 12+ 引入的 SystemUI 启动动画处理器：
+`QuickstepLaunchApp` 是 Android 12+ 引入的 SystemUI 启动动画处理器。当前问题只发生在“已有 task 时点 static shortcut”这一路径，冷启动 shortcut 的从上而下过渡是另一种正常启动动画：
 
 ```
-点 shortcut
+app 已有后台 task
    ↓
-launcher 发出 intent（NEW_TASK + CLEAR_TASK）
+点 static shortcut
+   ↓
+launcher / system 按 static shortcut 的 task 语义处理既有 task
    ↓
 SystemUI WindowManagerShell 选 transition handler → QuickstepLaunchApp
    ↓ ←── 对角平移在这一刻播，OEM 自定义视觉
@@ -128,57 +147,58 @@ splash exit
 ```
 
 - 这个动画**在 SystemUI 进程**，不在 app 进程
-- 触发**在 app 进程启动之前**，连 `onCreate` 都没跑
-- OEM（Flyme）只在 shortcut intent 路径（intent 带 `FLAG_ACTIVITY_NEW_TASK + FLAG_ACTIVITY_CLEAR_TASK` 的组合）给这个 handler 配特殊视觉
+- 对已有 task 场景，它发生在 app 新内容可控渲染之前；不是 Compose 首帧之后的内部动画
+- Pixel 也复现，说明不是国产 ROM 专属；OEM ROM 只影响动画观感强弱
+- static shortcut 的 back stack / task 启动语义不同于普通图标热启动，所以普通图标只是 task reorder，shortcut 会出现对角展开
 - 普通 `ACTION_MAIN + CATEGORY_LAUNCHER` 路径走另一条 transition，OEM 没特殊处理，所以无遮罩
-- 应用层（包括 manifest、theme、launchMode、SplashScreen API、Activity transition、Compose Nav）全都在 SystemUI 之**后**或之**外**生效
+- 应用层（包括 manifest、theme、launchMode、SplashScreen API、Activity transition、Compose Nav）全都在 SystemUI 之**后**或之**外**生效；已实测排除 Compose Nav 和拆 SplashScreen API
 
 ## LibChecker 对照
 
-LibChecker（同类 Android App，在 Flyme 上同样有 shortcut，但**无此动画**）的关键差异：
+LibChecker（同类 Android App，在 shortcut 路径上观感更干净）曾被用作对照，但第一次解读有误。基于 `https://github.com/LibChecker/LibChecker` master 分支 `c54964b2681d8da6a83fff180606d5be08103d22` 重新核对后，关键事实如下：
 
 | 维度 | LibChecker | lightxin |
 |---|---|---|
-| **SplashScreen API** | **不用**（`installSplashScreen()` grep 0 命中） | 用 `installSplashScreen()` |
-| MainActivity 主题 | `AppTheme`（Material 普通主题） | `Theme.LightXin.Splash`（继承 `Theme.SplashScreen`） |
+| `installSplashScreen()` | 没有调用 | 有调用 |
+| Android 12 splash 资源 | `values-v31/themes.xml` 配了 `android:windowSplashScreen*` | `Theme.LightXin.Splash` 继承 `Theme.SplashScreen`，并配 `windowSplashScreen*` |
 | launchMode | `singleTop` | 现 `singleTask` |
 | shortcut intent | 静态 XML，custom action | 静态 XML，custom action |
 | shortcut 目标 | 一个 `ChartActivity`、两个 `MainActivity` | 都 `MainActivity` |
+| shortcut 后的应用内切换 | `ChartActivity` 直接启动；`MainActivity` 内 `ViewPager2.setCurrentItem(index, false)` 明确无动画 | `NavHost` 会按目标连续 navigate，但 Compose Nav 全关后仍复现，说明不是决定性根因 |
 
-LibChecker manifest 来源：[`app/src/main/AndroidManifest.xml@master`](https://github.com/LibChecker/LibChecker/blob/master/app/src/main/AndroidManifest.xml)。
-LibChecker shortcuts 来源：[`app/src/main/res/xml/shortcuts.xml@master`](https://github.com/LibChecker/LibChecker/blob/master/app/src/main/res/xml/shortcuts.xml)。
+LibChecker 代码锚点：
 
-**最可能的根因**：Flyme 的 `QuickstepLaunchApp` 对角动画**专门作用于 SplashScreen API 触发的 splash window**。LibChecker 因为没用 SplashScreen API，系统只能 fallback 用 `windowBackground` 显示一个简单 splash 视觉，SystemUI 不把它当作"标准 splash" → 不挂对角动画。
+- `app/src/main/AndroidManifest.xml:35-55` — app 级 `AppTheme`，`MainActivity` 为 `singleTop`，声明 `android.app.shortcuts`
+- `app/src/main/res/xml/shortcuts.xml:6-37` — 三个静态 shortcut
+- `app/src/main/res/values-v31/themes.xml:4-8` — 配置 Android 12 `android:windowSplashScreen*`
+- `features/home/ui/MainActivity.kt:333-339` — shortcut action 只切换 ViewPager 页，且 `setCurrentItem(index, false)` 不播切换动画
 
-`launchMode` 差异（singleTop vs singleTask）已经在本次测试中排除——改 singleTask 无效。所以**决定性差异是 SplashScreen API 是否启用**。
-
-但这只是 hypothesis，没在 lightxin 上跑过对照验证。
+**修正结论**：LibChecker 对照只能说明“它没有 `installSplashScreen()` 且 shortcut 后应用内落点切换更克制”，不能证明 SplashScreen API 是根因。lightxin 已经实测拆 SplashScreen API 无效；Compose Nav 全关也无效。因此 LibChecker 不是直接可复刻的应用层解法，只能作为“不要把 splash 和应用内导航混为一谈”的对照样本。
 
 ## 未来修复方向（如果回来再尝试）
 
-按估计可行性排序：
+已排除的方向不要再重复：
 
-### 方向 A：拆 SplashScreen API（最有希望）
+- **拆 SplashScreen API**：已实测无效。
+- **关闭 Compose Nav transition**：已实测无效，包括 shortcut 期间关闭和全局无条件关闭。
+- **`setOnExitAnimationListener { provider.remove() }`**：只影响 splash exit view，不影响 SystemUI task transition。
+- **`launchMode` / Activity transition override**：已实测无效。
 
-仿 LibChecker：
+当前试验方向：
 
-1. `themes.xml` 的 `Theme.LightXin.Splash` 不再继承 `Theme.SplashScreen`，改成普通 `NoActionBar` + `windowBackground = @drawable/splash_window_background`（layer-list：羊皮纸底 + 中心 logo）
-2. `MainActivity.kt` 删 `installSplashScreen()` 及 `setKeepOnScreenCondition` 协调
-3. splash 等待逻辑（`HomeBootstrap.ready` + 1500ms 超时 + 查寝预解析）挪到 Compose 内，用 `LxLoading` 或全屏 logo 占位
-
-**代价**：失去 Android 12+ 官方 splash 体验（图标缩放动画）、与 Google 推荐方向逆行、需重写 splash 协调约 30 行、不能 100% 保证 Flyme 真的让出 transition。
-
-### 方向 B：动态 shortcut + `FLAG_ACTIVITY_NO_ANIMATION`
+### 方向 A：动态 shortcut + `FLAG_ACTIVITY_NO_ANIMATION`
 
 `ShortcutManagerCompat.setDynamicShortcuts()` 注册同 ID 的动态 shortcut 覆盖静态版，构造 intent 时加 `FLAG_ACTIVITY_NO_ANIMATION`（`0x10000`）。
 
-**代价**：增加 shortcut 注册时机（首次启动后），launcher 缓存与刷新需要小心。Flyme 不一定尊重 framework flag（它的 SystemUI handler 可能直接无视）。
+试验实现注意：为避免 launcher 继续展示 manifest static shortcut，测试版先移除 `android.app.shortcuts` metadata，只保留运行时注册的 dynamic shortcut。代价是首次启动 App 前长按图标不会出现 shortcut；如果验证有效，再决定是否接受这个产品代价，或改成静态 + 动态并存的兼容策略。
 
-### 方向 C：跑 ActivityOptions 自定义 launch animation
+**风险**：增加 shortcut 注册时机（首次启动后），launcher 缓存与刷新需要小心。系统不一定尊重 framework flag（它的 SystemUI handler 可能直接无视）。
+
+### 方向 B：跑 ActivityOptions 自定义 launch animation
 
 在某个对外可触发 shortcut 的入口（如果有）用 `ActivityOptions.makeCustomAnimation()` 替代默认 transition。但 launcher 调起的 shortcut 不经过 app 代码，这条对 launcher 启动场景无效，只对 app 内自启场景有效。可能 0 收益。
 
-### 方向 D：动手调 SystemUI（不可行）
+### 方向 C：动手调 SystemUI（不可行）
 
 需要 root + 自编译 Flyme SystemUI / Launcher3。明显出 app 开发范围。
 
@@ -215,17 +235,17 @@ LibChecker shortcuts 来源：[`app/src/main/res/xml/shortcuts.xml@master`](http
 
    每一层用一个**最暴力的"全关"**改动验证是不是它（如 Compose Nav 改成 `EnterTransition.None` 无条件）。如果暴力关掉还有动画，说明根因更外层；如果消失，说明根因在这一层。
 
-4. **找一个同类 app 对照**。商店里找一个功能相似、跨 ROM 都装得起来的 app（LibChecker 这种轻量小工具最适合）；如果它没问题，对比 manifest / theme / launchMode / 启动 API 差异，差异点就是 hypothesis。
+4. **找一个同类 app 对照，但不要只看表面差异**。LibChecker 这次第一次就被误读为“完全不用 SplashScreen API”，后来交叉验证才发现它仍配置了 Android 12 `android:windowSplashScreen*`。对照样本要同时查 manifest、theme、values-v31、shortcut 目标 Activity 和应用内落点动画。
 
 5. **不要被 OEM perf hint 日志带偏**。Flyme PerfCore、HarmonyOS HiTrace 等 OEM 私有日志大量是性能优化 hint，与功能行为关系经常被过度解读。需要因果证据。
 
 ## 代码锚点
 
 - `app/src/main/AndroidManifest.xml:23-26` — `MainActivity` 用 `launchMode="singleTask"`，这是诊断过程中唯一保留下来的改动，理由独立（落实热启动 `onNewIntent` 假设），与本对角动画问题无关
-- `app/src/main/java/com/lightxin/MainActivity.kt:40-46` — `installSplashScreen()` 与 `setKeepOnScreenCondition`，方向 A 拆 SplashScreen API 时需要重写这段
-- `app/src/main/res/values/themes.xml:10-14` — `Theme.LightXin.Splash` 继承 `Theme.SplashScreen`，方向 A 的修改入口
+- `app/src/main/java/com/lightxin/MainActivity.kt:40-46` — `installSplashScreen()` 与 `setKeepOnScreenCondition`；拆掉这段已实测无效，不要再当优先方案
+- `app/src/main/res/values/themes.xml:10-14` — `Theme.LightXin.Splash` 继承 `Theme.SplashScreen`；改成传统 `windowBackground` 已实测无效
 - `app/src/main/res/xml/shortcuts.xml` — 静态 shortcut 定义；曾试图加 `android:flags` 失败
-- `app/src/main/java/com/lightxin/navigation/NavGraph.kt:115-129` — NavHost 默认 transition（`fadeIn + slideInHorizontally { it / 4 }`），曾被错误怀疑为根因
+- `app/src/main/java/com/lightxin/navigation/NavGraph.kt:115-129` — NavHost 默认 transition（`fadeIn + slideInHorizontally { it / 4 }`），曾被错误怀疑为根因；全关后仍复现
 - `codestable/features/2026-05-12-app-shortcut-checkin/` — 本 feature 的 design / checklist / acceptance，本 learning 是该 feature acceptance 阶段沉淀
 
 ## 关联日志样本
