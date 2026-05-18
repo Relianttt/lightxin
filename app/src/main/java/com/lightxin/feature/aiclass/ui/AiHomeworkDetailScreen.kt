@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
@@ -25,6 +26,7 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -105,8 +107,28 @@ private fun HomeworkDetailContent(
     modifier: Modifier = Modifier,
 ) {
     val detail = uiState.detail
+    val listState = rememberLazyListState()
+    val reachedBottom by remember {
+        derivedStateOf {
+            val lastVisible = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+            val totalItems = listState.layoutInfo.totalItemsCount
+            totalItems > 0 && lastVisible >= totalItems - 3
+        }
+    }
+
+    LaunchedEffect(
+        reachedBottom,
+        uiState.hasMoreWorks,
+        uiState.isWorksLoadingMore,
+        uiState.studentWorks.size,
+    ) {
+        if (reachedBottom && uiState.hasMoreWorks && !uiState.isWorksLoadingMore) {
+            onLoadMore()
+        }
+    }
 
     LazyColumn(
+        state = listState,
         modifier = modifier.fillMaxSize(),
         contentPadding = PaddingValues(horizontal = 20.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -182,9 +204,10 @@ private fun HomeworkDetailContent(
                     StudentWorkCard(work)
                 }
 
-                // 滚动到底部时触发加载更多
-                item(key = "load_more") {
-                    LaunchedEffect(Unit) { onLoadMore() }
+                if (uiState.isWorksLoadingMore) {
+                    item(key = "works_loading_more") {
+                        LxLoading()
+                    }
                 }
             }
         }

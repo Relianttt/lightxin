@@ -156,7 +156,7 @@ UI 层限制输入长度 ≤6，签到按钮在输入达到 6 位且存在进行
 - 顶部：作业标题 + 教师名 + 截止时间
 - 作业题目：`AnnotatedString.fromHtml(teaCwContent)` 渲染 HTML
 - 提交按钮：仅未截止时显示（`isDeadlinePassed` 解析 deadline 时间判断）
-- 学生提交列表：分页 LazyColumn
+- 学生提交列表：先加载详情拿到 `cwDeadlineFormat`，再分页请求 `getStuWorkList`；页面使用 `LazyListState + derivedStateOf` 接近底部触发加载更多
 - 提交 BottomSheet：多行 TextField + 提交按钮
 
 ## 3. 数据与状态
@@ -174,12 +174,14 @@ UI 层限制输入长度 ≤6，签到按钮在输入达到 6 位且存在进行
 | `AiHomeworkDetail` | teaCwId / title / htmlContent / startTime / deadline / teacherName / cwDeadlineFormat | `AiHomeworkModels.kt:17-25` |
 | `AiStudentWork` | stuCwId / studentName / showContent / cwStatus / correctStatus / score / submitTime | `AiHomeworkModels.kt:27-35` |
 | `AiClassUiState` | courses / workingRecord / selectedCourse / quizList / homeworkList / isLoading / isSsoInProgress / isSigningIn / isQuizLoading / isHomeworkLoading / error / quizError / homeworkError / signResult | `AiClassViewModel.kt:21-35` |
+| `AiHomeworkDetailUiState` | detail / studentWorks / isLoading / isWorksLoadingMore / hasMoreWorks / isSubmitting / showSubmitSheet / error / submitResult | `AiHomeworkDetailViewModel.kt:16-27` |
 
 ### 3.2 状态所有权
 
 - `FifSessionManager` 单例持有 FIF 会话状态（Cookie + studentId + userName）
 - `AiClassUiState` 由 `AiClassViewModel` 持有
 - `selectedCourse + quizList` 同样由 `AiClassViewModel` 持有，课程详情页与首页共享同一个 ViewModel
+- 作业详情页分页状态由 `AiHomeworkDetailViewModel` 独立持有，`isWorksLoadingMore + hasMoreWorks` 防止触底重复请求和末页后继续加载
 - `ScanState` 是 `AiClassScanScreen` 的局部 UI 状态（Scanning / Success）
 
 ## 4. 关键决策

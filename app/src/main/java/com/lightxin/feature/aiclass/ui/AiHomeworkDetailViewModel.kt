@@ -17,11 +17,15 @@ data class AiHomeworkDetailUiState(
     val detail: AiHomeworkDetail? = null,
     val studentWorks: List<AiStudentWork> = emptyList(),
     val isLoading: Boolean = true,
+    val isWorksLoadingMore: Boolean = false,
+    val hasMoreWorks: Boolean = true,
     val isSubmitting: Boolean = false,
     val showSubmitSheet: Boolean = false,
     val error: String? = null,
     val submitResult: String? = null,
 )
+
+private const val WORKS_PAGE_SIZE = 10
 
 @HiltViewModel
 class AiHomeworkDetailViewModel @Inject constructor(
@@ -53,38 +57,74 @@ class AiHomeworkDetailViewModel @Inject constructor(
         repository.clearJtzyCache()
 
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, error = null) }
+            _uiState.update {
+                it.copy(
+                    isLoading = true,
+                    isWorksLoadingMore = false,
+                    hasMoreWorks = true,
+                    error = null,
+                )
+            }
 
             // 先加载详情获取 cwDeadline
             val detailResult = repository.getHomeworkDetail(cwId, teachClassId)
             val detail = detailResult.getOrNull()
+            if (detail == null) {
+                _uiState.update {
+                    it.copy(
+                        detail = null,
+                        studentWorks = emptyList(),
+                        isLoading = false,
+                        hasMoreWorks = false,
+                        error = detailResult.exceptionOrNull()?.message,
+                    )
+                }
+                return@launch
+            }
             val cwDeadline = detail?.cwDeadlineFormat.orEmpty()
 
             // 再用 cwDeadline 加载提交列表
             val worksResult = repository.getStuWorkList(cwId, teachClassId, cwDeadline, page = 1)
+            val works = worksResult.getOrDefault(emptyList())
 
             _uiState.update {
                 it.copy(
                     detail = detail,
-                    studentWorks = worksResult.getOrDefault(emptyList()),
+                    studentWorks = works,
                     isLoading = false,
-                    error = detailResult.exceptionOrNull()?.message,
+                    hasMoreWorks = works.size >= WORKS_PAGE_SIZE,
+                    error = worksResult.exceptionOrNull()?.message,
                 )
             }
         }
     }
 
     fun loadMoreWorks() {
-        if (!hasMorePages) return
+        val state = _uiState.value
+        if (!hasMorePages || state.isWorksLoadingMore || !state.hasMoreWorks) return
         val detail = _uiState.value.detail ?: return
-        currentPage++
+        val nextPage = currentPage + 1
         viewModelScope.launch {
-            val result = repository.getStuWorkList(cwId, teachClassId, detail.cwDeadlineFormat, page = currentPage)
-            val newItems = result.getOrDefault(emptyList())
-            if (newItems.isEmpty()) {
+            _uiState.update { it.copy(isWorksLoadingMore = true) }
+            val result = repository.getStuWorkList(cwId, teachClassId, detail.cwDeadlineFormat, page = nextPage)
+            val newItems = result.getOrNull()
+            if (newItems == null) {
+                _uiState.update { it.copy(isWorksLoadingMore = false) }
+                return@launch
+            }
+
+            currentPage = nextPage
+            if (newItems.size < WORKS_PAGE_SIZE) {
                 hasMorePages = false
-            } else {
-                _uiState.update { it.copy(studentWorks = it.studentWorks + newItems) }
+            }
+            _uiState.update {
+                val existingIds = it.studentWorks.mapTo(mutableSetOf()) { work -> work.stuCwId }
+                val merged = it.studentWorks + newItems.filterNot { work -> work.stuCwId in existingIds }
+                it.copy(
+                    studentWorks = merged,
+                    isWorksLoadingMore = false,
+                    hasMoreWorks = hasMorePages,
+                )
             }
         }
     }
@@ -113,7 +153,16 @@ class AiHomeworkDetailViewModel @Inject constructor(
             if (result.isSuccess) {
                 val cwDeadline = _uiState.value.detail?.cwDeadlineFormat.orEmpty()
                 val worksResult = repository.getStuWorkList(cwId, teachClassId, cwDeadline)
-                _uiState.update { it.copy(studentWorks = worksResult.getOrDefault(it.studentWorks)) }
+                val works = worksResult.getOrDefault(_uiState.value.studentWorks)
+                currentPage = 1
+                hasMorePages = works.size >= WORKS_PAGE_SIZE
+                _uiState.update {
+                    it.copy(
+                        studentWorks = works,
+                        hasMoreWorks = hasMorePages,
+                        isWorksLoadingMore = false,
+                    )
+                }
             }
         }
     }
