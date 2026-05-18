@@ -22,6 +22,7 @@ data class CreditUiState(
     val isDetailLoading: Boolean = false,
     val showDetailSheet: Boolean = false,
     val error: String? = null,
+    val detailError: String? = null,
 )
 
 @HiltViewModel
@@ -59,13 +60,14 @@ class CreditViewModel @Inject constructor(
     }
 
     fun onRecordClick(record: CreditRecord) {
-        _uiState.update { it.copy(showDetailSheet = true, isDetailLoading = true, selectedDetail = null) }
+        _uiState.update { it.copy(showDetailSheet = true, isDetailLoading = true, selectedDetail = null, detailError = null) }
         viewModelScope.launch {
             val result = repository.getRecordDetail(record.id)
             _uiState.update {
                 it.copy(
                     selectedDetail = result.getOrNull(),
                     isDetailLoading = false,
+                    detailError = result.exceptionOrNull()?.message,
                 )
             }
         }

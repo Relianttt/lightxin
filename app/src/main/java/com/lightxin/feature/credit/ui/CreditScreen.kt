@@ -82,6 +82,7 @@ fun CreditScreen(
             DetailSheetContent(
                 detail = uiState.selectedDetail,
                 isLoading = uiState.isDetailLoading,
+                error = uiState.detailError,
             )
         }
     }
@@ -113,7 +114,18 @@ private fun CreditContent(
             )
         }
 
-        if (uiState.records.isEmpty()) {
+        if (uiState.records.isEmpty() && uiState.error != null) {
+            item(key = "records_error") {
+                LxCard {
+                    Text(
+                        text = uiState.error!!,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.padding(20.dp),
+                    )
+                }
+            }
+        } else if (uiState.records.isEmpty()) {
             item(key = "empty") {
                 LxCard {
                     Text(
@@ -268,6 +280,7 @@ private fun RecordCard(record: CreditRecord, onClick: () -> Unit) {
 private fun DetailSheetContent(
     detail: CreditRecordDetail?,
     isLoading: Boolean,
+    error: String? = null,
 ) {
     Column(
         modifier = Modifier
@@ -277,6 +290,12 @@ private fun DetailSheetContent(
     ) {
         if (isLoading) {
             LxLoading()
+        } else if (error != null) {
+            Text(
+                text = error,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.error,
+            )
         } else if (detail != null) {
             Text(
                 text = detail.name,

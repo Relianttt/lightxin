@@ -1,11 +1,11 @@
 ---
 doc_type: architecture
 slug: aiclass-overview
-scope: feature/aiclass/ 的 AI 课堂模块：FIF 独立 SSO 会话、课程列表、当前学期课程补数、课程详情测验列表、数字码签到、ML Kit 扫码签到
-summary: aiclass 以独立 OkHttpClient + CookieJar 管理 FIF 平台登录态，SSO 自动续期，支持当前学期课程补数、课程详情测验列表、数字码签到和 ML Kit 扫码签到；扫码签到手动处理 302 跳转
+scope: feature/aiclass/ 的 AI 课堂模块：FIF 独立 SSO 会话、课程列表、当前学期课程补数、课程详情测验列表、课程作业列表与提交、数字码签到、ML Kit 扫码签到
+summary: aiclass 以独立 OkHttpClient + CookieJar 管理 FIF 平台登录态，SSO 自动续期，支持当前学期课程补数、课程详情测验列表、课程作业（爱作业平台桥接）、数字码签到和 ML Kit 扫码签到；扫码签到手动处理 302 跳转
 status: current
-last_reviewed: 2026-04-22
-tags: [aiclass, fif, sso, qrcode, mlkit, barcode]
+last_reviewed: 2026-05-19
+tags: [aiclass, fif, sso, qrcode, mlkit, barcode, homework, izuoye]
 depends_on: [network-overview]
 ---
 
@@ -38,12 +38,15 @@ depends_on: [network-overview]
 ### 2.1 三层结构
 
 ```
-AiClassApi (data)                 → 7 个 FIF 接口
-AiClassRepository (data)          → SSO + 课程 + 测验列表 + 签到 + 扫码（含手动 302 处理）
-AiClassViewModel (ui)             → 加载 + 签到触发 + 课程详情测验加载
+AiClassApi (data)                 → 9 个 FIF 接口（含测验列表 + 作业列表 + 作业桥接）
+IzuoyeApi (data)                  → 5 个爱作业平台接口（作业详情 / 提交列表 / 提交）
+AiClassRepository (data)          → SSO + 课程 + 测验列表 + 作业列表与提交 + 签到 + 扫码
+AiClassViewModel (ui)             → 加载 + 签到触发 + 课程详情测验+作业并行加载
 AiClassHomeScreen (ui)            → 课程列表 + 签到卡片
-AiClassCourseDetailScreen (ui)    → 课程基础信息 + 测验列表
+AiClassCourseDetailScreen (ui)    → 课程基础信息 + 测验列表 + 作业列表
 AiClassScanScreen (ui)            → CameraX + ML Kit 扫码
+AiHomeworkDetailViewModel (ui)    → 作业详情加载 + 纯文本提交
+AiHomeworkDetailScreen (ui)       → 作业题目(HTML) + 学生提交列表 + 提交 BottomSheet
 ```
 
 ### 2.2 FIF 独立网络栈
@@ -125,6 +128,37 @@ UI 层限制输入长度 ≤6，签到按钮在输入达到 6 位且存在进行
 - 支持双指捏合手动变焦，缩放上限与自动变焦一致（`minOf(hardwareMax, 4f)`）
 - 成功检测到二维码后显示"扫码成功"过渡态
 
+### 2.8 课程作业子系统（爱作业平台桥接）
+
+锚点：`feature/aiclass/data/IzuoyeApi.kt`、`feature/aiclass/data/AiClassRepository.kt`（作业相关方法）
+
+课程作业功能涉及两个域名的桥接：
+
+1. **FIF 主站**（`sttp.fifedu.com`）— 提供作业列表 `listStudent` 和桥接入口 `getHomeworkDetaisIndexUrl`
+2. **爱作业平台**（`izuoye.fifedu.com`）— 提供作业详情、学生提交列表、提交接口
+
+认证链路：
+- FIF 主站接口使用已有的 Cookie + Authorization 认证
+- 爱作业平台使用独立的 `jtzy` Header（JWT token），从 `getHomeworkDetaisIndexUrl` 返回的 URL 中解析获取
+- jtzy token 按 cwId + teachClassId 缓存在 Repository 内存中，切换作业时清除
+
+作业提交流程：`getStorageId`（获取 stuCwId）→ 将纯文本包装为 `<p>` HTML → `submitWork`
+
+**IzuoyeRetrofit** 复用 `@FifOkHttpClient`（共享 CookieJar），BASE URL 指向 `izuoye.fifedu.com`。jtzy token 由各接口方法显式传入 `@Header("jtzy")`，不使用 Interceptor 自动注入。
+
+### 2.9 作业详情页
+
+锚点：`feature/aiclass/ui/AiHomeworkDetailScreen.kt`、`feature/aiclass/ui/AiHomeworkDetailViewModel.kt`
+
+独立 ViewModel（`AiHomeworkDetailViewModel`），通过 `SavedStateHandle` 接收 `cwId`，`teachClassId` 由 `load()` 方法传入。
+
+页面结构：
+- 顶部：作业标题 + 教师名 + 截止时间
+- 作业题目：`AnnotatedString.fromHtml(teaCwContent)` 渲染 HTML
+- 提交按钮：仅未截止时显示（`isDeadlinePassed` 解析 deadline 时间判断）
+- 学生提交列表：分页 LazyColumn
+- 提交 BottomSheet：多行 TextField + 提交按钮
+
 ## 3. 数据与状态
 
 ### 3.1 关键状态模型
@@ -136,7 +170,10 @@ UI 层限制输入长度 ≤6，签到按钮在输入达到 6 位且存在进行
 | `AiSignInInfo` | signId / teacherName / hasActiveSign | `AiClassModels.kt:14-18` |
 | `AiWorkingRecord` | courseRecordId / courseName / courseItemName / teachClassId | `AiClassModels.kt:21-25` |
 | `AiClassQrPayload` | rawValue / token | `AiClassQrPayload.kt:3-6` |
-| `AiClassUiState` | courses / workingRecord / selectedCourse / quizList / isLoading / isSsoInProgress / isSigningIn / isQuizLoading / error / quizError / signResult | `AiClassViewModel.kt:21-33` |
+| `AiHomework` | id / title / endTime / jobState / score / statusText | `AiHomeworkModels.kt:3-15` |
+| `AiHomeworkDetail` | teaCwId / title / htmlContent / startTime / deadline / teacherName / cwDeadlineFormat | `AiHomeworkModels.kt:17-25` |
+| `AiStudentWork` | stuCwId / studentName / showContent / cwStatus / correctStatus / score / submitTime | `AiHomeworkModels.kt:27-35` |
+| `AiClassUiState` | courses / workingRecord / selectedCourse / quizList / homeworkList / isLoading / isSsoInProgress / isSigningIn / isQuizLoading / isHomeworkLoading / error / quizError / homeworkError / signResult | `AiClassViewModel.kt:21-35` |
 
 ### 3.2 状态所有权
 
@@ -155,18 +192,20 @@ UI 层限制输入长度 ≤6，签到按钮在输入达到 6 位且存在进行
 
 ## 5. 代码锚点
 
-- `feature/aiclass/data/AiClassApi.kt:10-79` — 7 个 FIF 接口（含测验列表）
-- `feature/aiclass/data/AiClassRepository.kt:34-319` — SSO + 课程 + 测验列表 + 签到 + 扫码全流程
-- `feature/aiclass/data/AiClassRepository.kt:153-273` — 扫码签到 302 处理核心
-- `feature/aiclass/data/AiClassResponse.kt:6-94` — 响应模型（含测验列表）
-- `feature/aiclass/domain/AiClassModels.kt:3-36` — AiCourse / AiQuiz / AiSignInInfo / AiWorkingRecord
+- `feature/aiclass/data/AiClassApi.kt:10-115` — 9 个 FIF 接口（含测验列表 + 作业列表 + 作业桥接）
+- `feature/aiclass/data/IzuoyeApi.kt` — 5 个爱作业平台接口
+- `feature/aiclass/data/IzuoyeResponse.kt` — 爱作业平台响应模型
+- `feature/aiclass/data/AiClassRepository.kt` — SSO + 课程 + 测验列表 + 作业 + 签到 + 扫码全流程
+- `feature/aiclass/data/AiClassResponse.kt` — 响应模型（含测验列表 + 作业列表）
+- `feature/aiclass/domain/AiClassModels.kt` — AiCourse / AiQuiz / AiSignInInfo / AiWorkingRecord
+- `feature/aiclass/domain/AiHomeworkModels.kt` — AiHomework / AiHomeworkDetail / AiStudentWork
 - `feature/aiclass/domain/AiClassQrPayload.kt:3-6` — 扫码载荷
-- `feature/aiclass/ui/AiClassViewModel.kt:32-191` — 加载 + 签到触发 + 课程详情测验列表
-- `feature/aiclass/ui/AiClassHomeScreen.kt:56-316` — 课程列表 + 签到卡片 UI
-- `feature/aiclass/ui/AiClassCourseDetailScreen.kt` — 课程基础信息 + 测验列表 UI
-- `feature/aiclass/ui/AiClassScanScreen.kt:61-416` — 扫码页 UI + CameraX + ML Kit
-- `core/network/FifSessionManager.kt` — FIF SSO + Cookie 管理
-- `core/network/FifRetrofit.kt` — 独立 Retrofit 定义
+- `feature/aiclass/ui/AiClassViewModel.kt` — 加载 + 签到触发 + 课程详情测验+作业列表
+- `feature/aiclass/ui/AiClassHomeScreen.kt` — 课程列表 + 签到卡片 UI
+- `feature/aiclass/ui/AiClassCourseDetailScreen.kt` — 课程基础信息 + 测验列表 + 作业列表 UI
+- `feature/aiclass/ui/AiHomeworkDetailViewModel.kt` — 作业详情加载 + 提交状态管理
+- `feature/aiclass/ui/AiHomeworkDetailScreen.kt` — 作业详情 + HTML 渲染 + 提交 BottomSheet
+- `feature/aiclass/ui/AiClassScanScreen.kt` — 扫码页 UI + CameraX + ML Kit
 
 ## 6. 已知约束 / 边界情况
 

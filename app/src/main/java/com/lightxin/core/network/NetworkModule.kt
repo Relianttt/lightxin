@@ -83,6 +83,9 @@ object NetworkModule {
     fun provideLaborRetrofit(client: OkHttpClient): Retrofit =
         buildRetrofit(client, ApiConstants.BASE_LABOR + "/")
 
+    // 素质学分：复用主 OkHttpClient，AuthInterceptor 默认分支会向 FormBody 注入
+    // access_token/_userCode/userId 等通用字段，cqc.aiit.edu.cn 服务端忽略多余参数。
+    // 接口真正需要的 studentCode 由 CreditApi 显式 @Field 声明。
     @Provides @Singleton @CreditRetrofit
     fun provideCreditRetrofit(client: OkHttpClient): Retrofit =
         buildRetrofit(client, ApiConstants.BASE_CREDIT + "/")

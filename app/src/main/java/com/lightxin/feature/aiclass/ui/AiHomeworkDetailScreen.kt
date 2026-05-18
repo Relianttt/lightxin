@@ -82,6 +82,7 @@ fun AiHomeworkDetailScreen(
             else -> HomeworkDetailContent(
                 uiState = uiState,
                 onSubmitClick = viewModel::showSubmitSheet,
+                onLoadMore = viewModel::loadMoreWorks,
                 modifier = Modifier.padding(padding),
             )
         }
@@ -100,6 +101,7 @@ fun AiHomeworkDetailScreen(
 private fun HomeworkDetailContent(
     uiState: AiHomeworkDetailUiState,
     onSubmitClick: () -> Unit,
+    onLoadMore: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val detail = uiState.detail
@@ -153,13 +155,15 @@ private fun HomeworkDetailContent(
                 }
             }
 
-            // 提交按钮
-            item(key = "submit_btn") {
-                Button(
-                    onClick = onSubmitClick,
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Text("提交作业")
+            // 提交按钮（仅未截止时显示）
+            if (!isDeadlinePassed(detail.deadline)) {
+                item(key = "submit_btn") {
+                    Button(
+                        onClick = onSubmitClick,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text("提交作业")
+                    }
                 }
             }
 
@@ -176,6 +180,11 @@ private fun HomeworkDetailContent(
 
                 items(uiState.studentWorks, key = { it.stuCwId }) { work ->
                     StudentWorkCard(work)
+                }
+
+                // 滚动到底部时触发加载更多
+                item(key = "load_more") {
+                    LaunchedEffect(Unit) { onLoadMore() }
                 }
             }
         }
@@ -268,5 +277,18 @@ private fun SubmitBottomSheet(
                 Text(if (isSubmitting) "提交中..." else "提交")
             }
         }
+    }
+}
+
+/** 判断截止时间是否已过。格式: "2026/05/31 23:00" 或 "2026-05-31 23:00" */
+private fun isDeadlinePassed(deadline: String): Boolean {
+    if (deadline.isBlank()) return false // 无截止时间则允许提交
+    return try {
+        val normalized = deadline.replace("/", "-")
+        val format = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.getDefault())
+        val deadlineTime = format.parse(normalized) ?: return false
+        System.currentTimeMillis() > deadlineTime.time
+    } catch (_: Exception) {
+        false // 解析失败默认允许提交
     }
 }

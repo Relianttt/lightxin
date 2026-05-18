@@ -47,20 +47,24 @@ depends_on: []
 - FIF 身份是 `authorization: Basic <token>` + `SESSION` Cookie，和校内默认栈的 `access_token` 字段体系不互通；若共用 `AuthInterceptor`，会把校内参数错误注入到 FIF 请求里（§2.4 第 4 档默认行为）
 - FIF SSO 必须手动处理 302 Location 来提取 token，需要在调用时 `followRedirects(false)` 局部覆盖（`core/network/FifSessionManager.kt:129-133`）
 
-### 2.2 8 个 `@Qualifier`（7 Retrofit + 1 OkHttpClient）
+### 2.2 10 个 `@Qualifier`（9 Retrofit + 1 OkHttpClient）
 
 ```
 AuthRetrofit       → in.aiit.edu.cn/zhxy-information  (登录 + token 刷新)
 MainRetrofit       → in.aiit.edu.cn/zhxy-new-scps     (首页 / 消息 / 服务)
-CshRetrofit        → in.aiit.edu.cn/zhxy-csh          (课表)
+CshRetrofit        → in.aiit.edu.cn/zhxy-csh          (课表 + 考试成绩)
 CheckinRetrofit    → fdygl.aiit.edu.cn                (查寝)
 SportsRetrofit     → sports.aiit.edu.cn:8082          (跑步)
 LaborRetrofit      → ldjy.aiit.edu.cn                 (劳教)
+CreditRetrofit     → cqc.aiit.edu.cn                  (素质学分)
 FifRetrofit        → sttp.fifedu.com                  (AI 课堂)
+IzuoyeRetrofit     → izuoye.fifedu.com                (爱作业平台)
 FifOkHttpClient    → 区分 FIF 与默认两个 OkHttpClient 实例
 ```
 
-前 6 个 Retrofit 共享默认 `OkHttpClient`；`FifRetrofit` 注入 `@FifOkHttpClient` 的独立 client。锚点：`core/network/NetworkModule.kt:19-26`（Qualifier 声明）/ `core/network/NetworkModule.kt:60-82`（校内 6 个 provider）/ `core/network/NetworkModule.kt:112-114`（FIF provider）。
+前 7 个 Retrofit（Auth ~ Credit）共享默认 `OkHttpClient`；`FifRetrofit` 和 `IzuoyeRetrofit` 注入 `@FifOkHttpClient` 的独立 client。锚点：`core/network/NetworkModule.kt`。
+
+CreditRetrofit 复用主 OkHttpClient，AuthInterceptor 默认分支会注入多余参数到 FormBody，服务端忽略。IzuoyeRetrofit 复用 FifOkHttpClient，认证通过各接口方法显式传入 `@Header("jtzy")`。
 
 为什么主站域名拆三个 Retrofit？各子系统 baseUrl 有不同路径前缀（`/zhxy-information` / `/zhxy-new-scps` / `/zhxy-csh`），Retrofit 的 `@POST("xxx")` 是相对 baseUrl 的，拆成三个让 Api 接口的相对路径更短。
 

@@ -346,7 +346,7 @@ class AiClassRepository @Inject constructor(
     }
 
     /** 获取学生提交列表 */
-    suspend fun getStuWorkList(cwId: String, teachClassId: String, page: Int = 1): Result<List<com.lightxin.feature.aiclass.domain.AiStudentWork>> {
+    suspend fun getStuWorkList(cwId: String, teachClassId: String, cwDeadline: String = "", page: Int = 1): Result<List<com.lightxin.feature.aiclass.domain.AiStudentWork>> {
         return try {
             val params = ensureJtzy(cwId, teachClassId).getOrThrow()
             val jtzy = cachedJtzy!!
@@ -357,7 +357,7 @@ class AiClassRepository @Inject constructor(
                 classId = teachClassId,
                 studentId = params.userId,
                 currentPage = page.toString(),
-                cwDeadline = "",
+                cwDeadline = cwDeadline,
                 jtzy = jtzy,
             )
             val items = resp.data?.datalist.orEmpty().map { item ->
