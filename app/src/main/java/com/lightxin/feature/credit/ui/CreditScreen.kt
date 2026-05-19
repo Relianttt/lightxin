@@ -77,7 +77,9 @@ fun CreditScreen(
     if (uiState.showDetailSheet) {
         ModalBottomSheet(
             onDismissRequest = viewModel::dismissDetail,
-            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+            sheetState = rememberModalBottomSheetState(),
+            containerColor = MaterialTheme.colorScheme.surface,
+            shape = MaterialTheme.shapes.medium,
         ) {
             DetailSheetContent(
                 detail = uiState.selectedDetail,

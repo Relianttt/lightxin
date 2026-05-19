@@ -6,6 +6,7 @@ import com.lightxin.feature.labor.data.LaborRepository
 import com.lightxin.feature.labor.domain.ActivityRecord
 import com.lightxin.feature.labor.domain.HoursSummary
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
@@ -20,6 +21,11 @@ data class LaborUiState(
     val error: String? = null,
     val hasMore: Boolean = true,
     val currentPage: Int = 1,
+    val showDetailSheet: Boolean = false,
+    val selectedRecord: ActivityRecord? = null,
+    val selectedDetail: com.lightxin.feature.labor.domain.ActivityDetail? = null,
+    val isDetailLoading: Boolean = false,
+    val detailError: String? = null,
 )
 
 @HiltViewModel
@@ -29,6 +35,8 @@ class LaborViewModel @Inject constructor(
 
     private val _uiState = MutableStateFlow(LaborUiState())
     val uiState: StateFlow<LaborUiState> = _uiState
+
+    private var detailJob: Job? = null
 
     init {
         loadInitial()
@@ -100,5 +108,45 @@ class LaborViewModel @Inject constructor(
 
     fun retry() {
         loadInitial()
+    }
+
+    fun onRecordClick(record: ActivityRecord) {
+        detailJob?.cancel()
+        detailJob = viewModelScope.launch {
+            _uiState.update { it.copy(isDetailLoading = true, detailError = null) }
+            repository.getActivityDetail(record.id, record.type).fold(
+                onSuccess = { detail ->
+                    _uiState.update {
+                        it.copy(
+                            showDetailSheet = true,
+                            selectedRecord = record,
+                            selectedDetail = detail,
+                            isDetailLoading = false,
+                        )
+                    }
+                },
+                onFailure = { e ->
+                    _uiState.update {
+                        it.copy(
+                            showDetailSheet = true,
+                            selectedRecord = record,
+                            isDetailLoading = false,
+                            detailError = e.message ?: "加载失败",
+                        )
+                    }
+                },
+            )
+        }
+    }
+
+    fun dismissDetail() {
+        _uiState.update {
+            it.copy(
+                showDetailSheet = false,
+                selectedRecord = null,
+                selectedDetail = null,
+                detailError = null,
+            )
+        }
     }
 }

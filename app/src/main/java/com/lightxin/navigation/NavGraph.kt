@@ -40,7 +40,6 @@ import com.lightxin.feature.credit.ui.CreditScreen
 import com.lightxin.feature.exam.ui.ExamScreen
 import com.lightxin.feature.holiday.ui.HolidayRegisterScreen
 import com.lightxin.feature.home.ui.HomeScreen
-import com.lightxin.feature.labor.ui.LaborDetailScreen
 import com.lightxin.feature.labor.ui.LaborSummaryScreen
 import com.lightxin.feature.login.ui.LoginScreen
 import com.lightxin.feature.more.ui.MoreFeaturesScreen
@@ -357,22 +356,6 @@ fun LightXinNavHost(
         // Labor
         composable(Routes.LABOR_SUMMARY) {
             LaborSummaryScreen(
-                onBack = { navController.popBackStack() },
-                onActivityClick = { id, type ->
-                    navController.navigate(Routes.laborDetail(id, type))
-                },
-            )
-        }
-        composable(
-            route = Routes.LABOR_DETAIL,
-            arguments = listOf(
-                navArgument("id") { type = NavType.StringType },
-                navArgument("type") { type = NavType.StringType },
-            ),
-        ) { backStackEntry ->
-            LaborDetailScreen(
-                id = backStackEntry.arguments?.getString("id") ?: "",
-                type = backStackEntry.arguments?.getString("type") ?: "",
                 onBack = { navController.popBackStack() },
             )
         }

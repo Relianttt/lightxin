@@ -18,6 +18,7 @@ import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -36,6 +37,9 @@ import com.lightxin.core.designsystem.component.LxCard
 import com.lightxin.core.designsystem.component.LxError
 import com.lightxin.core.designsystem.component.LxLoading
 import com.lightxin.core.designsystem.component.LxTopBar
+import com.lightxin.core.designsystem.theme.LxCream
+import com.lightxin.core.designsystem.theme.LxSandDeep
+import com.lightxin.core.designsystem.theme.LxTerra
 import com.lightxin.feature.exam.domain.ExamScore
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -99,14 +103,21 @@ private fun ExamContent(
                             ?: uiState.selectedYear,
                         onValueChange = {},
                         readOnly = true,
-                        label = { Text("学年") },
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = yearExpanded) },
                         modifier = Modifier.menuAnchor(),
                         singleLine = true,
+                        shape = MaterialTheme.shapes.small,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = LxTerra,
+                            unfocusedBorderColor = LxSandDeep,
+                            focusedContainerColor = MaterialTheme.colorScheme.surface,
+                            unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                        ),
                     )
                     ExposedDropdownMenu(
                         expanded = yearExpanded,
                         onDismissRequest = { yearExpanded = false },
+                        containerColor = LxCream,
                     ) {
                         uiState.schoolYears.forEach { year ->
                             DropdownMenuItem(
@@ -133,14 +144,21 @@ private fun ExamContent(
                             ?: "第${uiState.selectedSemester}学期",
                         onValueChange = {},
                         readOnly = true,
-                        label = { Text("学期") },
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = semesterExpanded) },
                         modifier = Modifier.menuAnchor(),
                         singleLine = true,
+                        shape = MaterialTheme.shapes.small,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = LxTerra,
+                            unfocusedBorderColor = LxSandDeep,
+                            focusedContainerColor = MaterialTheme.colorScheme.surface,
+                            unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                        ),
                     )
                     ExposedDropdownMenu(
                         expanded = semesterExpanded,
                         onDismissRequest = { semesterExpanded = false },
+                        containerColor = LxCream,
                     ) {
                         semesters.forEach { (value, label) ->
                             DropdownMenuItem(

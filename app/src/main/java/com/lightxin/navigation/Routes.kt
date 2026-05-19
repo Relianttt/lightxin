@@ -30,8 +30,6 @@ object Routes {
 
     // Labor
     const val LABOR_SUMMARY = "labor/summary"
-    const val LABOR_DETAIL = "labor/detail/{id}/{type}"
-    fun laborDetail(id: String, type: String) = "labor/detail/$id/$type"
 
     // AI Class
     const val AICLASS_HOME = "aiclass/home"

@@ -45,17 +45,16 @@ depends_on: [home-overview, login-overview, checkin-overview, running-overview, 
 | 核心 | 3 | ONBOARDING / LOGIN / HOME |
 | 查寝 | 2 | CHECKIN_LIST / CHECKIN_DETAIL（含参数 `taskDateId`） |
 | 跑步 | 8 | RUNNING_HOME / RUNNING_ACTIVE / RUNNING_SIM / RUNNING_RESULT / RUNNING_ROUTE_SETTINGS / RUNNING_ROUTE_RECORD / RUNNING_ROUTE_LIST / RUNNING_ROUTE_DETAIL（含参数 `templateId`） |
-| 劳教 | 2 | LABOR_SUMMARY / LABOR_DETAIL（含参数 `id` / `type`） |
+| 劳教 | 1 | LABOR_SUMMARY |
 | AI 课堂 | 2 | AICLASS_HOME / AICLASS_SCAN |
 | 关于 | 1 | ABOUT |
 
-合计 **18 条路由**（DESIGN.md 记录的 14 条为旧数字，实际已增至 18 条）。
+合计 **17 条路由**。
 
 参数化路由使用 `fun` 构造完整路径字符串：
 ```kotlin
 fun checkinDetail(taskDateId: String) = "checkin/detail/$taskDateId"
 fun runningRouteDetail(templateId: String) = "running/route/detail/$templateId"
-fun laborDetail(id: String, type: String) = "labor/detail/$id/$type"
 ```
 
 ### 2.2 起始页决策

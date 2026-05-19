@@ -2,10 +2,10 @@
 doc_type: architecture
 slug: labor-overview
 scope: feature/labor/ 的劳动教育模块：工时总览、活动记录分页、活动详情（只读）
-summary: labor 以 LaborRepository 封装三个只读查询接口，ViewModel 并行加载工时总览与活动列表，详情页通过 SavedStateHandle 接收参数；模块整体只读，无提交逻辑
+summary: labor 以 LaborRepository 封装三个只读查询接口，ViewModel 并行加载工时总览与活动列表，活动详情通过 ModalBottomSheet 在列表页内展示；模块整体只读，无提交逻辑
 status: current
-last_reviewed: 2026-04-22
-tags: [labor, hours, activity, readonly, pagination]
+last_reviewed: 2026-05-19
+tags: [labor, hours, activity, readonly, pagination, bottom-sheet]
 depends_on: [network-overview]
 ---
 
@@ -32,16 +32,17 @@ depends_on: [network-overview]
 
 ## 2. 结构与交互
 
-### 2.1 三页式：总览列表页 + 详情页
+### 2.1 两页式：总览列表页 + Bottom Sheet 详情
 
 ```
 LaborSummaryScreen     → LaborViewModel     → LaborRepository → LaborApi
-LaborDetailScreen      → LaborDetailViewModel → LaborRepository → LaborApi
 ```
 
-两页各自有独立的 ViewModel：
-- `LaborViewModel` — 管理工时总览 + 活动分页列表
-- `LaborDetailViewModel` — 通过 SavedStateHandle 接收 `id` 和 `type` 参数，加载单个活动详情
+活动详情通过 `ModalBottomSheet` 在 `LaborSummaryScreen` 内展示，不跳转独立页面。`LaborViewModel` 统一管理工时总览、活动分页列表和详情 Bottom Sheet 状态：
+- 点击活动卡片 → `onRecordClick(record)` → 触发详情请求 + 展开 Bottom Sheet
+- 关闭 Bottom Sheet → `dismissDetail()`
+
+`LaborDetailScreen` / `LaborDetailViewModel` 文件已删除。
 
 ### 2.2 LaborApi 三个只读接口
 
@@ -92,7 +93,7 @@ val newRecords = list.filter { r -> r.id !in existingIds }
 | `HoursSummary` | voluntaryTimes / summerTimes / laborTimes / socialTimes / otherTimes + totalTimes | `LaborModels.kt:3-12` |
 | `ActivityRecord` | id / projectTypeName / type / activityName / serviceTimes / createDate | `LaborModels.kt:14-21` |
 | `ActivityDetail` | activityName / activityType / activityLevel / organizer / serviceTimes / createDate | `LaborModels.kt:23-30` |
-| `LaborUiState` | hoursSummary / activities / isLoading / isLoadingMore / error / hasMore / currentPage | `LaborViewModel.kt:15-23` |
+| `LaborUiState` | hoursSummary / activities / isLoading / isLoadingMore / error / hasMore / currentPage / showDetailSheet / selectedRecord / selectedDetail / isDetailLoading / detailError | `LaborViewModel.kt:15-27` |
 
 ### 3.2 HoursSummary 的计算属性
 
@@ -111,10 +112,8 @@ val newRecords = list.filter { r -> r.id !in existingIds }
 - `feature/labor/data/LaborRepository.kt:19-111` — 认证 + 查询 + 错误映射
 - `feature/labor/data/LaborResponse.kt:6-59` — 三层嵌套的响应模型
 - `feature/labor/domain/LaborModels.kt:3-30` — HoursSummary / ActivityRecord / ActivityDetail
-- `feature/labor/ui/LaborViewModel.kt:25-104` — 并行加载 + 分页 + 去重
-- `feature/labor/ui/LaborDetailViewModel.kt:22-57` — 详情加载
-- `feature/labor/ui/LaborSummaryScreen.kt` — 工时总览 + 活动列表 UI
-- `feature/labor/ui/LaborDetailScreen.kt` — 活动详情 UI
+- `feature/labor/ui/LaborViewModel.kt` — 并行加载 + 分页 + 去重 + Bottom Sheet 状态
+- `feature/labor/ui/LaborSummaryScreen.kt` — 工时总览 + 活动列表 + 详情 Bottom Sheet UI
 
 ## 6. 已知约束 / 边界情况
 

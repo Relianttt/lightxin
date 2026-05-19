@@ -7,6 +7,7 @@ import com.lightxin.feature.credit.domain.CreditOverview
 import com.lightxin.feature.credit.domain.CreditRecord
 import com.lightxin.feature.credit.domain.CreditRecordDetail
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -32,6 +33,8 @@ class CreditViewModel @Inject constructor(
 
     private val _uiState = MutableStateFlow(CreditUiState())
     val uiState: StateFlow<CreditUiState> = _uiState
+
+    private var detailJob: Job? = null
 
     init {
         load()
@@ -60,11 +63,13 @@ class CreditViewModel @Inject constructor(
     }
 
     fun onRecordClick(record: CreditRecord) {
-        _uiState.update { it.copy(showDetailSheet = true, isDetailLoading = true, selectedDetail = null, detailError = null) }
-        viewModelScope.launch {
+        detailJob?.cancel()
+        detailJob = viewModelScope.launch {
+            _uiState.update { it.copy(isDetailLoading = true, detailError = null) }
             val result = repository.getRecordDetail(record.id)
             _uiState.update {
                 it.copy(
+                    showDetailSheet = true,
                     selectedDetail = result.getOrNull(),
                     isDetailLoading = false,
                     detailError = result.exceptionOrNull()?.message,
@@ -74,7 +79,7 @@ class CreditViewModel @Inject constructor(
     }
 
     fun dismissDetail() {
-        _uiState.update { it.copy(showDetailSheet = false, selectedDetail = null) }
+        _uiState.update { it.copy(showDetailSheet = false, selectedDetail = null, detailError = null) }
     }
 
     fun retry() {

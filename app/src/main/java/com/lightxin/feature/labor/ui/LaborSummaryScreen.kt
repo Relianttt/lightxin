@@ -18,9 +18,12 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -36,17 +39,19 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.lightxin.core.designsystem.component.LxCard
+import com.lightxin.core.designsystem.component.LxDetailRow
 import com.lightxin.core.designsystem.component.LxError
 import com.lightxin.core.designsystem.component.LxLoading
 import com.lightxin.core.designsystem.component.LxTopBar
 import com.lightxin.core.designsystem.theme.LxCategoryColors
+import com.lightxin.feature.labor.domain.ActivityDetail
 import com.lightxin.feature.labor.domain.ActivityRecord
 import com.lightxin.feature.labor.domain.HoursSummary
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LaborSummaryScreen(
     onBack: () -> Unit,
-    onActivityClick: (id: String, type: String) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: LaborViewModel = hiltViewModel(),
 ) {
@@ -67,9 +72,24 @@ fun LaborSummaryScreen(
             )
             else -> LaborContent(
                 uiState = uiState,
-                onActivityClick = onActivityClick,
+                onActivityClick = viewModel::onRecordClick,
                 onLoadMore = viewModel::loadMore,
                 modifier = Modifier.padding(padding),
+            )
+        }
+    }
+
+    if (uiState.showDetailSheet) {
+        ModalBottomSheet(
+            onDismissRequest = viewModel::dismissDetail,
+            sheetState = rememberModalBottomSheetState(),
+            containerColor = MaterialTheme.colorScheme.surface,
+            shape = MaterialTheme.shapes.medium,
+        ) {
+            DetailSheetContent(
+                detail = uiState.selectedDetail,
+                isLoading = uiState.isDetailLoading,
+                error = uiState.detailError,
             )
         }
     }
@@ -78,7 +98,7 @@ fun LaborSummaryScreen(
 @Composable
 private fun LaborContent(
     uiState: LaborUiState,
-    onActivityClick: (id: String, type: String) -> Unit,
+    onActivityClick: (ActivityRecord) -> Unit,
     onLoadMore: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -129,7 +149,7 @@ private fun LaborContent(
         items(uiState.activities, key = { it.id }) { record ->
             ActivityCard(
                 record = record,
-                onClick = { onActivityClick(record.id, record.type) },
+                onClick = { onActivityClick(record) },
                 modifier = Modifier.animateItem(),
             )
         }
@@ -308,6 +328,42 @@ private fun ActivityCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun DetailSheetContent(
+    detail: ActivityDetail?,
+    isLoading: Boolean,
+    error: String? = null,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp, vertical = 16.dp)
+            .padding(bottom = 32.dp),
+    ) {
+        if (isLoading) {
+            LxLoading()
+        } else if (error != null) {
+            Text(
+                text = error,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.error,
+            )
+        } else if (detail != null) {
+            Text(
+                text = detail.activityName,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            LxDetailRow(label = "活动类型", value = detail.activityType)
+            LxDetailRow(label = "活动级别", value = detail.activityLevel)
+            LxDetailRow(label = "主办方", value = detail.organizer)
+            LxDetailRow(label = "志愿时长", value = "%.1f".format(detail.serviceTimes))
+            LxDetailRow(label = "日期", value = detail.createDate, showDivider = false)
         }
     }
 }
