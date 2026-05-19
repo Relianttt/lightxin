@@ -80,6 +80,8 @@ tags: [exam, credit, homework, more-features, izuoye]
   - 证据：openCourseDetail 中两个独立 viewModelScope.launch
 - [x] **S5**：作业详情页可查看 HTML 题目、学生提交列表，未截止时可提交纯文本
   - 证据：AiHomeworkDetailScreen + isDeadlinePassed 判断 + SubmitBottomSheet
+- [x] **S6**：AI课堂课程卡片能保留理论 / 实验区分，不把同名课程错误合并
+  - 证据：`AiClassRepository.getCourses()` 从 `className/classNames/classNameStr` 兜底解析课程类型，`AiClassCourseMergerTest` 覆盖解析逻辑，用户已验证显示正常
 
 ## 4. 术语一致性
 
@@ -88,10 +90,12 @@ tags: [exam, credit, homework, more-features, izuoye]
 - `AiHomework` / `AiHomeworkDetail` / `AiStudentWork` — 作业领域模型，与已有 `AiQuiz` 平级
 - `IzuoyeApi` / `IzuoyeRetrofit` — 爱作业平台，与 `FifRetrofit` 命名风格一致
 - `jtzy` — 爱作业平台 JWT token 的 Header 名，保持原始协议命名
+- `typeName` / `className` / `classNames` / `classNameStr` — AI课堂课程类型与教学班显示字段；理论 / 实验后缀优先取 `typeName`，为空时从教学班显示字段解析
 
 ## 5. 架构归并
 
 - [x] `aiclass-overview.md`：归并作业子系统（IzuoyeApi / IzuoyeRetrofit / jtzy 认证 / 作业详情页）
+- [x] `aiclass-overview.md`：归并理论 / 实验课程类型解析与稳定 ID 去重约束
 - [x] `network-overview.md`：归并 CreditRetrofit / IzuoyeRetrofit 两个新 Retrofit 实例
 - [x] 新建 `exam-overview.md`：考试成绩模块架构文档
 - [x] 新建 `credit-overview.md`：素质学分模块架构文档

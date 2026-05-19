@@ -80,7 +80,9 @@ FIF 不使用主站的 `AuthInterceptor`，认证通过 `FifSessionManager.build
 
 `getCourses()` 内部先调 `getTermList()` 获取当前学期（`selected=1`），再调 `getCourses(termYear, term)`。`myClassroom` 返回后，会继续尝试请求 `liveAndRecord/timetableInfo(schoolId, mid, identity=2)`，把课表里存在但“我的课程”缺失的当前学期课程补进结果列表。补数只作为兜底，失败时不会阻断首页课程展示。
 
-课表补数条目会从 `className/classNames` 中解析 `(理论)` / `(实验)` 标签，并把教学班 ID（`classId/teachClassId`）写回详情链路使用的 `courseId`，这是因为 HAR 已确认课表页点击详情后，`getPublishPaperListOfStudent` / `getPaperInCourseInfo` 都以教学班 ID 而不是课表原始 `courseId` 为参数。
+课程类型显示优先使用 `typeName`；当 `myClassroom` 课程没有返回 `typeName` 时，Repository 会从 `className/classNames/classNameStr` 中解析 `(理论)` / `(实验)` 标签。课表补数条目也走同一套解析，并把教学班 ID（`classId/teachClassId`）写回详情链路使用的 `courseId`，这是因为 HAR 已确认课表页点击详情后，`getPublishPaperListOfStudent` / `getPaperInCourseInfo` 都以教学班 ID 而不是课表原始 `courseId` 为参数。
+
+课程去重的 `stableId` 会纳入课程名、教师、`typeName` 和教学班显示字段，避免同一课程的理论班与实验班被合并成一张卡片。
 
 `getQuizList(courseId)` 进入课程详情页后会同时利用两类测验数据：以 `paper/getPublishPaperListOfStudent` 作为学生视角主列表，保证历史测验与 `iscommited` 提交态完整；再把 `paper/getPaperInCourseInfo(courseId, studentId)` 解析出的课程详情试卷信息作为补充字段合并进去。前者除 `studentId` 外还需要 `userId`，当前实现从 FIF token 的 JWT payload 中解析 `memberId` 作为 `userId`。
 
@@ -219,6 +221,7 @@ UI 层限制输入长度 ≤6，签到按钮在输入达到 6 位且存在进行
 - **测验列表依赖 token 里的 memberId** —— `paper/getPublishPaperListOfStudent` 需要 `userId`，当前实现通过解析 FIF token 的 JWT payload 取 `memberId`。若后端改 token 结构，需要同步更新 `FifSessionManager.kt`。
 - **课程补数依赖 schoolId + memberId** —— `timetableInfo` 同时要求 `schoolId` 和 `mid(memberId)`；任一缺失时当前实现会直接跳过补数，退回 `myClassroom` 单源列表。
 - **补进课程使用教学班 ID 进详情** —— 课表条目的原始 `courseId` 不是测验详情使用的那个 ID，若误用会导致课程详情页存在但测验为空。
+- **理论/实验不能只依赖 typeName** —— 部分 `myClassroom` 响应不返回 `typeName`，但会把 `(理论)` / `(实验)` 放在 `className/classNames/classNameStr` 中；课程显示和去重都必须兼容这些字段。
 - **qrcodeHandler 的 URL 构建有两种路径** —— 完整 URL 二维码直接用原值 + 追加参数；纯 token 二维码构造完整 URL。来源：`AiClassRepository.kt:174-181`。
 
 ## 7. 相关文档
