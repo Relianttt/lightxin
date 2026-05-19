@@ -41,6 +41,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -70,7 +71,15 @@ fun ProfileScreen(
     modifier: Modifier = Modifier,
     viewModel: ProfileViewModel = hiltViewModel(),
 ) {
+    val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsState()
+    val versionName = remember(context) {
+        try {
+            context.packageManager.getPackageInfo(context.packageName, 0).versionName.orEmpty()
+        } catch (_: Exception) {
+            ""
+        }
+    }
     var showLogoutDialog by remember { mutableStateOf(false) }
 
     Column(
@@ -164,7 +173,7 @@ fun ProfileScreen(
             ProfileMenuRow(
                 icon = Icons.Outlined.Info,
                 title = "关于轻小信",
-                hint = "v1.0.0",
+                hint = versionName.takeIf { it.isNotBlank() }?.let { "v$it" },
                 onClick = onNavigateAbout,
             )
         }
