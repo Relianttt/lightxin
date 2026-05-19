@@ -74,6 +74,15 @@ class AiClassRepository @Inject constructor(
             val primaryCourses = list.map { item ->
                 val classId = item.classId.orEmpty()
                 val teachClassId = item.teachClassId.orEmpty().ifBlank { classId }
+                val typeName = item.typeName.orEmpty().ifBlank {
+                    parseTypeName(
+                        listOf(
+                            item.className,
+                            item.classNames,
+                            item.classNameStr,
+                        ).filterNotNull().joinToString(" "),
+                    )
+                }
                 AiCourse(
                     stableId = buildCourseStableId(item),
                     id = item.id.orEmpty(),
@@ -88,7 +97,7 @@ class AiClassRepository @Inject constructor(
                     cover = item.cover.orEmpty(),
                     termYear = item.termYear.orEmpty().ifBlank { termYear },
                     term = item.term.orEmpty().ifBlank { term },
-                    typeName = item.typeName.orEmpty(),
+                    typeName = typeName,
                 )
             }
 
@@ -641,6 +650,9 @@ private fun buildCourseStableId(item: AiClassCourseResponse.CourseItem): String 
         item.courseName,
         item.teacherName,
         item.typeName,
+        item.className,
+        item.classNames,
+        item.classNameStr,
     ).filter { !it.isNullOrBlank() }
         .joinToString("|")
         .ifBlank { "course:${item.hashCode()}" }

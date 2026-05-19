@@ -91,6 +91,12 @@ class AiClassCourseMergerTest {
         assertEquals(listOf("理论", "实验"), result.map { it.typeName })
     }
 
+    @Test
+    fun `parse type name from class display text`() {
+        assertEquals("理论", parseTypeName("(理论)(2025-2026-2)-IAP118-05"))
+        assertEquals("实验", parseTypeName("(实验)(2025-2026-2)-EEE475X-01"))
+    }
+
     private fun course(
         stableId: String = "",
         id: String = "",
