@@ -407,7 +407,9 @@ fun LightXinNavHost(
                 viewModel = aiClassViewModel,
                 onBack = { navController.popBackStack() },
                 onOpenHomeworkDetail = { cwId ->
-                    val teachClassId = aiClassViewModel.uiState.value.selectedCourse?.teachClassId.orEmpty()
+                    val selectedCourse = aiClassViewModel.uiState.value.selectedCourse
+                    val teachClassId = selectedCourse?.teachClassId.orEmpty()
+                        .ifBlank { selectedCourse?.classId.orEmpty() }
                     navController.navigate(Routes.aiClassHomeworkDetail(cwId, teachClassId)) {
                         launchSingleTop = true
                     }

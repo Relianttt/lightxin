@@ -87,19 +87,10 @@ data class AiClassWorkingRecordResponse(
 data class AiClassQuizListResponse(
     val status: String?,
     val message: String?,
-    val data: List<QuizItem>?,
+    val data: JsonElement?,
 ) {
-    data class QuizItem(
-        val id: String?,
-        val title: String?,
-        val status: Any?,
-        val iscommited: Any?,
-        val refPaperId: String?,
-        val publishTime: String?,
-        val publishDateTime: String?,
-        val publishWeek: String?,
-        val answerDuration: Any?,
-    )
+    // data 可能是 HAR 中的 [{ paperDetail: [...] }] 分组结构，也可能是扁平数组。
+    // 保留 JsonElement，由 AiClassQuizParser 递归提取真实测验条目。
 }
 
 /** 课程详情页里的试卷信息，结构暂未完全稳定，先保留原始 JSON 再做前端提取 */

@@ -19,8 +19,11 @@ import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import com.google.gson.JsonElement
 import com.google.gson.JsonObject
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import okhttp3.CookieJar
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
@@ -34,6 +37,9 @@ import javax.inject.Singleton
 
 private const val REPOSITORY_LOG_TAG = "AiClassRepo"
 private const val WEBVIEW_REQUESTED_WITH = "com.lightxin"
+private const val AICLASS_PRIMARY_REQUEST_TIMEOUT_MS = 12_000L
+private const val AICLASS_SUPPLEMENT_REQUEST_TIMEOUT_MS = 6_000L
+private const val AICLASS_TIMETABLE_REQUEST_TIMEOUT_MS = 5_000L
 
 @Singleton
 class AiClassRepository @Inject constructor(
@@ -66,17 +72,19 @@ class AiClassRepository @Inject constructor(
             val resp = api.getCourses(termYear, term, auth)
             val list = resp.data?.dataList.orEmpty()
             val primaryCourses = list.map { item ->
+                val classId = item.classId.orEmpty()
+                val teachClassId = item.teachClassId.orEmpty().ifBlank { classId }
                 AiCourse(
                     stableId = buildCourseStableId(item),
                     id = item.id.orEmpty(),
                     code = item.code.orEmpty(),
-                    classId = item.classId.orEmpty(),
+                    classId = classId,
                     courseId = item.courseId.orEmpty(),
                     courseRecordId = item.courseRecordId.orEmpty(),
                     courseName = item.courseName.orEmpty(),
                     teacherName = item.teacherName.orEmpty(),
                     studentNum = item.studentNum ?: 0,
-                    teachClassId = item.teachClassId.orEmpty(),
+                    teachClassId = teachClassId,
                     cover = item.cover.orEmpty(),
                     termYear = item.termYear.orEmpty().ifBlank { termYear },
                     term = item.term.orEmpty().ifBlank { term },
@@ -186,44 +194,39 @@ class AiClassRepository @Inject constructor(
                 return Result.failure(Exception("AI课堂身份不完整，请重新进入"))
             }
 
-            val coursePaperResp = api.getPaperInCourseInfo(
-                courseId = courseId,
-                studentId = studentId,
-                auth = auth,
-            )
-            val coursePaperList = AiClassQuizParser.extractQuizzesFromCoursePaperInfo(coursePaperResp.data)
             val publishPaperList = if (userId.isBlank()) {
                 emptyList()
             } else {
-                api.getPublishPaperListOfStudent(
-                    courseId = courseId,
-                    studentId = studentId,
-                    userId = userId,
-                    auth = auth,
-                ).data.orEmpty().map { item ->
-                    AiQuiz(
-                        id = item.id.orEmpty(),
-                        title = item.title.orEmpty(),
-                        isCommitted = item.iscommited.asBoolean(),
-                        status = item.status.asDisplayString(),
-                        publishTime = item.publishTime.orEmpty(),
-                        publishDateTime = item.publishDateTime.orEmpty(),
-                        publishWeek = item.publishWeek.orEmpty(),
-                        answerDurationMinutes = item.answerDuration.asIntOrNull(),
+                val publishResult = withNetworkTimeout("获取测验列表", AICLASS_PRIMARY_REQUEST_TIMEOUT_MS) {
+                    api.getPublishPaperListOfStudent(
+                        courseId = courseId,
+                        studentId = studentId,
+                        userId = userId,
+                        auth = auth,
                     )
                 }
+                val response = publishResult.getOrElse { error ->
+                    val fallbackList = loadCoursePaperQuizList(courseId, studentId, auth)
+                    return if (fallbackList.isNotEmpty()) {
+                        Result.success(fallbackList)
+                    } else {
+                        Result.failure(error)
+                    }
+                }
+                AiClassQuizParser.extractQuizzesFromCoursePaperInfo(response.data)
             }
 
-            val mergedQuizList = AiClassQuizParser.mergeQuizLists(
-                primary = publishPaperList,
-                secondary = coursePaperList,
-            )
+            if (publishPaperList.isNotEmpty()) return Result.success(publishPaperList)
+
+            val coursePaperList = loadCoursePaperQuizList(courseId, studentId, auth)
 
             when {
-                mergedQuizList.isNotEmpty() -> Result.success(mergedQuizList)
+                coursePaperList.isNotEmpty() -> Result.success(coursePaperList)
                 userId.isBlank() -> Result.failure(Exception("AI课堂身份不完整，请重新进入"))
                 else -> Result.success(emptyList())
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Result.failure(Exception(mapError("获取测验列表", e), e))
         }
@@ -249,12 +252,16 @@ class AiClassRepository @Inject constructor(
         return try {
             val auth = ensureSession()
             val userName = fifSession.getUserName().orEmpty()
-            val resp = api.listStudentHomework(
-                courseId = courseId,
-                teachClassId = teachClassId,
-                userName = userName,
-                auth = auth,
-            )
+            val resp = withNetworkTimeout("获取作业列表", AICLASS_PRIMARY_REQUEST_TIMEOUT_MS) {
+                api.listStudentHomework(
+                    courseId = courseId,
+                    teachClassId = teachClassId,
+                    userName = userName,
+                    auth = auth,
+                )
+            }.getOrElse { error ->
+                return Result.failure(error)
+            }
             val items = resp.data?.dataList.orEmpty().flatMap { group ->
                 group.fileList.orEmpty().map { item ->
                     com.lightxin.feature.aiclass.domain.AiHomework(
@@ -267,6 +274,8 @@ class AiClassRepository @Inject constructor(
                 }
             }
             Result.success(items)
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Result.failure(Exception(mapError("获取作业列表", e), e))
         }
@@ -423,9 +432,9 @@ class AiClassRepository @Inject constructor(
 
     private fun extractParam(url: String, key: String): String? {
         // 优先使用 Uri 解析，自动 URL decode；失败时再回退 regex
-        runCatching {
-            return Uri.parse(url).getQueryParameter(key)
-        }
+        runCatching { Uri.parse(url).getQueryParameter(key) }
+            .getOrNull()
+            ?.let { return it }
         val regex = Regex("[?&]$key=([^&]+)")
         return regex.find(url)?.groupValues?.get(1)
     }
@@ -549,6 +558,40 @@ class AiClassRepository @Inject constructor(
         }
     }
 
+    private suspend fun <T> withNetworkTimeout(
+        action: String,
+        timeoutMs: Long,
+        block: suspend () -> T,
+    ): Result<T> {
+        return try {
+            Result.success(withTimeout(timeoutMs) { block() })
+        } catch (e: TimeoutCancellationException) {
+            Result.failure(Exception("${action}超时，请稍后重试", e))
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Result.failure(Exception(mapError(action, e), e))
+        }
+    }
+
+    private suspend fun loadCoursePaperQuizList(
+        courseId: String,
+        studentId: String,
+        auth: String,
+    ): List<AiQuiz> {
+        val response = withNetworkTimeout("获取测验补充信息", AICLASS_SUPPLEMENT_REQUEST_TIMEOUT_MS) {
+            api.getPaperInCourseInfo(
+                courseId = courseId,
+                studentId = studentId,
+                auth = auth,
+            )
+        }.getOrElse { error ->
+            Log.w(REPOSITORY_LOG_TAG, "loadCoursePaperQuizList failed", error)
+            return emptyList()
+        }
+        return AiClassQuizParser.extractQuizzesFromCoursePaperInfo(response.data)
+    }
+
     private suspend fun loadTimetableSupplementCourses(
         auth: String,
         termYear: String,
@@ -561,11 +604,16 @@ class AiClassRepository @Inject constructor(
             return emptyList()
         }
 
-        val response = api.getTimetableInfo(
-            schoolId = schoolId,
-            memberId = memberId,
-            auth = auth,
-        )
+        val response = withNetworkTimeout("获取AI课堂课表", AICLASS_TIMETABLE_REQUEST_TIMEOUT_MS) {
+            api.getTimetableInfo(
+                schoolId = schoolId,
+                memberId = memberId,
+                auth = auth,
+            )
+        }.getOrElse { error ->
+            Log.w(REPOSITORY_LOG_TAG, "loadTimetableSupplementCourses failed", error)
+            return emptyList()
+        }
         val courses = extractTimetableCourses(
             element = response.data,
             termYear = termYear,

@@ -13,11 +13,11 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -39,10 +39,15 @@ import androidx.compose.ui.text.fromHtml
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.lightxin.core.designsystem.component.LxButton
 import com.lightxin.core.designsystem.component.LxCard
 import com.lightxin.core.designsystem.component.LxError
 import com.lightxin.core.designsystem.component.LxLoading
 import com.lightxin.core.designsystem.component.LxTopBar
+import com.lightxin.core.designsystem.theme.LxCream
+import com.lightxin.core.designsystem.theme.LxInkMuted
+import com.lightxin.core.designsystem.theme.LxSandDeep
+import com.lightxin.core.designsystem.theme.LxTerra
 import com.lightxin.feature.aiclass.domain.AiStudentWork
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -180,12 +185,11 @@ private fun HomeworkDetailContent(
             // 提交按钮（仅未截止时显示）
             if (!isDeadlinePassed(detail.deadline)) {
                 item(key = "submit_btn") {
-                    Button(
+                    LxButton(
+                        text = "提交作业",
                         onClick = onSubmitClick,
                         modifier = Modifier.fillMaxWidth(),
-                    ) {
-                        Text("提交作业")
-                    }
+                    )
                 }
             }
 
@@ -269,6 +273,8 @@ private fun SubmitBottomSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        containerColor = MaterialTheme.colorScheme.surface,
+        shape = MaterialTheme.shapes.medium,
     ) {
         Column(
             modifier = Modifier
@@ -290,15 +296,26 @@ private fun SubmitBottomSheet(
                     .height(200.dp),
                 placeholder = { Text("请输入作业内容...") },
                 enabled = !isSubmitting,
+                shape = MaterialTheme.shapes.small,
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = LxTerra,
+                    unfocusedBorderColor = LxSandDeep,
+                    disabledBorderColor = LxSandDeep.copy(alpha = 0.65f),
+                    focusedContainerColor = LxCream,
+                    unfocusedContainerColor = LxCream,
+                    disabledContainerColor = LxCream.copy(alpha = 0.65f),
+                    focusedPlaceholderColor = LxInkMuted,
+                    unfocusedPlaceholderColor = LxInkMuted,
+                    disabledPlaceholderColor = LxInkMuted.copy(alpha = 0.6f),
+                ),
             )
             Spacer(modifier = Modifier.height(16.dp))
-            Button(
+            LxButton(
+                text = if (isSubmitting) "提交中..." else "提交",
                 onClick = { onSubmit(text) },
                 modifier = Modifier.fillMaxWidth(),
                 enabled = text.isNotBlank() && !isSubmitting,
-            ) {
-                Text(if (isSubmitting) "提交中..." else "提交")
-            }
+            )
         }
     }
 }

@@ -10,13 +10,19 @@ import com.lightxin.feature.aiclass.domain.AiQuiz
 import com.lightxin.feature.aiclass.domain.AiClassQrPayload
 import com.lightxin.feature.aiclass.domain.AiWorkingRecord
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeout
 import javax.inject.Inject
 
 private const val VIEWMODEL_LOG_TAG = "AiClassVM"
+private const val AICLASS_INITIAL_LOAD_TIMEOUT_MS = 18_000L
+private const val AICLASS_OPTIONAL_LOAD_TIMEOUT_MS = 8_000L
+private const val AICLASS_DETAIL_LOAD_TIMEOUT_MS = 12_000L
 
 data class AiClassUiState(
     val courses: List<AiCourse> = emptyList(),
@@ -65,9 +71,20 @@ class AiClassViewModel @Inject constructor(
                 }
             }
 
-            // 并行加载课程和课堂状态
-            val coursesResult = repository.getCourses()
-            val workingResult = repository.getWorkingRecord()
+            // 课程是主内容；课堂状态是附属信息，不能拖住整页加载。
+            val coursesDeferred = async {
+                withResultTimeout("获取课程列表", AICLASS_INITIAL_LOAD_TIMEOUT_MS) {
+                    repository.getCourses()
+                }
+            }
+            val workingDeferred = async {
+                withResultTimeout("获取课堂状态", AICLASS_OPTIONAL_LOAD_TIMEOUT_MS) {
+                    repository.getWorkingRecord()
+                }
+            }
+
+            val coursesResult = coursesDeferred.await()
+            val workingResult = workingDeferred.await()
 
             _uiState.update {
                 it.copy(
@@ -187,7 +204,9 @@ class AiClassViewModel @Inject constructor(
         }
 
         viewModelScope.launch {
-            val quizResult = repository.getQuizList(course.courseId)
+            val quizResult = withResultTimeout("获取测验列表", AICLASS_DETAIL_LOAD_TIMEOUT_MS) {
+                repository.getQuizList(course.courseId)
+            }
             _uiState.update { current ->
                 if (current.selectedCourse?.stableId != classId) return@update current
                 current.copy(
@@ -199,7 +218,9 @@ class AiClassViewModel @Inject constructor(
         }
 
         viewModelScope.launch {
-            val hwResult = repository.getHomeworkList(course.courseId, course.teachClassId)
+            val hwResult = withResultTimeout("获取作业列表", AICLASS_DETAIL_LOAD_TIMEOUT_MS) {
+                repository.getHomeworkList(course.courseId, course.teachClassId)
+            }
             _uiState.update { current ->
                 if (current.selectedCourse?.stableId != classId) return@update current
                 current.copy(
@@ -240,7 +261,9 @@ class AiClassViewModel @Inject constructor(
             it.copy(selectedCourse = course, quizList = emptyList(), isQuizLoading = true, quizError = null)
         }
         viewModelScope.launch {
-            val quizResult = repository.getQuizList(record.teachClassId)
+            val quizResult = withResultTimeout("获取测验列表", AICLASS_DETAIL_LOAD_TIMEOUT_MS) {
+                repository.getQuizList(record.teachClassId)
+            }
             _uiState.update { current ->
                 if (current.selectedCourse?.stableId != "_working") return@update current
                 current.copy(
@@ -250,6 +273,18 @@ class AiClassViewModel @Inject constructor(
                 )
             }
         }
+    }
+}
+
+private suspend fun <T> withResultTimeout(
+    action: String,
+    timeoutMs: Long,
+    block: suspend () -> Result<T>,
+): Result<T> {
+    return try {
+        withTimeout(timeoutMs) { block() }
+    } catch (e: TimeoutCancellationException) {
+        Result.failure(Exception("${action}超时，请稍后重试", e))
     }
 }
 
