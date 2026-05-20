@@ -173,7 +173,8 @@ fun ProfileScreen(
             ProfileMenuRow(
                 icon = Icons.Outlined.Info,
                 title = "关于轻小信",
-                hint = versionName.takeIf { it.isNotBlank() }?.let { "v$it" },
+                hint = uiState.updateHint ?: versionName.takeIf { it.isNotBlank() }?.let { "v$it" },
+                hintHighlight = uiState.updateHint != null,
                 onClick = onNavigateAbout,
             )
         }
@@ -231,6 +232,7 @@ private fun ProfileMenuRow(
     icon: ImageVector,
     title: String,
     hint: String? = null,
+    hintHighlight: Boolean = false,
     onClick: () -> Unit,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
@@ -267,7 +269,7 @@ private fun ProfileMenuRow(
             Text(
                 text = hint,
                 fontSize = 13.sp,
-                color = LxInkMuted,
+                color = if (hintHighlight) LxTerra else LxInkMuted,
             )
         }
         Text(

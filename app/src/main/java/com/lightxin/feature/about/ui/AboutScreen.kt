@@ -1,7 +1,10 @@
 package com.lightxin.feature.about.ui
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,6 +19,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
@@ -33,7 +37,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.colorResource
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -48,6 +52,7 @@ import com.lightxin.core.designsystem.theme.LxCream
 import com.lightxin.core.designsystem.theme.LxInk
 import com.lightxin.core.designsystem.theme.LxInkMuted
 import com.lightxin.core.designsystem.theme.LxRose
+import com.lightxin.core.designsystem.theme.LxSand
 import com.lightxin.core.designsystem.theme.LxTerra
 import com.lightxin.core.designsystem.theme.NewsreaderDisplay
 
@@ -77,16 +82,28 @@ fun AboutScreen(
 
             Spacer(modifier = Modifier.height(22.dp))
 
-            DeveloperToggleCard(
-                enabled = uiState.advancedEnabled,
-                onCheckedChange = { checked ->
-                    if (checked && !uiState.advancedEnabled) {
-                        showConfirmDialog = true
-                    } else if (!checked) {
-                        viewModel.setAdvancedEnabled(false)
-                    }
-                },
-            )
+            LxCard {
+                Column {
+                    UpdateCheckRow(
+                        state = uiState.updateCheckState,
+                        onCheck = { viewModel.checkForUpdate() },
+                        onDownload = { viewModel.downloadUpdate() },
+                    )
+                    CardDivider()
+                    DeveloperToggleRow(
+                        enabled = uiState.advancedEnabled,
+                        onCheckedChange = { checked ->
+                            if (checked && !uiState.advancedEnabled) {
+                                showConfirmDialog = true
+                            } else if (!checked) {
+                                viewModel.setAdvancedEnabled(false)
+                            }
+                        },
+                    )
+                    CardDivider()
+                    GitHubRow()
+                }
+            }
         }
     }
 
@@ -159,34 +176,138 @@ private fun BrandCard(versionName: String) {
 }
 
 @Composable
-private fun DeveloperToggleCard(
+private fun DeveloperToggleRow(
     enabled: Boolean,
     onCheckedChange: (Boolean) -> Unit,
 ) {
-    LxCard {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 18.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween,
-        ) {
-            Text(
-                text = "启用调试功能",
-                fontSize = 15.sp,
-                color = LxInk,
-                modifier = Modifier.weight(1f),
-            )
-            Switch(
-                checked = enabled,
-                onCheckedChange = onCheckedChange,
-                colors = SwitchDefaults.colors(
-                    checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
-                    checkedTrackColor = LxTerra,
-                    uncheckedThumbColor = MaterialTheme.colorScheme.surface,
-                    uncheckedTrackColor = LxRose.copy(alpha = 0.18f),
-                ),
-            )
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 18.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Text(
+            text = "启用调试功能",
+            fontSize = 15.sp,
+            color = LxInk,
+            modifier = Modifier.weight(1f),
+        )
+        Switch(
+            checked = enabled,
+            onCheckedChange = onCheckedChange,
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
+                checkedTrackColor = LxTerra,
+                uncheckedThumbColor = MaterialTheme.colorScheme.surface,
+                uncheckedTrackColor = LxRose.copy(alpha = 0.18f),
+            ),
+        )
+    }
+}
+
+@Composable
+private fun UpdateCheckRow(
+    state: UpdateCheckState,
+    onCheck: () -> Unit,
+    onDownload: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(enabled = state !is UpdateCheckState.Checking) { onCheck() }
+            .padding(horizontal = 18.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Text(
+            text = "检测更新",
+            fontSize = 15.sp,
+            color = LxInk,
+        )
+        when (state) {
+            is UpdateCheckState.Idle -> {}
+            is UpdateCheckState.Checking -> {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(16.dp),
+                    strokeWidth = 2.dp,
+                    color = LxTerra,
+                )
+            }
+            is UpdateCheckState.HasUpdate -> {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Text(
+                        text = "v${state.versionName}",
+                        fontSize = 13.sp,
+                        color = LxTerra,
+                    )
+                    Text(
+                        text = "立即更新",
+                        fontSize = 13.sp,
+                        color = LxTerra,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable { onDownload() }
+                            .padding(horizontal = 6.dp, vertical = 2.dp),
+                    )
+                }
+            }
+            is UpdateCheckState.AlreadyLatest -> {
+                Text(
+                    text = "已是最新版本",
+                    fontSize = 13.sp,
+                    color = LxInkMuted,
+                )
+            }
+            is UpdateCheckState.Failed -> {
+                Text(
+                    text = "检测失败，请稍后再试",
+                    fontSize = 13.sp,
+                    color = LxRose,
+                )
+            }
         }
     }
+}
+
+@Composable
+private fun GitHubRow() {
+    val context = LocalContext.current
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable {
+                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/Relianttt/lightxin"))
+                context.startActivity(intent)
+            }
+            .padding(horizontal = 18.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Text(
+            text = "GitHub 仓库",
+            fontSize = 15.sp,
+            color = LxInk,
+        )
+        Text(
+            text = "›",
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Light,
+            color = LxInkMuted,
+        )
+    }
+}
+
+@Composable
+private fun CardDivider() {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 18.dp)
+            .height(1.dp)
+            .background(LxSand),
+    )
 }

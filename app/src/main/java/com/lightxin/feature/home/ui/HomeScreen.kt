@@ -7,7 +7,9 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.Home
@@ -20,18 +22,25 @@ import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
+import com.lightxin.core.designsystem.component.LxDialog
+import com.lightxin.core.designsystem.component.LxDialogConfirmTone
 import com.lightxin.core.designsystem.theme.LxInkFaint
+import com.lightxin.core.designsystem.theme.LxInkMuted
 import com.lightxin.core.designsystem.theme.LxParchment
+import com.lightxin.core.designsystem.theme.LxTerra
 import com.lightxin.feature.schedule.ui.ScheduleScreen
 import com.lightxin.navigation.Routes
 
@@ -52,8 +61,12 @@ private val tabs = listOf(
 fun HomeScreen(
     navController: NavHostController,
     homeViewModel: HomeViewModel = hiltViewModel(),
+    updatePromptViewModel: UpdatePromptViewModel = hiltViewModel(),
 ) {
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
+
+    // ── 更新弹窗 ──
+    UpdateDialog(updatePromptViewModel)
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -142,5 +155,45 @@ fun HomeScreen(
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun UpdateDialog(viewModel: UpdatePromptViewModel) {
+    val state by viewModel.state.collectAsState()
+
+    if (state.showDialog) {
+        LxDialog(
+            title = "发现新版本",
+            confirmText = "立即更新",
+            dismissText = "稍后",
+            onDismissRequest = { viewModel.dismiss() },
+            onDismiss = { viewModel.dismiss() },
+            onConfirm = { viewModel.downloadUpdate() },
+            confirmTone = LxDialogConfirmTone.Primary,
+            content = {
+                Text(
+                    text = "v${state.versionName}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = LxTerra,
+                )
+                if (state.releaseNotes.isNotBlank()) {
+                    Text(
+                        text = state.releaseNotes.take(200),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = LxInkMuted,
+                    )
+                }
+                Text(
+                    text = "跳过此版本",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = LxInkMuted,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(12.dp))
+                        .clickable { viewModel.skipVersion() }
+                        .padding(vertical = 4.dp),
+                )
+            },
+        )
     }
 }

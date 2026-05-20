@@ -1,0 +1,101 @@
+feature: 2026-05-20-github-ota-update
+created: 2026-05-20
+status: pending
+
+steps:
+  - action: "Step 1 领域模型：AppVersion 解析/比较 + AppVersionProvider 统一本地版本读取 + UpdateResult/UpdateInfo 类型"
+    exit_signal: "单元测试通过：解析有效/无效 tag、版本比较、AppVersionProvider 返回当前版本"
+    status: done
+
+  - action: "Step 2 持久化层：UpdatePrefs（独立 DataStore lightxin_update）"
+    exit_signal: "saveUpdateInfo/clearUpdateInfo/setSkippedVersion/pendingDownloadId 读写 Flow 验证通过；clearUpdateInfo 不清 skippedVersion"
+    status: done
+
+  - action: "Step 3 网络层：GitHubReleaseApi + Dto + Hilt Module（独立 OkHttp 10s timeout + @UpdateRetrofit）"
+    exit_signal: "编译通过，Hilt 注入无报错，可通过 @UpdateRetrofit 获取 Retrofit 实例"
+    status: done
+
+  - action: "Step 4 编排核心：UpdateRepository.checkForUpdate(force) 完整逻辑"
+    exit_signal: "force=true 对接真实 GitHub API 返回正确 UpdateResult；force=false 24h 内返回 Throttled"
+    status: done
+
+  - action: "Step 5 自动检测集成：MainActivity 注入 UpdateRepository 并在 onCreate 静默调用"
+    exit_signal: "App 启动后 DataStore 中有检测结果（或 Throttled 时无变化），不阻塞 splash"
+    status: done
+
+  - action: "Step 6 UI 集成 - 首页弹窗 + 我的页 hint：HomeViewModel 订阅 + LxDialog 三按钮 + ProfileScreen hint 动态变化"
+    exit_signal: "有缓存新版本时首页弹窗显示三按钮；我的页 hint 变为'发现新版本 vX.X.X'（LxTerra 色）；跳过/稍后行为正确"
+    status: done
+
+  - action: "Step 7 UI 集成 - 关于页手动检测：AboutViewModel + 检测更新行 + 状态反馈"
+    exit_signal: "手动检测成功显示结果，失败显示'检测失败，请稍后再试'，检测中有 loading"
+    status: done
+
+  - action: "Step 8 下载安装：ApkDownloader + Manifest 权限 + FileProvider + 动态 Receiver（匹配 downloadId + 查询 STATUS_SUCCESSFUL）+ 兜底恢复"
+    exit_signal: "点击立即更新后通知栏下载，完成且状态为 SUCCESSFUL 时弹安装界面；下载失败时 clearPendingDownloadId；无权限时引导设置页；关于页兜底恢复可触发安装"
+    status: done
+
+checks:
+  - item: "App 启动时自动检测失败不影响任何正常功能（无 crash、无 Toast、无弹窗）"
+    source: 跨层纪律
+    status: pending
+
+  - item: "手动检测失败显示'检测失败，请稍后再试'，不暴露内部异常文本"
+    source: 验收场景
+    status: pending
+
+  - item: "首页弹窗三按钮：立即更新触发下载、跳过此版本写入 skippedVersion、稍后仅本次启动不再弹"
+    source: 编排骨架
+    status: pending
+
+  - item: "跳过 v1.2.0 后发布 v1.3.0 时仍正常弹窗"
+    source: 验收场景
+    status: pending
+
+  - item: "24h 内重复启动不发起网络请求（Throttled）"
+    source: 编排骨架
+    status: pending
+
+  - item: "已是最新版本时 clearUpdateInfo 清空 version/url/notes 但不清 skippedVersion"
+    source: 名词契约
+    status: pending
+
+  - item: "版本解析只接受 v?数字.数字.数字 严格三段，v1.1 / v1.1.0-beta 返回 null"
+    source: 名词契约
+    status: pending
+
+  - item: "我的页'关于轻小信'hint 有新版本时显示'发现新版本 vX.X.X'（LxTerra 色），否则显示当前版本"
+    source: 验收场景
+    status: pending
+
+  - item: "关于页'检测更新'行位于调试功能开关上方"
+    source: 挂载点
+    status: pending
+
+  - item: "DownloadManager 下载目标为固定路径 lightxin-update.apk，下载前删除旧文件（仅此文件）"
+    source: 编排骨架
+    status: pending
+
+  - item: "动态 BroadcastReceiver 校验 downloadId 匹配后才触发安装，不响应无关下载"
+    source: 跨层纪律
+    status: pending
+
+  - item: "安装 Intent 带 FLAG_GRANT_READ_URI_PERMISSION + FLAG_ACTIVITY_NEW_TASK"
+    source: 编排骨架
+    status: pending
+
+  - item: "不引入后台定时轮询（无 WorkManager / AlarmManager / Service）"
+    source: 范围守护
+    status: pending
+
+  - item: "不做强制更新（弹窗始终可关闭）"
+    source: 范围守护
+    status: pending
+
+  - item: "不复用主站 AuthInterceptor / TokenRefreshInterceptor"
+    source: 范围守护
+    status: pending
+
+  - item: "不做应用内下载进度 UI"
+    source: 范围守护
+    status: pending

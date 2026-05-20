@@ -16,6 +16,7 @@ import androidx.lifecycle.lifecycleScope
 import com.lightxin.core.auth.SessionManager
 import com.lightxin.core.designsystem.theme.LightXinTheme
 import com.lightxin.feature.home.domain.HomeBootstrap
+import com.lightxin.feature.update.data.UpdateRepository
 import com.lightxin.navigation.LightXinNavHost
 import com.lightxin.navigation.ShortcutRouter
 import com.lightxin.navigation.ShortcutTarget
@@ -32,6 +33,7 @@ class MainActivity : ComponentActivity() {
     @Inject lateinit var sessionManager: SessionManager
     @Inject lateinit var homeBootstrap: HomeBootstrap
     @Inject lateinit var shortcutRouter: ShortcutRouter
+    @Inject lateinit var updateRepository: UpdateRepository
 
     private var shortcutTarget by mutableStateOf<ShortcutTarget?>(null)
     private var pendingDormTaskId by mutableStateOf<String?>(null)
@@ -47,6 +49,7 @@ class MainActivity : ComponentActivity() {
 
         // 独立协程：真实执行数据加载（即使超时也会继续跑完，结果写入 HomeBootstrap.snapshot）
         lifecycleScope.launch { homeBootstrap.load() }
+        lifecycleScope.launch { updateRepository.checkForUpdate(force = false) }
         val dormShortcutReady = if (shortcutTarget == ShortcutTarget.DORM_CHECKIN) {
             lifecycleScope.async {
                 pendingDormTaskId = shortcutRouter.resolveFirstUnsignedTask()
