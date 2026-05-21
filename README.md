@@ -21,14 +21,16 @@
 |:--:|:--:|:--:|
 | AI 课堂 | 我的 | 更多功能 |
 
-
+| ![](screenshots/shortcut.png) | | |
+|:--:|:--:|:--:|
+| shortcut快捷入口 | | |
 
 
 ## 安装
 
 ### 方式一：下载 APK
 
-> 即将在 [GitHub Releases](https://github.com/lightxin/lightxin/releases) 发布，敬请期待。
+> 请前往 [GitHub Releases](https://github.com/Relianttt/lightxin/releases) 下载最新的 APK 手动安装。
 
 ### 方式二：源码编译
 
