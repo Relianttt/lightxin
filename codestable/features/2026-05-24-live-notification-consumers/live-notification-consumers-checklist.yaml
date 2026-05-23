@@ -1,0 +1,19 @@
+feature: 2026-05-24-live-notification-consumers
+created: 2026-05-24
+
+steps:
+  - action: "创建 Flyme 课程通知展开布局 notification_live_course.xml"
+    exit_signal: "星课表风格：课程名大字 + 倒计时行 + 地点大字 + 右侧图标"
+    status: done
+
+  - action: "实现 CourseNotificationScheduler：定时检查 + 发布/更新/取消逻辑"
+    exit_signal: "每 60 秒检查 todayCourses，≤25min 发布，>5min 取消"
+    status: done
+
+  - action: "在 HomeViewModel 中启动 scheduler"
+    exit_signal: "init 时启动，viewModelScope 管理生命周期"
+    status: done
+
+  - action: "编译验证"
+    exit_signal: "BUILD SUCCESSFUL"
+    status: done

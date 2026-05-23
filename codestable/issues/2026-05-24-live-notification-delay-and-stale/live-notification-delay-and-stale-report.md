@@ -49,3 +49,4 @@ tags: [notification, flyme, android16, live-activity]
 - Flyme 对 `is_live=true` 通知是否有首次显示的冷启动延迟
 - 后台刷新停滞是否为 Flyme ROM 对 `notify()` 调用的节流行为
 - logcat 中 `startForeground` 时间戳 vs 通知实际出现时间戳的差值
+- 课程倒计时通知存在分钟级延迟（scheduler 每 60 秒检查一次，最坏情况延迟近 1 分钟）

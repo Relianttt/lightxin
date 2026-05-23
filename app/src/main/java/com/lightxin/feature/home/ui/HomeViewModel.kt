@@ -3,6 +3,7 @@ package com.lightxin.feature.home.ui
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.lightxin.core.auth.TokenManager
+import com.lightxin.core.notification.CourseNotificationScheduler
 import com.lightxin.feature.checkin.data.CheckinRepository
 import com.lightxin.feature.checkin.domain.CheckinTask
 import com.lightxin.feature.holiday.data.HolidayRepository
@@ -59,6 +60,7 @@ class HomeViewModel @Inject constructor(
     private val runningRepository: RunningRepository,
     private val laborRepository: LaborRepository,
     private val tokenManager: TokenManager,
+    private val courseNotificationScheduler: CourseNotificationScheduler,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HomeUiState())
@@ -82,6 +84,10 @@ class HomeViewModel @Inject constructor(
         }
         // 自行加载 bootstrap 不覆盖的 running / labor
         viewModelScope.launch { loadExtras() }
+        // 启动课程倒计时通知调度
+        courseNotificationScheduler.start(viewModelScope) {
+            _uiState.value.dashboardData.todayCourses
+        }
     }
 
     fun refresh() {

@@ -67,14 +67,24 @@ class FlymeLiveBackend : LiveActivityBackend {
     }
 
     private fun buildRemoteViews(context: Context, request: LiveActivityRequest): RemoteViews {
+        val extras = request.extras
+
+        // 课程通知使用专用布局
+        if (extras.getString("courseName") != null) {
+            val views = RemoteViews(context.packageName, R.layout.notification_live_course)
+            views.setTextViewText(R.id.live_course_name, extras.getString("courseName"))
+            views.setTextViewText(R.id.live_course_status, extras.getString("statusText"))
+            views.setTextViewText(R.id.live_course_room, extras.getString("room"))
+            views.setImageViewResource(R.id.live_course_icon, R.mipmap.ic_launcher)
+            return views
+        }
+
+        // 跑步通知布局
         val views = RemoteViews(context.packageName, R.layout.notification_live_running)
         views.setTextViewText(R.id.live_title, request.title)
-
-        val extras = request.extras
         views.setTextViewText(R.id.live_distance, extras.getString("distance") ?: "0.00 km")
         views.setTextViewText(R.id.live_line2, extras.getString("line2") ?: "")
         views.setImageViewResource(R.id.live_icon, R.mipmap.ic_launcher)
-
         return views
     }
 
