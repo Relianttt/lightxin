@@ -1,0 +1,61 @@
+feature: 2026-05-24-live-activity-notifier
+created: 2026-05-24
+
+steps:
+  - action: "建立 LiveActivityRequest / NotificationRoute / LiveActivityNotifier / backend router"
+    exit_signal: "feature 层只依赖统一门面，不接触 Flyme 或 Android 私有实现"
+    status: done
+
+  - action: "实现 Flyme backend：使用 IMPORTANCE_LOW channel、android.app.Notification.Builder、RemoteViews、完整 notification.live.capsule* 字段"
+    exit_signal: "实现符合 codestable/reference/live-notification-platform-contracts.md 的 Flyme 契约，Flyme dumpsys 能看到完整私有 extras，真机出现胶囊/实况通知"
+    status: done
+
+  - action: "实现 Android 16 promoted backend：使用 ongoing + requestPromotedOngoing，保持标准通知样式"
+    exit_signal: "实现符合 codestable/reference/live-notification-platform-contracts.md 的 Android 原生契约，Android 16 非 Flyme 设备走原生 Live Updates，且没有 RemoteViews / Flyme extras"
+    status: done
+
+  - action: "实现普通通知 backend 和点击路由"
+    exit_signal: "不支持实况的设备仍能收到可点击普通通知"
+    status: done
+
+  - action: "迁移 RunTrackingService 作为首个 consumer"
+    exit_signal: "跑步前台服务仍能启动和更新通知，业务状态不被通知层持有"
+    status: done
+
+  - action: "真机联调 Flyme / Android16 / Normal 三条路径"
+    exit_signal: "每条路径都有 dumpsys/logcat 或截图证据"
+    status: done
+    notes: "Flyme 胶囊+展开卡片正常；原生 promoted 正常。已知问题：通知显示延迟~10s + Flyme 后台刷新停滞，已开 issue 跟踪"
+
+checks:
+  - item: "Flyme backend 使用 contentResolver.call(uri, isNotificationLiveEnabled, null, null) 检测实况开关"
+    source: Flyme 修正版契约
+    status: done
+
+  - item: "Flyme capsuleBundle 内部 key 使用完整 notification.live.capsuleStatus / capsuleType / capsuleContent / capsuleIcon / capsuleBgColor / capsuleContentColor"
+    source: Flyme 修正版契约
+    status: done
+
+  - item: "Flyme 分支允许并使用 RemoteViews；Android 16 分支不使用 RemoteViews"
+    source: codestable/reference/live-notification-platform-contracts.md
+    status: done
+
+  - item: "Android 16 分支不携带 notification.live.* Flyme 私有字段"
+    source: codestable/reference/live-notification-platform-contracts.md
+    status: done
+
+  - item: "普通兜底分支不携带 Flyme 私有字段，也不请求 promoted ongoing"
+    source: codestable/reference/live-notification-platform-contracts.md
+    status: done
+
+  - item: "同一业务 key 的 show/update 覆盖同一通知 ID"
+    source: 验收契约
+    status: done
+
+  - item: "通知点击能回到 MainActivity 并进入目标页面"
+    source: 验收契约
+    status: done
+
+known_issues:
+  - "通知显示延迟约 10 秒（Flyme + 原生共有）→ issues/2026-05-24-live-notification-delay-and-stale"
+  - "Flyme 后台约 10 秒后实况通知停止刷新 → 同上"

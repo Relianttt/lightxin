@@ -64,6 +64,7 @@ fun LightXinNavHost(
     shortcutTarget: ShortcutTarget? = null,
     pendingDormTaskId: String? = null,
     isDormShortcutResolved: Boolean = false,
+    pendingNotificationRoute: String? = null,
     onShortcutConsumed: () -> Unit = {},
 ) {
     // 合并 onboarded + loggedIn 两态决定起始页
@@ -112,6 +113,14 @@ fun LightXinNavHost(
                 }
             }
         }
+        currentOnShortcutConsumed()
+    }
+
+    // 通知点击路由
+    LaunchedEffect(pendingNotificationRoute) {
+        val route = pendingNotificationRoute ?: return@LaunchedEffect
+        if (resolvedStartRoute != Routes.HOME) return@LaunchedEffect
+        navController.navigate(route) { launchSingleTop = true }
         currentOnShortcutConsumed()
     }
 

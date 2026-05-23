@@ -38,6 +38,7 @@ class MainActivity : ComponentActivity() {
     private var shortcutTarget by mutableStateOf<ShortcutTarget?>(null)
     private var pendingDormTaskId by mutableStateOf<String?>(null)
     private var dormShortcutResolved by mutableStateOf(false)
+    private var pendingNotificationRoute by mutableStateOf<String?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         val splashScreen = installSplashScreen()
@@ -46,6 +47,7 @@ class MainActivity : ComponentActivity() {
         splashScreen.setKeepOnScreenCondition { keepSplashOnScreen }
         super.onCreate(savedInstanceState)
         shortcutTarget = ShortcutTarget.fromAction(intent?.action)
+        pendingNotificationRoute = intent?.getStringExtra("notification_route")
 
         // 独立协程：真实执行数据加载（即使超时也会继续跑完，结果写入 HomeBootstrap.snapshot）
         lifecycleScope.launch { homeBootstrap.load() }
@@ -92,10 +94,12 @@ class MainActivity : ComponentActivity() {
                     shortcutTarget = shortcutTarget,
                     pendingDormTaskId = pendingDormTaskId,
                     isDormShortcutResolved = dormShortcutResolved,
+                    pendingNotificationRoute = pendingNotificationRoute,
                     onShortcutConsumed = {
                         shortcutTarget = null
                         pendingDormTaskId = null
                         dormShortcutResolved = false
+                        pendingNotificationRoute = null
                         shortcutRouter.consume()
                     },
                 )
@@ -106,6 +110,12 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
+        // 通知点击路由
+        val notificationRoute = intent.getStringExtra("notification_route")
+        if (notificationRoute != null) {
+            pendingNotificationRoute = notificationRoute
+            return
+        }
         shortcutTarget = ShortcutTarget.fromAction(intent.action)
         pendingDormTaskId = null
         dormShortcutResolved = shortcutTarget != ShortcutTarget.DORM_CHECKIN

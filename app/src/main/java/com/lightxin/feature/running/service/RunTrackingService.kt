@@ -1,18 +1,18 @@
 package com.lightxin.feature.running.service
 
 import android.Manifest
-import android.app.NotificationChannel
-import android.app.NotificationManager
 import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.os.Build
+import android.os.Bundle
 import android.os.IBinder
-import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
-import com.lightxin.R
 import com.lightxin.core.location.LocationProvider
+import com.lightxin.core.notification.LiveActivityNotifier
+import com.lightxin.core.notification.LiveActivityRequest
+import com.lightxin.core.notification.NotificationRoute
+import com.lightxin.navigation.Routes
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -20,6 +20,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -27,6 +28,7 @@ class RunTrackingService : Service() {
 
     @Inject lateinit var locationProvider: LocationProvider
     @Inject lateinit var tracker: RunningTracker
+    @Inject lateinit var notifier: LiveActivityNotifier
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var trackingJob: Job? = null
@@ -54,8 +56,22 @@ class RunTrackingService : Service() {
             stopSelf()
             return
         }
-        createChannelIfNeeded()
-        startForeground(NOTIFICATION_ID, buildNotification("跑步进行中", "正在等待 GPS"))
+
+        val initialRequest = LiveActivityRequest(
+            key = NOTIFICATION_KEY,
+            channelId = NOTIFICATION_KEY,
+            title = "跑步进行中",
+            content = "正在等待 GPS",
+            capsuleText = "0.00km",
+            route = NotificationRoute(destination = Routes.RUNNING_ACTIVE),
+            extras = Bundle().apply {
+                putString("bigText", "正在等待 GPS")
+                putString("distance", "0.00 km")
+                putString("line2", "等待定位中...")
+                putString("line3", "")
+            },
+        )
+        startForeground(notifier.idFor(initialRequest), notifier.buildInitial(initialRequest))
 
         trackingJob?.cancel()
         tracker.onServiceStarted()
@@ -80,6 +96,7 @@ class RunTrackingService : Service() {
         } else {
             tracker.stopCollecting()
         }
+        notifier.cancel(NOTIFICATION_KEY)
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
     }
@@ -87,39 +104,43 @@ class RunTrackingService : Service() {
     private fun notifyState() {
         val state = tracker.state.value
         val distanceKm = state.totalDistanceMeters / 1000.0
+        val durationSeconds = ((System.currentTimeMillis() - state.startTimeMillis) / 1000L).coerceAtLeast(0L)
+        val speedKmh = if (durationSeconds > 0L) distanceKm / durationSeconds * 3600.0 else 0.0
+
         val title = if (state.isCollecting) "跑步进行中" else "跑步已暂停"
-        val content = if (state.points.isEmpty()) {
-            state.locationLabel
-        } else {
-            String.format("已记录 %.2f km，%s", distanceKm, state.locationLabel)
+        val distanceStr = String.format("%.2f km", distanceKm)
+        val durationStr = formatDuration(durationSeconds)
+        val speedStr = if (speedKmh > 0.0) String.format("%.1f km/h", speedKmh) else "-- km/h"
+        val capsuleText = String.format("%.2fkm", distanceKm)
+        val content = "距离 $distanceStr · 时长 $durationStr"
+        val bigText = "距离 $distanceStr · 时长 $durationStr\n速度 $speedStr\nGPS ${state.locationLabel}"
+
+        val extras = Bundle().apply {
+            putString("bigText", bigText)
+            putString("distance", distanceStr)
+            putString("line2", "时长 $durationStr | 速度 $speedStr | ${state.locationLabel}")
+            putString("line3", "")
         }
-        notificationManager().notify(NOTIFICATION_ID, buildNotification(title, content))
-    }
 
-    private fun buildNotification(title: String, content: String) =
-        NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle(title)
-            .setContentText(content)
-            .setSmallIcon(R.mipmap.ic_launcher)
-            .setOngoing(true)
-            .setOnlyAlertOnce(true)
-            .build()
-
-    private fun createChannelIfNeeded() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
-        val manager = notificationManager()
-        if (manager.getNotificationChannel(CHANNEL_ID) != null) return
-        manager.createNotificationChannel(
-            NotificationChannel(
-                CHANNEL_ID,
-                "LightXin 跑步跟踪",
-                NotificationManager.IMPORTANCE_LOW,
-            )
+        val request = LiveActivityRequest(
+            key = NOTIFICATION_KEY,
+            channelId = NOTIFICATION_KEY,
+            title = title,
+            content = content,
+            capsuleText = capsuleText,
+            route = NotificationRoute(destination = Routes.RUNNING_ACTIVE),
+            extras = extras,
         )
+        notifier.show(request)
     }
 
-    private fun notificationManager(): NotificationManager =
-        getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+    private fun formatDuration(seconds: Long): String {
+        val h = TimeUnit.SECONDS.toHours(seconds)
+        val m = TimeUnit.SECONDS.toMinutes(seconds) % 60
+        val s = seconds % 60
+        return if (h > 0) String.format("%02d:%02d:%02d", h, m, s)
+        else String.format("%02d:%02d", m, s)
+    }
 
     private fun hasLocationPermission(): Boolean =
         ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) ==
@@ -128,8 +149,7 @@ class RunTrackingService : Service() {
                 PackageManager.PERMISSION_GRANTED
 
     companion object {
-        private const val CHANNEL_ID = "lightxin_running"
-        private const val NOTIFICATION_ID = 2001
+        private const val NOTIFICATION_KEY = "running"
         private const val ACTION_START = "com.lightxin.running.START"
         private const val ACTION_STOP = "com.lightxin.running.STOP"
         private const val ACTION_CANCEL = "com.lightxin.running.CANCEL"
