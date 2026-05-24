@@ -83,6 +83,7 @@ NotificationManager.notify(stableId, notification)
 | 展开样式 | `setCustomContentView(RemoteViews)` | `BigTextStyle` | `BigTextStyle` |
 | 私有 extras | `is_live` + `notification.live.*` | `android.requestPromotedOngoing` | 无 |
 | RemoteViews | ✅ 必须 | ❌ 禁止 | ❌ 不使用 |
+| 深色模式 | `notification.live.contentColor` 动态 + `res/color-night/` 资源 | 系统自动 | 系统自动 |
 
 ### 3.1 Flyme RemoteViews 布局分支
 
@@ -92,6 +93,23 @@ NotificationManager.notify(stableId, notification)
 - 无 → `notification_live_running.xml`（跑步：距离大字+时长速度GPS）
 
 锚点：`core/notification/FlymeLiveBackend.kt:68-84`
+
+### 3.2 Flyme 深色模式适配
+
+Flyme 实况通知的展开卡片由系统渲染背景，RemoteViews 内的文字颜色需跟随系统深色模式：
+
+- **布局层**：`notification_live_running.xml` 和 `notification_live_course.xml` 中的 `android:textColor` 不硬编码，改为引用 `@color/live_notification_*`。系统根据当前主题自动选择 `res/color/`（浅色）或 `res/color-night/`（深色）目录下的值。
+- **extras 层**：`notification.live.contentColor` 不再硬编码 `#FF263238`，改为 `FlymeLiveBackend.isDarkMode(context)` 运行时检测：浅色模式用 `#FF263238`，深色模式用 `#FFFFFFFF`。
+
+颜色资源文件：
+
+| 资源 | 浅色 (`res/color/`) | 深色 (`res/color-night/`) |
+|---|---|---|
+| `live_notification_title` | `#FF263238` | `#FFFFFFFF` |
+| `live_notification_secondary` | `#FF54656D` | `#FFB0BEC5` |
+| `live_notification_tertiary` | `#FF78909C` | `#FF90A4AE` |
+
+锚点：`core/notification/FlymeLiveBackend.kt:isDarkMode()` / `res/color*/live_notification_*.xml`
 
 ## 4. 消费者
 
@@ -137,9 +155,9 @@ NotificationManager.notify(stableId, notification)
 
 ## 6. 已知约束 / 边界情况
 
-- **通知显示延迟约 10 秒**（Flyme + 原生共有）— `startForeground` 后系统延迟渲染，原因待排查。见 `issues/2026-05-24-live-notification-delay-and-stale`
-- **Flyme 后台刷新停滞** — 进入后台约 10 秒后通知内容不再更新，数据记录不受影响。疑似 ROM 节流
-- **课程通知分钟级延迟** — scheduler 每 60 秒轮询，最坏延迟近 1 分钟
+- **通知显示延迟约 10 秒**（Flyme + 原生共有）— `startForeground` 后系统延迟渲染，已通过 `FOREGROUND_SERVICE_IMMEDIATE`（Android 12+）缓解。见 `issues/2026-05-24-live-notification-delay-and-stale`
+- **Flyme 后台刷新停滞** — 进入后台约 10 秒后通知内容不再更新（静态字段如距离/速度冻结），但 SystemUI 自驱的 Chronometer 时间可继续走；GPS 数据记录不受影响。根因是 Flyme `isFrozen=4` 进程冻结 + `numRateViolations` 通知限频双重作用。当前接受分层刷新策略，不再引入 AlarmManager 强保活。见 `issues/2026-05-24-live-notification-delay-and-stale`
+- **课程通知分钟级延迟** — scheduler 每 60 秒轮询，最坏延迟近 1 分钟；已有课程数据加载后 `checkNow()` 优化首屏
 - **Flyme 展开不支持 BigTextStyle** — 与 `is_live=true` extras 冲突导致空白，必须用 RemoteViews
 - **channel 创建后 importance 不可修改** — 需卸载重装才能生效新 importance
 
@@ -156,10 +174,17 @@ NotificationManager.notify(stableId, notification)
 - `feature/home/ui/HomeViewModel.kt` — 课程调度启动点
 - `res/layout/notification_live_running.xml` — 跑步 Flyme 展开布局
 - `res/layout/notification_live_course.xml` — 课程 Flyme 展开布局
+- `res/color/live_notification_title.xml` — 浅色模式主文字色
+- `res/color/live_notification_secondary.xml` — 浅色模式次要文字色
+- `res/color/live_notification_tertiary.xml` — 浅色模式辅助文字色
+- `res/color-night/live_notification_title.xml` — 深色模式主文字色
+- `res/color-night/live_notification_secondary.xml` — 深色模式次要文字色
+- `res/color-night/live_notification_tertiary.xml` — 深色模式辅助文字色
 
 ## 8. 相关文档
 
 - 平台接口契约：`codestable/reference/live-notification-platform-contracts.md`
+- 星课表实现分析：`codestable/reference/star-schedule-analysis.md`
 - 跑步模块：`codestable/architecture/running-overview.md`
 - 首页模块：`codestable/architecture/home-overview.md`
 - 课表模块：`codestable/architecture/schedule-overview.md`

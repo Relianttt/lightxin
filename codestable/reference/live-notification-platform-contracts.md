@@ -320,7 +320,7 @@ val liveBundle = Bundle().apply {
 | `notification.live.operation` | Int | 操作类型；参考实现发布时为 `0` |
 | `notification.live.type` | Int | 实况类型；星课表用 `10`，demo 用过 `2` |
 | `notification.live.capsule` | Bundle | 胶囊配置 |
-| `notification.live.contentColor` | Int | 展开卡片内容色，星课表使用 |
+| `notification.live.contentColor` | Int | 展开卡片内容色，应跟随系统深色模式动态选择（浅色 `#FF263238`，深色 `#FFFFFFFF`），不应硬编码 |
 
 ### 2.3 capsule bundle
 
@@ -367,7 +367,19 @@ val notification = Notification.Builder(context, channelId)
 
 Flyme 实况通知频道建议使用 `NotificationManager.IMPORTANCE_HIGH`。星课表和 demo 都使用 high importance 的 live channel。
 
-### 2.5 常见误区
+注意：LightXin 实际使用 `IMPORTANCE_LOW`（前台服务通知避免频繁打扰），与星课表的 HIGH 不一致。若后续需要调试通知优先级，换 channel id 重新创建即可验证。
+
+### 2.5 RemoteViews 文字颜色
+
+Flyme 实况通知的展开卡片背景由系统根据当前主题渲染（浅色/深色），RemoteViews 内的文字不应硬编码颜色，否则深色模式下深字+深底无法辨认。推荐做法：
+
+- 布局中用 `@color/live_notification_*` 引用替代硬编码 `#FFxxxxxx`
+- 在 `res/color/` 和 `res/color-night/` 分别定义浅色和深色变体
+- `notification.live.contentColor` 在代码中通过 `Configuration.uiMode` 检测深色模式后动态选择
+
+参考实现：星课表 `res/color/live_title_color.xml` + `res/color-night/live_title_color.xml`，以及 `NotificationManager.kt` 中 `autoContentColorFor()` 根据胶囊背景亮度算黑/白。
+
+### 2.6 常见误区
 
 - 不要只写外层 `notification.live.capsule`，内层字段才决定胶囊内容如何渲染。
 - 不要把内层 key 写成 `showText`、`topDisplayText`、`capsuleStatus` 这类简写；这些更像 Flyme SystemUI 内部模型字段，不等于外部 extras 协议。

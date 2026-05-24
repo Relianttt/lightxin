@@ -54,10 +54,14 @@ tags: [notification, flyme, android16, live-activity]
 ### 未解决：Flyme 后台刷新停滞
 
 - 现象仍存在：进入后台一段时间后，Flyme 实况通知中的距离/速度/文本停止刷新；系统 Chronometer 类时间展示可继续走，但静态 RemoteViews 字段不会自动变化。
-- adb 采样证据显示，后台后 `com.lightxin` 仍是前台服务进程，`RunTrackingService` 仍存在；同时进程状态进入 `FGS` 且 `isFrozen=4`。
-- 通知记录在冻结后卡住，例如 `android.text=距离 0.68 km · 时长 03:05`，对应 `mUpdateTimeMs=1779622670917` 不再变化。
-- 实验期间 `dumpsys alarm` 里 `com.lightxin.running.NOTIFICATION_REFRESH` 只有 2 次 wakeup，后续未继续增加，说明普通 `setAndAllowWhileIdle` 自续 Broadcast 方案无法稳定穿透该后台状态。
-- `dumpsys notification` 统计中出现过 `com.lightxin numRateViolations=259`，说明过高频率 notify 还可能触发系统通知限频，不能简单用更密集刷新解决。
+- 根因分析：Flyme 后台进程冻结（`isFrozen=4`）阻止 app 重新 `notify()` 更新静态 RemoteViews 字段；Chronometer 由 SystemUI 自驱，不依赖 app 进程。通知限频（`numRateViolations=259`）使偶尔穿透的更新也被拦截。
+- 星课表对照：星课表的通知模型是事件驱动的一次性通知（上课/下课 2-3 次更新），通过 `setExactAndAllowWhileIdle` 精确闹钟在固定时间点触发，不需要后台持续刷新。与 LightXin 跑步通知"每秒级连续更新"不是同一问题。
+- 分层刷新策略：后台实况通知中时长（Chronometer）持续走；距离/速度在 app 可调度时更新；跑步记录本身以 RunningTracker 轨迹点为准。
+
+### 已修复：深色模式字体反色
+
+- RemoteViews 布局中 `android:textColor` 从硬编码 `#FF263238` 改为 `@color/live_notification_*` 资源引用，配合 `res/color-night/` 目录实现深色模式自动反色。
+- `notification.live.contentColor` 从硬编码改为 `FlymeLiveBackend.isDarkMode()` 运行时检测：浅色模式 `#FF263238`，深色模式 `#FFFFFFFF`。
 
 ## 已尝试但未成功的 Flyme 刷新方案
 
@@ -69,7 +73,9 @@ tags: [notification, flyme, android16, live-activity]
 
 ## 下一步计划
 
-- 暂停继续修 Flyme 后台刷新，避免在没有新平台证据时继续堆保活逻辑。
-- 下次继续时优先拉取并对比星课表或其他 Flyme 实况通知实现，重点看它们是否使用精确闹钟、前台服务自启动 action、厂商白名单/权限引导，或 Flyme 私有服务绑定回调。
-- 再次复现时抓窄日志：`dumpsys notification --noredact`、`dumpsys alarm`、`dumpsys activity processes com.lightxin`、`notifyAsUser` / `AlarmManager` / Flyme SystemUI 关键词即可，避免完整 logcat 噪声。
-- 如果确认厂商允许，下一轮再评估 `SCHEDULE_EXACT_ALARM`、前台服务自唤醒 action、或用户侧电池白名单提示；默认不引入高频 notify。
+- 当前接受分层刷新策略，不再引入 AlarmManager / WakeLock / 协程定时等已证实无效的保活方案。
+- 不采用 `SCHEDULE_EXACT_ALARM` 精确闹钟：权限成本高、不适合连续刷新场景、且不保证穿透 Flyme freezer。
+- 星课表真机对照（已完成代码分析，见 `tmp/star-schedule-analysis.md`）：星课表通知模型为事件驱动，不适用跑步连续刷新场景。
+- 如其他厂商设备也出现类似后台停滞，优先评估引导用户开启电池优化白名单（`ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`），但预期要低——系统进程冻结和电池优化是两层机制。
+- 低优先级实验（不承诺有效）：Flyme marker service 复测、`IMPORTANCE_HIGH` channel + 换 channel id。
+- 再次复现时抓窄日志即可，不做全量 logcat。

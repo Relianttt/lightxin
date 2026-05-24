@@ -6,6 +6,7 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.content.res.Configuration
 import android.graphics.drawable.Icon
 import android.os.Build
 import android.os.Bundle
@@ -23,11 +24,15 @@ class FlymeLiveBackend : LiveActivityBackend {
         const val CHANNEL_ID = "lightxin_live_flyme"
         private const val CAPSULE_BG_COLOR = 0xFF4CAF50.toInt()
         private const val CAPSULE_CONTENT_COLOR = 0xFFFFFFFF.toInt()
-        private const val CARD_CONTENT_COLOR = 0xFF263238.toInt()
+
+        private const val CARD_CONTENT_COLOR_LIGHT = 0xFF263238.toInt()
+        private const val CARD_CONTENT_COLOR_DARK = 0xFFFFFFFF.toInt()
     }
 
     override fun build(context: Context, request: LiveActivityRequest, notificationId: Int): Notification {
         ensureChannel(context)
+
+        val cardContentColor = if (isDarkMode(context)) CARD_CONTENT_COLOR_DARK else CARD_CONTENT_COLOR_LIGHT
 
         val capsuleBundle = Bundle().apply {
             putInt("notification.live.capsuleStatus", 1)
@@ -46,7 +51,7 @@ class FlymeLiveBackend : LiveActivityBackend {
             putInt("notification.live.operation", 0)
             putInt("notification.live.type", 10)
             putBundle("notification.live.capsule", capsuleBundle)
-            putInt("notification.live.contentColor", CARD_CONTENT_COLOR)
+            putInt("notification.live.contentColor", cardContentColor)
         }
 
         val contentRemoteViews = buildRemoteViews(context, request)
@@ -118,5 +123,10 @@ class FlymeLiveBackend : LiveActivityBackend {
                 setShowBadge(false)
             }
         )
+    }
+
+    private fun isDarkMode(context: Context): Boolean {
+        val nightMode = context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK
+        return nightMode == Configuration.UI_MODE_NIGHT_YES
     }
 }
