@@ -7,6 +7,7 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.graphics.drawable.Icon
+import android.os.Build
 import android.os.Bundle
 import android.widget.RemoteViews
 import com.lightxin.MainActivity
@@ -22,6 +23,7 @@ class FlymeLiveBackend : LiveActivityBackend {
         const val CHANNEL_ID = "lightxin_live_flyme"
         private const val CAPSULE_BG_COLOR = 0xFF4CAF50.toInt()
         private const val CAPSULE_CONTENT_COLOR = 0xFFFFFFFF.toInt()
+        private const val CARD_CONTENT_COLOR = 0xFF263238.toInt()
     }
 
     override fun build(context: Context, request: LiveActivityRequest, notificationId: Int): Notification {
@@ -44,13 +46,13 @@ class FlymeLiveBackend : LiveActivityBackend {
             putInt("notification.live.operation", 0)
             putInt("notification.live.type", 10)
             putBundle("notification.live.capsule", capsuleBundle)
-            putInt("notification.live.contentColor", CAPSULE_CONTENT_COLOR)
+            putInt("notification.live.contentColor", CARD_CONTENT_COLOR)
         }
 
         val contentRemoteViews = buildRemoteViews(context, request)
         val pendingIntent = buildPendingIntent(context, request, notificationId)
 
-        val notification = Notification.Builder(context, CHANNEL_ID)
+        val builder = Notification.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification_lightxin)
             .setContentTitle(request.title)
             .setContentText(request.content)
@@ -61,7 +63,10 @@ class FlymeLiveBackend : LiveActivityBackend {
             .setOngoing(request.ongoing)
             .setOnlyAlertOnce(true)
             .setVisibility(Notification.VISIBILITY_PUBLIC)
-            .build()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            builder.setForegroundServiceBehavior(Notification.FOREGROUND_SERVICE_IMMEDIATE)
+        }
+        val notification = builder.build()
 
         return notification
     }

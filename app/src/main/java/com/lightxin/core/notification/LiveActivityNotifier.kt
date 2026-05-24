@@ -20,6 +20,7 @@ class LiveActivityNotifier @Inject constructor(
         context.getSystemService(NotificationManager::class.java)
 
     private val keyToId = mutableMapOf<String, Int>()
+    private val keyToBackend = mutableMapOf<String, LiveActivityBackend>()
     private var nextId = 3001
 
     private val flymeBackend by lazy { FlymeLiveBackend() }
@@ -36,12 +37,15 @@ class LiveActivityNotifier @Inject constructor(
     private fun idFor(key: String): Int =
         keyToId.getOrPut(key) { nextId++ }
 
+    private fun backendForKey(key: String): LiveActivityBackend =
+        keyToBackend.getOrPut(key) { backendFor(context) }
+
     /**
      * 构建初始 Notification 对象（用于 startForeground）。
      */
     fun buildInitial(request: LiveActivityRequest): Notification {
         val id = idFor(request.key)
-        return backendFor(context).build(context, request, id)
+        return backendForKey(request.key).build(context, request, id)
     }
 
     /**
@@ -49,7 +53,7 @@ class LiveActivityNotifier @Inject constructor(
      */
     fun show(request: LiveActivityRequest) {
         val id = idFor(request.key)
-        val notification = backendFor(context).build(context, request, id)
+        val notification = backendForKey(request.key).build(context, request, id)
         notificationManager.notify(id, notification)
     }
 
@@ -57,6 +61,7 @@ class LiveActivityNotifier @Inject constructor(
      * 取消指定 key 的通知。
      */
     fun cancel(key: String) {
+        keyToBackend.remove(key)
         keyToId.remove(key)?.let { id ->
             notificationManager.cancel(id)
         }

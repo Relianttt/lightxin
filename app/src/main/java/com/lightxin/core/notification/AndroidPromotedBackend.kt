@@ -34,6 +34,7 @@ class AndroidPromotedBackend : LiveActivityBackend {
             .setOnlyAlertOnce(true)
             .setCategory(NotificationCompat.CATEGORY_STATUS)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
             .setContentIntent(pendingIntent)
 
         // 通过 extras 请求 promoted ongoing + shortCriticalText

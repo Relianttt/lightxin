@@ -1,7 +1,6 @@
 package com.lightxin.core.notification
 
 import android.os.Bundle
-import android.widget.RemoteViews
 import com.lightxin.R
 import com.lightxin.feature.home.domain.SectionSchedule
 import com.lightxin.feature.schedule.domain.Course
@@ -41,6 +40,10 @@ class CourseNotificationScheduler @Inject constructor(
         job?.cancel()
         job = null
         notifier.cancel(KEY)
+    }
+
+    fun checkNow(courses: List<Course>) {
+        check(courses)
     }
 
     private fun check(courses: List<Course>) {

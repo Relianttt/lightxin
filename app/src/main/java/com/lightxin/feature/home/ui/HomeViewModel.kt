@@ -126,6 +126,12 @@ class HomeViewModel @Inject constructor(
     }
 
     private fun applyBootstrap(snapshot: HomeBootstrapSnapshot) {
+        val mergedData = _uiState.value.dashboardData.copy(
+            todayCourses = snapshot.todayCourses,
+            tomorrowFirstSection = snapshot.tomorrowFirstSection,
+            currentWeek = snapshot.currentWeek,
+            nextCheckin = snapshot.nextUnsignedCheckin,
+        )
         _uiState.update { current ->
             val merged = current.dashboardData.copy(
                 todayCourses = snapshot.todayCourses,
@@ -145,6 +151,7 @@ class HomeViewModel @Inject constructor(
                 errors = errors,
             )
         }
+        courseNotificationScheduler.checkNow(mergedData.todayCourses)
     }
 
     private suspend fun loadExtras() = coroutineScope {
@@ -215,6 +222,7 @@ class HomeViewModel @Inject constructor(
                     errors = errors,
                 )
             }
+            courseNotificationScheduler.checkNow(merged.todayCourses)
         }
     }
 

@@ -22,7 +22,7 @@
             android:layout_height="wrap_content"
             android:textSize="20sp"
             android:textStyle="bold"
-            android:textColor="#FFFFFFFF"
+            android:textColor="#FF263238"
             android:maxLines="1"
             android:ellipsize="end" />
 
@@ -33,7 +33,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="2dp"
             android:textSize="14sp"
-            android:textColor="#DDFFFFFF" />
+            android:textColor="#FF54656D" />
 
         <!-- 地点标签 -->
         <TextView
@@ -42,7 +42,7 @@
             android:layout_marginTop="6dp"
             android:text="地点"
             android:textSize="12sp"
-            android:textColor="#99FFFFFF" />
+            android:textColor="#FF78909C" />
 
         <!-- 地点（大字） -->
         <TextView
@@ -51,7 +51,7 @@
             android:layout_height="wrap_content"
             android:textSize="25sp"
             android:textStyle="bold"
-            android:textColor="#FFFFFFFF" />
+            android:textColor="#FF263238" />
     </LinearLayout>
 
     <!-- 右侧图标 -->
