@@ -278,7 +278,7 @@ class HomeViewModel @Inject constructor(
 
     private suspend fun loadNextCheckin(): Pair<CheckinTask?, String?> {
         val result = checkinRepository.getTasks(page = 1, pageSize = 5)
-        val task = result.getOrNull()?.firstOrNull { !it.isSigned }
+        val task = result.getOrNull()?.firstOrNull { !it.isSigned && it.isInOpenWindow }
         return Pair(task, result.exceptionOrNull()?.message)
     }
 

@@ -107,7 +107,7 @@ class HomeBootstrap @Inject constructor(
 
     private suspend fun loadCheckin(): Pair<CheckinTask?, String?> {
         val result = checkinRepository.getTasks(page = 1, pageSize = 5)
-        val task = result.getOrNull()?.firstOrNull { !it.isSigned }
+        val task = result.getOrNull()?.firstOrNull { !it.isSigned && it.isInOpenWindow }
         return task to result.exceptionOrNull()?.message
     }
 
