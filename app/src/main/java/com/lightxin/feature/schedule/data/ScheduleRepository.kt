@@ -3,6 +3,7 @@ package com.lightxin.feature.schedule.data
 import com.lightxin.core.auth.TokenManager
 import com.lightxin.core.network.CshRetrofit
 import com.lightxin.feature.schedule.domain.Course
+import com.lightxin.feature.schedule.domain.ScheduleData
 import com.lightxin.feature.schedule.domain.WeekInfo
 import dagger.Module
 import dagger.Provides
@@ -46,7 +47,7 @@ class ScheduleRepository @Inject constructor(
         schoolYear: String,
         schoolTerm: String,
         week: Int,
-    ): Result<List<Course>> {
+    ): Result<ScheduleData> {
         return try {
             val userCode = tokenManager.getUserCode().orEmpty()
             if (userCode.isBlank()) {
@@ -61,8 +62,10 @@ class ScheduleRepository @Inject constructor(
             )
 
             val courses = mutableListOf<Course>()
+            val weekDates = mutableMapOf<Int, String>()
             response.rows?.forEach { day ->
                 val dayOfWeek = day.xq?.toIntOrNull() ?: return@forEach
+                if (day.rq != null) weekDates[dayOfWeek] = day.rq
                 day.kcVoList?.forEach { vo ->
                     val startSection = vo.ksjc?.toIntOrNull() ?: return@forEach
                     val endSection = vo.jsjc?.toIntOrNull() ?: startSection
@@ -79,7 +82,7 @@ class ScheduleRepository @Inject constructor(
                 }
             }
 
-            Result.success(courses)
+            Result.success(ScheduleData(courses = courses, weekDates = weekDates))
         } catch (e: Exception) {
             Result.failure(Exception(mapErrorMessage("加载课表", e), e))
         }

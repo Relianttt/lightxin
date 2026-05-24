@@ -105,6 +105,7 @@ fun ScheduleScreen(
                 uiState.courses.isEmpty() -> LxEmpty(message = "本周没有课程")
                 else -> ScheduleGrid(
                     courses = uiState.courses,
+                    weekDates = uiState.weekDates,
                     showCurrentDayIndicator = uiState.weekInfo?.currentWeek == uiState.selectedWeek,
                     onCourseClick = { selectedCourse = it },
                 )
@@ -228,6 +229,7 @@ private fun WeekChip(
 @Composable
 private fun ScheduleGrid(
     courses: List<Course>,
+    weekDates: Map<Int, String>,
     showCurrentDayIndicator: Boolean,
     onCourseClick: (Course) -> Unit,
 ) {
@@ -257,6 +259,13 @@ private fun ScheduleGrid(
                         fontWeight = if (isToday) FontWeight.Bold else FontWeight.Normal,
                         color = if (isToday) LxTerra else LxInkMuted,
                     )
+                    weekDates[dayIndex]?.let { date ->
+                        Text(
+                            text = date,
+                            fontSize = 10.sp,
+                            color = LxInkMuted,
+                        )
+                    }
                     if (isToday) {
                         Spacer(modifier = Modifier.height(3.dp))
                         Box(

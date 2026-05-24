@@ -33,6 +33,7 @@ data class TimeTableResponse(
 data class DaySchedule(
     val xq: String?,
     val kcVoList: List<CourseVo>?,
+    val rq: String?,        // 日期，格式 MM/dd
 )
 
 data class CourseVo(

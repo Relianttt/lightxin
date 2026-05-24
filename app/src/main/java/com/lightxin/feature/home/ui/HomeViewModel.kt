@@ -259,7 +259,7 @@ class HomeViewModel @Inject constructor(
             weekInfo.schoolTerm,
             weekInfo.currentWeek,
         )
-        val allCourses = coursesResult.getOrNull().orEmpty()
+        val allCourses = coursesResult.getOrNull()?.courses.orEmpty()
 
         val todayDow = LocalDate.now().dayOfWeek.value
         val todayCourses = allCourses

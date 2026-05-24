@@ -1,0 +1,40 @@
+feature: 2026-05-25-schedule-date-display
+created: 2026-05-25
+
+steps:
+  - action: "DaySchedule 新增 rq 字段；ScheduleRepository 新增 ScheduleData 包装类并解析 weekDates"
+    exit_signal: "getCourses() 返回 Result<ScheduleData>，包含 weekDates: Map<Int, String>"
+    status: done
+
+  - action: "适配 HomeViewModel.loadTodayCourses() 和 HomeBootstrap.loadCourses() 新返回类型"
+    exit_signal: "编译通过，只取 courses 丢弃 weekDates"
+    status: done
+
+  - action: "ScheduleUiState 新增 weekDates 字段并赋值"
+    exit_signal: "来自 repository 的 weekDates 可传递到 UI"
+    status: done
+
+  - action: "ScheduleGrid 表头渲染日期（MM/dd，10sp, LxInkMuted，位于星期与圆点之间）"
+    exit_signal: "所有 7 天表头均显示日期；空天（无圆点）也显示日期"
+    status: done
+
+  - action: "编译 + lint + 真机验证"
+    exit_signal: "BUILD SUCCESSFUL，切换周次日期变化，空天也有日期"
+    status: done
+
+checks:
+  - item: "DaySchedule.rq 字段存在且正确解析为 MM/dd 格式"
+    source: design §2.1
+    status: done
+
+  - item: "HomeViewModel 和 HomeBootstrap 编译通过"
+    source: design §2.2
+    status: done
+
+  - item: "空白天（无课程）仍显示日期"
+    source: 验收契约 §4
+    status: done
+
+  - item: "接口未返回 rq 时 weekDates 为空 map，UI 不崩溃"
+    source: 验收契约 §5
+    status: done

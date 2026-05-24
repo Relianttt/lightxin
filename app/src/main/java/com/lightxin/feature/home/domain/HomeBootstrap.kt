@@ -86,7 +86,7 @@ class HomeBootstrap @Inject constructor(
             weekInfo.schoolTerm,
             weekInfo.currentWeek,
         )
-        val all = coursesResult.getOrNull().orEmpty()
+        val all = coursesResult.getOrNull()?.courses.orEmpty()
         val todayDow = LocalDate.now().dayOfWeek.value
         val tomorrowDow = if (todayDow == 7) 1 else todayDow + 1
 

@@ -15,6 +15,7 @@ import javax.inject.Inject
 data class ScheduleUiState(
     val weekInfo: WeekInfo? = null,
     val courses: List<Course> = emptyList(),
+    val weekDates: Map<Int, String> = emptyMap(),
     val selectedWeek: Int = 1,
     val isLoading: Boolean = true,
     val error: String? = null,
@@ -68,8 +69,10 @@ class ScheduleViewModel @Inject constructor(
         _uiState.update { it.copy(isLoading = true, error = null) }
 
         repository.getCourses(schoolYear, schoolTerm, week).fold(
-            onSuccess = { courses ->
-                _uiState.update { it.copy(courses = courses, isLoading = false) }
+            onSuccess = { data ->
+                _uiState.update {
+                    it.copy(courses = data.courses, weekDates = data.weekDates, isLoading = false)
+                }
             },
             onFailure = { e ->
                 _uiState.update {
