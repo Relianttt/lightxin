@@ -1,6 +1,7 @@
 package com.lightxin.feature.running.data
 
 import android.os.Build
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import com.google.gson.JsonElement
 import com.google.gson.JsonObject
 import com.lightxin.core.auth.TokenManager
@@ -42,11 +43,27 @@ class RunningRepository @Inject constructor(
                 dashboardJson.requireSportsSuccess("获取跑步首页失败")
                 studentTypeJson.requireSportsSuccess("获取学生类型失败")
 
-                val completedKm = dashboardJson.lookupDouble("completedKM", "dsTaskMile")
-                val explicitTargetKm = dashboardJson.lookupDouble("dsTaskThreshold", "totalTaskThreshold")
+                val studentTypeLabel = studentTypeJson.lookupString("result", "msg")
+                    .ifBlank { "学生类型未识别" }
+
+                // 大一大二并行拉课外跑步进度 + 俱乐部摘要（按接口独立降级，失败不互相牵连）
+                val isJunior = SportsGradeMapper.isJuniorGrade(studentTypeLabel)
+                val juniorParams = if (isJunior) params + ("grade" to studentTypeLabel) else params
+                val extraDeferred = if (isJunior) async { runCatching { api.getExtraInfo(juniorParams) }.getOrNull() } else null
+                val clubDeferred = if (isJunior) async { runCatching { api.getClubInfo(juniorParams) }.getOrNull() } else null
+                val extraJson = extraDeferred?.await()
+                val clubSummary = SportsGradeMapper.parseClubSummary(clubDeferred?.await())
+
+                val startIndexCompletedKm = dashboardJson.lookupDouble("completedKM", "dsTaskMile")
+                val startIndexTargetKm = dashboardJson.lookupDouble("dsTaskThreshold", "totalTaskThreshold")
                 val leftKm = dashboardJson.lookupDouble("leftKM")
+
+                // 大二目标值改取服务端下发的课外跑步计划（extraInfo）；大三保持 startIndex 字段。不本地按性别/年级计算。
+                val (extraCompletedKm, extraPlanKm) = SportsGradeMapper.parseExtraProgress(extraJson)
+                val completedKm = if (isJunior && extraPlanKm > 0.0) extraCompletedKm else startIndexCompletedKm
                 val taskTargetKm = when {
-                    explicitTargetKm > 0.0 -> explicitTargetKm
+                    isJunior && extraPlanKm > 0.0 -> extraPlanKm
+                    startIndexTargetKm > 0.0 -> startIndexTargetKm
                     completedKm > 0.0 || leftKm > 0.0 -> completedKm + leftKm
                     else -> 0.0
                 }
@@ -61,8 +78,8 @@ class RunningRepository @Inject constructor(
                         maxKm = dashboardJson.lookupDouble("maxKM"),
                         maxKmDate = dashboardJson.lookupString("maxKmDate"),
                         dsFlag = dashboardJson.lookupBoolean("dsFlag", "taskFlag"),
-                        studentTypeLabel = studentTypeJson.lookupString("result", "msg")
-                            .ifBlank { "学生类型未识别" },
+                        studentTypeLabel = studentTypeLabel,
+                        clubSummary = clubSummary,
                     )
                 )
             }
@@ -70,6 +87,40 @@ class RunningRepository @Inject constructor(
             Result.failure(Exception(e.message ?: "获取跑步首页失败", e))
         }
     }
+
+    suspend fun getClubDetail(): Result<List<com.lightxin.feature.running.exercise.domain.ClubTask>> {
+        return try {
+            val params = sportsAuthParams()
+            val grade = api.checkDsStudent(params).lookupString("result", "msg")
+            val clubJson = api.getClubDetail(params + ("grade" to grade))
+            clubJson.requireSportsSuccess("获取俱乐部详情失败")
+            Result.success(ClubDetailMapper.parseTasks(clubJson))
+        } catch (e: Exception) {
+            Result.failure(Exception(e.message ?: "获取俱乐部详情失败", e))
+        }
+    }
+
+    suspend fun currentStudentCode(): String = tokenManager.getUserCode().orEmpty()
+
+    /** 轮询锻炼考勤打卡结果。返回 true 表示打卡成功（hasResult=YES）。 */
+    suspend fun pollQrcodeResult(timestamp: Long): Result<Boolean> {
+        return try {
+            val studentCode = tokenManager.getUserCode().orEmpty()
+            val json = api.getQrcodeResult(
+                studentCode = studentCode.toPlainBody(),
+                timestamp = timestamp.toString().toPlainBody(),
+            )
+            val hasResult = json.get("data")
+                ?.takeIf { it.isJsonObject }?.asJsonObject
+                ?.get("hasResult")?.takeUnless { it.isJsonNull }?.asString.orEmpty()
+            Result.success(hasResult.equals("YES", ignoreCase = true))
+        } catch (e: Exception) {
+            Result.failure(Exception(e.message ?: "查询打卡结果失败", e))
+        }
+    }
+
+    private fun String.toPlainBody(): okhttp3.RequestBody =
+        okhttp3.RequestBody.create("text/plain".toMediaTypeOrNull(), this)
 
     suspend fun startRunning(extraId: String? = null): Result<RunningStartInfo> {
         return try {

@@ -28,6 +28,12 @@ object Routes {
     const val RUNNING_ROUTE_DETAIL = "running/route/detail/{templateId}"
     fun runningRouteDetail(templateId: String) = "running/route/detail/$templateId"
 
+    // Running - 大二俱乐部 / 锻炼考勤
+    const val RUNNING_CLUB_DETAIL = "running/club"
+    const val RUNNING_EXERCISE_CHECK = "running/exercise/{autoId}/{memberId}"
+    fun runningExerciseCheck(autoId: String, memberId: String) =
+        "running/exercise/${Uri.encode(autoId)}/${Uri.encode(memberId)}"
+
     // Labor
     const val LABOR_SUMMARY = "labor/summary"
 

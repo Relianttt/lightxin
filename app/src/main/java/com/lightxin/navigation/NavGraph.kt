@@ -51,6 +51,8 @@ import com.lightxin.feature.running.ui.RouteTemplateRecordScreen
 import com.lightxin.feature.running.ui.RouteTemplateViewModel
 import com.lightxin.feature.running.ui.RunningActiveScreen
 import com.lightxin.feature.running.ui.RunningHomeScreen
+import com.lightxin.feature.running.exercise.ui.ClubDetailScreen
+import com.lightxin.feature.running.exercise.ui.ExerciseCheckScreen
 import com.lightxin.feature.running.ui.RunningResultScreen
 import com.lightxin.feature.running.ui.RunningSimScreen
 import com.lightxin.feature.running.ui.RunningViewModel
@@ -244,6 +246,11 @@ fun LightXinNavHost(
             RunningHomeScreen(
                 viewModel = runningViewModel,
                 onBack = { navController.popBackStack() },
+                onOpenClub = {
+                    navController.navigate(Routes.RUNNING_CLUB_DETAIL) {
+                        launchSingleTop = true
+                    }
+                },
                 onOpenActive = {
                     navController.navigate(Routes.RUNNING_ACTIVE) {
                         launchSingleTop = true
@@ -304,6 +311,27 @@ fun LightXinNavHost(
                         launchSingleTop = true
                     }
                 },
+            )
+        }
+        composable(Routes.RUNNING_CLUB_DETAIL) {
+            ClubDetailScreen(
+                onBack = { navController.popBackStack() },
+                onStartCheck = { autoId, memberId ->
+                    navController.navigate(Routes.runningExerciseCheck(autoId, memberId)) {
+                        launchSingleTop = true
+                    }
+                },
+            )
+        }
+        composable(
+            route = Routes.RUNNING_EXERCISE_CHECK,
+            arguments = listOf(
+                navArgument("autoId") { type = NavType.StringType },
+                navArgument("memberId") { type = NavType.StringType },
+            ),
+        ) {
+            ExerciseCheckScreen(
+                onBack = { navController.popBackStack() },
             )
         }
 

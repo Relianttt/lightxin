@@ -4,6 +4,7 @@ import android.Manifest
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -16,6 +17,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.DirectionsRun
 import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.SsidChart
@@ -47,6 +49,7 @@ import com.lightxin.core.designsystem.component.LxError
 import com.lightxin.core.designsystem.component.LxLoading
 import com.lightxin.core.designsystem.component.LxOutlinedButton
 import com.lightxin.core.designsystem.component.LxTopBar
+import com.lightxin.feature.running.domain.ClubSummary
 import com.lightxin.feature.running.domain.RunningDashboard
 import com.lightxin.feature.running.service.RunTrackingService
 import kotlinx.coroutines.launch
@@ -58,6 +61,7 @@ fun RunningHomeScreen(
     onOpenSim: () -> Unit,
     modifier: Modifier = Modifier,
     onBack: (() -> Unit)? = null,
+    onOpenClub: () -> Unit = {},
     viewModel: RunningViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -121,6 +125,7 @@ fun RunningHomeScreen(
                 trackerLabel = uiState.trackerState.locationLabel,
                 startError = permissionError ?: uiState.startError,
                 advancedEnabled = uiState.advancedEnabled,
+                onOpenClub = onOpenClub,
                 onPrimaryAction = {
                     if (uiState.trackerState.isSessionActive) {
                         onOpenActive()
@@ -146,6 +151,7 @@ private fun RunningHomeContent(
     onPrimaryAction: () -> Unit,
     onSimAction: () -> Unit,
     modifier: Modifier = Modifier,
+    onOpenClub: () -> Unit = {},
 ) {
     LazyColumn(
         modifier = modifier.fillMaxSize(),
@@ -168,6 +174,12 @@ private fun RunningHomeContent(
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+        }
+
+        dashboard?.clubSummary?.let { club ->
+            item {
+                ClubSummaryCard(club = club, onClick = onOpenClub)
+            }
         }
 
         item {
@@ -207,6 +219,50 @@ private fun RunningHomeContent(
                     enabled = !isStarting,
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun ClubSummaryCard(
+    club: ClubSummary,
+    onClick: () -> Unit,
+) {
+    LxCard(modifier = Modifier.clickable(onClick = onClick)) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(20.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = club.courseName.ifBlank { "体育课程" },
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = listOf(club.term, club.teacherName.let { if (it.isBlank()) "" else "指导老师 $it" })
+                        .filter { it.isNotBlank() }
+                        .joinToString(" · "),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                if (club.memberLevel.isNotBlank()) {
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = club.memberLevel,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.secondary,
+                    )
+                }
+            }
+            Icon(
+                imageVector = Icons.Default.ChevronRight,
+                contentDescription = "俱乐部详情",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }

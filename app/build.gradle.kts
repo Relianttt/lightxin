@@ -83,5 +83,8 @@ dependencies {
     implementation(libs.camerax.view)
     implementation(libs.mlkit.barcode)
 
+    // ZXing core (锻炼考勤二维码生成；扫描仍用 ML Kit)
+    implementation(libs.zxing.core)
+
     testImplementation("junit:junit:4.13.2")
 }

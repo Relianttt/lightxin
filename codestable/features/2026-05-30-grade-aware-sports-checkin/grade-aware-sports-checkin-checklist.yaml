@@ -1,0 +1,78 @@
+feature: 2026-05-30-grade-aware-sports-checkin
+created: 2026-05-30
+
+steps:
+  - action: "文档修正：把 auto/clubInfo + 锻炼考勤打卡分析补入接口分析报告"
+    exit_signal: "文档可查到 auto/clubInfo rows/checkList 字段、与 index/clubInfo 命名冲突、checkState 同名异义说明"
+    status: done
+  - action: "纯逻辑：ExerciseQrPayload(JSON/timestamp 复用) + QrCodeMatrixGenerator(BitMatrix)，引入 zxing-core"
+    exit_signal: "JVM 单测覆盖 payload 字段完整 + timestamp 复用 + BitMatrix 非空尺寸"
+    status: done
+  - action: "年级感知解析器：年级判定 / extraInfo 解析 / club 摘要解析为纯函数，再接 Retrofit 新增接口"
+    exit_signal: "JVM 单测覆盖大二/大三两套 JSON 分支 + clubInfo/extraInfo null 判空"
+    status: done
+  - action: "首页俱乐部卡 + 入口：大二渲染(看 clubSummary!=null)、大三隐藏，新增 RUNNING_CLUB_DETAIL 路由(详情先占位)"
+    exit_signal: "大二见俱乐部卡可跳转占位页，大三无变化"
+    status: done
+  - action: "俱乐部详情：独立 ClubDetailViewModel + getClubDetail 解析 auto/clubInfo，可展开任务时间线 + 历史打卡"
+    exit_signal: "单测解析 rows/checkList + 活动任务判定(checkState+时间窗)；详情页展开见历史记录，仅活动任务有开始锻炼按钮"
+    status: done
+  - action: "锻炼考勤打卡 + 全链路接通：独立 ExerciseCheckViewModel 生成二维码 + 轮询 getQrcodeResult(multipart)，新增 RUNNING_EXERCISE_CHECK 路由(Uri.encode 传参)"
+    exit_signal: "单测轮询状态机(NO→继续/YES→成功/超时)；端到端首页卡→详情→开始锻炼→二维码→打卡成功"
+    status: done
+
+checks:
+  - item: "不显示 venueList 场馆清单(UI 与解析均不渲染)"
+    source: 范围守护
+    status: pending
+  - item: "不展示 extraScore 课外得分"
+    source: 范围守护
+    status: pending
+  - item: "代码中无按性别/学号计算任务目标的分支；目标值只来自接口返回字段"
+    source: 范围守护
+    status: pending
+  - item: "年级判定只读 checkDsStudent.result，无按学号推断"
+    source: 范围守护
+    status: pending
+  - item: "App 主页运动卡 UI/导航不变；大二数据从 0 修正为服务端真实进度"
+    source: 范围守护
+    status: pending
+  - item: "auto/clubInfo 的 checkState 用独立 enum，不复用 newAutoInfo 签到状态解释"
+    source: 名词契约
+    status: pending
+  - item: "新增模型 ClubSummary/ClubTask/ClubCheckRecord/ExerciseQrPayload 字段映射正确"
+    source: 名词契约
+    status: pending
+  - item: "getDashboard() 按 checkDsStudent.result 分支：大二读 extraInfo.planMile，大三读 dsTaskThreshold"
+    source: 编排骨架
+    status: pending
+  - item: "extraInfo 与 clubInfo 按接口独立降级，互不牵连，均不阻塞跑步主流程"
+    source: 跨层纪律
+    status: pending
+  - item: "锻炼考勤 timestamp 页面进入生成一次，二维码与轮询共用；离开页面取消轮询，60s 超时提示重试"
+    source: 跨层纪律
+    status: pending
+  - item: "新增路由 RUNNING_CLUB_DETAIL / RUNNING_EXERCISE_CHECK 注册到 Routes.kt + NavGraph.kt"
+    source: 挂载点
+    status: pending
+  - item: "RunningHomeScreen 大二分支俱乐部卡注入"
+    source: 挂载点
+    status: pending
+  - item: "zxing-core 依赖声明在 libs.versions.toml + build.gradle.kts"
+    source: 挂载点
+    status: pending
+  - item: "大二进入智慧运动：任务进度显示 extraInfo 真实目标，顶部出现俱乐部卡"
+    source: 验收场景
+    status: pending
+  - item: "大三进入智慧运动：显示与现状一致，无俱乐部卡，无回归"
+    source: 验收场景
+    status: pending
+  - item: "俱乐部详情任务时间线倒序，展开见记录时长 + 历史打卡(时间/地点/时长/正常或异常)"
+    source: 验收场景
+    status: pending
+  - item: "仅活动任务(checkState=1 且在时间窗)显示开始锻炼按钮，过期不显示"
+    source: 验收场景
+    status: pending
+  - item: "开始锻炼展示可被外部扫码软件解析的二维码，轮询到 hasResult=YES 显示打卡成功"
+    source: 验收场景
+    status: pending

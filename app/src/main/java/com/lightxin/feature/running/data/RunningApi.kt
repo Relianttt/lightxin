@@ -7,12 +7,15 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import okhttp3.ResponseBody
+import okhttp3.RequestBody
 import retrofit2.Retrofit
 import retrofit2.http.Field
 import retrofit2.http.FieldMap
 import retrofit2.http.FormUrlEncoded
 import retrofit2.http.GET
+import retrofit2.http.Multipart
 import retrofit2.http.POST
+import retrofit2.http.Part
 import javax.inject.Singleton
 
 interface RunningApi {
@@ -27,6 +30,31 @@ interface RunningApi {
     @POST("mobile/sportApp/checkDsStudent.do")
     suspend fun checkDsStudent(
         @FieldMap params: Map<String, String>,
+    ): JsonObject
+
+    @FormUrlEncoded
+    @POST("mobile/index/clubInfo.do")
+    suspend fun getClubInfo(
+        @FieldMap params: Map<String, String>,
+    ): JsonObject
+
+    @FormUrlEncoded
+    @POST("mobile/index/extraInfo.do")
+    suspend fun getExtraInfo(
+        @FieldMap params: Map<String, String>,
+    ): JsonObject
+
+    @FormUrlEncoded
+    @POST("mobile/auto/clubInfo.do")
+    suspend fun getClubDetail(
+        @FieldMap params: Map<String, String>,
+    ): JsonObject
+
+    @Multipart
+    @POST("mobile/qrcode/getQrcodeResult.do")
+    suspend fun getQrcodeResult(
+        @Part("studentCode") studentCode: RequestBody,
+        @Part("timestamp") timestamp: RequestBody,
     ): JsonObject
 
     @FormUrlEncoded

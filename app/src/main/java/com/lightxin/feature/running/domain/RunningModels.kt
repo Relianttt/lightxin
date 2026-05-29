@@ -10,6 +10,15 @@ data class RunningDashboard(
     val maxKmDate: String = "",
     val dsFlag: Boolean = false,
     val studentTypeLabel: String = "",
+    val clubSummary: ClubSummary? = null,
+)
+
+/** 大一大二首页俱乐部摘要，来自 index/clubInfo.do；大三大四为 null。 */
+data class ClubSummary(
+    val courseName: String = "",
+    val term: String = "",
+    val teacherName: String = "",
+    val memberLevel: String = "",
 )
 
 data class RunningStartInfo(
