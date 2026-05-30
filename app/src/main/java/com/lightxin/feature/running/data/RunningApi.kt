@@ -45,6 +45,12 @@ interface RunningApi {
     ): JsonObject
 
     @FormUrlEncoded
+    @POST("mobile/extra/extraDetailInfo.do")
+    suspend fun getExtraDetailInfo(
+        @FieldMap params: Map<String, String>,
+    ): JsonObject
+
+    @FormUrlEncoded
     @POST("mobile/auto/clubInfo.do")
     suspend fun getClubDetail(
         @FieldMap params: Map<String, String>,

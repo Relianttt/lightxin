@@ -1,16 +1,16 @@
 # 轻小信 (LightXin) 架构总入口
 
-> 状态：持续同步（2026-05-05 补齐 holiday/auth/location 架构文档）
-> 创建日期：2026-04-21（最近更新：2026-05-05）
+> 状态：持续同步（2026-05-31 同步实况通知、智慧运动年级分流与课表第 0 节边界）
+> 创建日期：2026-04-21（最近更新：2026-05-31）
 
 ## 1. 项目简介
 
 轻小信是基于「爱信校园」(cn.edu.aiit.axx) 接口协议开发的轻量 Android 原生客户端，使用 Kotlin + Jetpack Compose 实现。目标是替代原 H5 + WebView 壳的笨重体验，提供精致、克制、Anthropic / iOS 18 风格的校园工具 UI。
 
-**当前实现状态**（截至 2026-05-05，共 10 个 feature 包、19 条路由）：
+**当前实现状态**（截至 2026-05-31）：
 
 - MVP 五大模块（登录 / 课程表 / 查寝 / 跑步 / 劳教）已全部上线
-- 在 MVP 之上还叠加：AI 课堂（FIF 独立会话 + 数字码 / 扫码签到）、首启欢迎页、关于页 + 调试开关、首页"此刻我该做什么"叙事场景（7 类场景 + 副标题动态轮换 + 启动预加载）、跑步路线模板系统（录制 / 列表 / 详情 / 质量校验 / 模板驱动模拟）、节假日离返校登记（首页卡片 + 查寝列表双 section + 独立登记表单）
+- 在 MVP 之上还叠加：AI 课堂（FIF 独立会话 + 数字码 / 扫码签到 / 作业详情）、首启欢迎页、关于页 + 调试开关、更多功能页（劳动教育 / 考试成绩 / 素质学分 / 实况通知权限引导）、首页"此刻我该做什么"叙事场景（7 类场景 + 副标题动态轮换 + 启动预加载）、跑步路线模板系统（录制 / 列表 / 详情 / 质量校验 / 模板驱动模拟）、大一大二智慧运动年级分流（俱乐部详情 / 锻炼考勤 / 课外跑步进度）、节假日离返校登记（首页卡片 + 查寝列表双 section + 独立登记表单）、Flyme / Android 16 / 普通三分支实况通知
 
 `docs/` 下多份规划文档是这些阶段当时的蓝本，多数已是"完成记录"而非未来方向；接口协议文档（`docs/接口分析/`）仍是长期有效的参考与踩坑实录。
 
@@ -26,6 +26,8 @@
 | `FIF` | AI 课堂接入的第三方教学平台 (`sttp.fifedu.com`)；独立登录态、独立会话、与校内主站 token 体系不互通；SSO 链路由 `core/network/FifSessionManager.kt` 承载 |
 | `RouteTemplate` | 跑步模拟提交用的路线模板资产；以 JSON 文件落地（非 Room），由 `RouteTemplateStore` 管理、`TrajectoryGenerator` 消费、`RouteQualityChecker` 校验 |
 | `HolidayTask` | 节假日离返校登记任务；入口在首页卡片和查寝列表页双 section，表单页由 `feature/holiday/` 独立承载 |
+| `LiveActivityNotifier` | 跨 feature 的实况通知统一门面；根据设备能力选择 Flyme 私有 / Android 16 promoted / 普通通知 backend |
+| `MoreFeaturesScreen` | 更多功能聚合页；承载劳动教育、考试成绩、素质学分，以及实况通知权限引导开关 |
 | `轻小信 / LightXin` | 本项目名；包名 `com.lightxin` |
 
 ## 3. 子系统 / 模块索引
@@ -37,6 +39,7 @@
 - `network/` — 多域名 Retrofit（**8 个 `@Qualifier`** = 7 Retrofit [Auth / Main / Csh / Checkin / Sports / Labor / **Fif**] + 1 OkHttpClient [**FifOkHttpClient**]）、`AuthInterceptor`、`TokenRefreshInterceptor`、**`FifSessionManager`**（AI 课堂独立 SSO + CookieJar）；详见 [`network-overview.md`](network-overview.md)
 - `auth/` — `RSAUtils`（两组公钥）、`TokenManager`、`SessionManager`、`TokenRefresher`；详见 [`auth-overview.md`](auth-overview.md)
 - `location/` — `LocationProvider`（原生 `LocationManager` 封装）、`CoordinateConverter`（WGS-84 → GCJ-02 → BD-09 全链路，无地图 SDK）；详见 [`location-overview.md`](location-overview.md)
+- `notification/` — `LiveActivityNotifier` + Flyme / Android16 / Normal backend + 课程倒计时调度；详见 [`notification-overview.md`](notification-overview.md)
 - `designsystem/` — `Theme / Color / Type / Shape` + 11 个通用组件文件（`LxCard` / `LxButton` 等）；详见 [`designsystem-overview.md`](designsystem-overview.md)
 - `settings/` — `DeveloperPrefs`（`lightxin_dev` DataStore 的 `advanced_enabled` 调试开关），由 About 页写入，Profile / Running 等页面读取
 
@@ -46,24 +49,26 @@
 |---|---|
 | `login` | 登录 + RSA 密码加密 + Token 存取 |
 | `home` | 首页容器 + 底部导航 + 场景驱动叙事（`HomeScene` / `SubtitleLibrary` / `HomeBootstrap` 预加载）；详见 [`home-overview.md`](home-overview.md) |
-| `schedule` | 周课表 + 三态周选择器（当前 / 选中 / 其他） |
+| `schedule` | 周课表 + 三态周选择器（当前 / 选中 / 其他）+ 支持第 0 节的动态节次网格 |
 | `checkin` | 查寝签到：任务列表 / 详情 / 照片上传 / 提交；列表页同时承载 fdygl 同源节假日任务入口 |
 | `holiday` | 节假日离返校登记：任务列表状态判断 / 表单回填 / 保存提交，入口挂在首页卡片与查寝列表页；详见 [`holiday-overview.md`](holiday-overview.md) |
-| `running` | 跑步：GPS 真实模式（前台 `RunTrackingService`）+ 模拟模式（`TrajectoryGenerator`）+ **路线模板系统**（录制 / 列表 / 详情 / 质量校验 / 设置页）；详见 [`running-overview.md`](running-overview.md) |
+| `running` | 跑步：GPS 真实模式（前台 `RunTrackingService`）+ 模拟模式（`TrajectoryGenerator`）+ **路线模板系统**（录制 / 列表 / 详情 / 质量校验 / 设置页）+ 大一大二智慧运动分流 / 俱乐部 / 锻炼考勤；详见 [`running-overview.md`](running-overview.md) |
 | `labor` | 劳动教育：工时总览 + 活动记录 + 详情（只读） |
 | `aiclass` | AI 课堂：FIF SSO + 课程列表 + 数字码签到 + **ML Kit** 扫码签到 |
 | `onboarding` | 首启欢迎页（含插画动效） |
 | `about` | 关于页 + 调试开关入口 |
+| `more` | 更多功能聚合页，包含劳动教育 / 考试成绩 / 素质学分入口与实况通知权限引导 |
 
 ### 3.3 navigation/
 
-`NavGraph.kt` 下 19 条路由，覆盖上述 feature 的所有入口与子页（包括 4 条跑步路线模板路由 / 2 条 AI 课堂路由 / 2 条查寝路由 / 1 条节假日登记路由 / 4 条跑步主链路由 / 2 条劳教路由 + Home / Login / Onboarding / About / Schedule）。详见 [`navigation-overview.md`](navigation-overview.md)。
+`Routes.kt` 集中声明上述 feature 的所有入口与子页，包含跑步主链、跑步路线模板、跑步俱乐部/锻炼考勤、AI 课堂、查寝、节假日、劳动教育、更多功能、考试成绩、素质学分、关于页等路由。详见 [`navigation-overview.md`](navigation-overview.md)。
 
-> 模块级专项架构文档持续补齐（2026-05-05 新增 holiday/auth/location overview）。当前已有：
+> 模块级专项架构文档持续补齐（2026-05-31 同步 notification / running / schedule 最新现状）。当前已有：
 > - [`network-overview.md`](network-overview.md) — 多域名层 + FIF 独立会话
 > - [`auth-overview.md`](auth-overview.md) — Token DataStore + SessionManager + RSA 双公钥 + TokenRefresher 接口
 > - [`location-overview.md`](location-overview.md) — 原生定位封装 + WGS-84 → GCJ-02 → BD-09 坐标转换
 > - [`running-overview.md`](running-overview.md) — 真实跑步 / 模拟提交 / 路线模板三条主链
+> - [`notification-overview.md`](notification-overview.md) — 实况通知统一门面 / 三平台 backend / 课程通知 / 权限引导
 > - [`home-overview.md`](home-overview.md) — 启动预加载 + 场景判定 + 副标题与首页骨架
 > - [`designsystem-overview.md`](designsystem-overview.md) — Token 两层结构 + 11 个通用组件 + Compose Dark 与资源层 forceDarkAllowed 的正交关系
 > - [`login-overview.md`](login-overview.md) — RSA 加密登录 + Token 持久化
@@ -74,7 +79,7 @@
 > - [`aiclass-overview.md`](aiclass-overview.md) — FIF SSO + 数字码/扫码签到
 > - [`onboarding-overview.md`](onboarding-overview.md) — 首启欢迎页 + Canvas 插画动效
 > - [`about-overview.md`](about-overview.md) — 品牌展示 + 调试开关
-> - [`navigation-overview.md`](navigation-overview.md) — 19 条路由 + 起始页决策 + ViewModel 共享
+> - [`navigation-overview.md`](navigation-overview.md) — 25 条路由常量 + 起始页决策 + ViewModel 共享
 
 ## 4. 关键架构决定
 
@@ -103,4 +108,4 @@
 
 ---
 
-> 本文档反映 2026-04-21 真实代码状态。`docs/项目规划/` 下五份文档（`项目规划.md` / `AI课堂开发规划.md` / `路线模拟实现文档.md` / `正式版预期功能.md` / `homepage-design-spec.md`）多数已是"完成记录"而非未来方向；`docs/接口分析/` 下四份文档仍是长期有效的协议参考与踩坑实录。onboarding 的文档归并建议见会话汇报。
+> 本文档反映 2026-05-31 真实代码状态。`docs/项目规划/` 下五份文档（`项目规划.md` / `AI课堂开发规划.md` / `路线模拟实现文档.md` / `正式版预期功能.md` / `homepage-design-spec.md`）多数已是"完成记录"而非未来方向；`docs/接口分析/` 下文档仍是长期有效的协议参考与踩坑实录。

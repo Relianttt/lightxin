@@ -34,3 +34,22 @@ These constraints are non-negotiable. Changing any of them requires consulting t
 - **Running data dual RSA encryption** — When uploading running data, both field names AND field values must be encrypted with `publicKey2` via `RSAUtils.encryptSportData()`. Never encrypt only the values. `publicKey2` (running) and `publicKey` (login) are not interchangeable. → `codestable/compound/2026-04-22-decision-running-dual-rsa-encryption.md`
 - **API protocol must match original app** — All external requests must match the original app's captured protocol exactly. Field names with typos (e.g., FIF's `couseItemId`) are kept as-is.
 - **Check-in multi-header auth** — The check-in API (`fdygl.aiit.edu.cn`) requires 7 identity fields simultaneously; missing any one returns `-100 非法访问`. → `codestable/compound/2026-04-22-decision-checkin-multi-header-auth.md`
+
+## 项目碎片知识
+
+<!-- cs-note managed: 用 cs-note 维护，新条目按下面分节追加 -->
+
+### 编译与构建
+- WSL 下没有 JDK，gradle 必须用 Windows 终端跑 `gradlew.bat`（`org.gradle.java.home` 指向 Android Studio 的 jbr，是 Windows 路径，WSL 下无效）。
+
+### 运行与本地起服务
+
+### 测试
+
+### 命令与脚本陷阱
+
+### 路径与目录约定
+
+### 环境变量与凭证
+
+### 其他

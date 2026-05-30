@@ -2,7 +2,7 @@
 doc_type: feature-review
 feature: 2026-05-30-grade-aware-sports-checkin
 target: grade-aware-sports-checkin-design.md
-status: changes-requested
+status: resolved
 date: 2026-05-30
 reviewer: codex
 ---
@@ -13,7 +13,7 @@ reviewer: codex
 
 设计方向通过：年级分流、目标值只读服务端、`grade` 取自 `checkDsStudent.result`、`auto/clubInfo` 与 `index/clubInfo` 同名异路隔离、`checkState` 同名异义隔离、独立 ViewModel、QR 生成分层，这些判断都合理。
 
-当前暂不建议改 `approved`，只剩一个文档结构问题需要先修：设计文档的 2.3 / 2.4 / 2.5 重复出现，应删除重复段并统一挂载点措辞。
+原审阅时暂不建议改 `approved`，当时剩余问题是设计文档的 2.3 / 2.4 / 2.5 重复出现，需要删除重复段并统一挂载点措辞。当前 design 已修正并标记为 `approved`，checklist 已生成，本 review 状态更新为 `resolved`，作为历史审阅记录保留。
 
 ## 澄清记录
 
@@ -41,3 +41,9 @@ reviewer: codex
 ## 通过条件
 
 完成“需修改项”后，可将 design 状态改为 `approved` 并生成 `grade-aware-sports-checkin-checklist.yaml`。
+
+## 处理结果
+
+- `grade-aware-sports-checkin-design.md` 当前为 `status: approved`。
+- `grade-aware-sports-checkin-checklist.yaml` 已存在，implementation steps 已推进到 `done`。
+- 本 review 不再阻断后续合并；剩余 `checks: pending` 属于验收清单状态，不表示 design 仍被拒。

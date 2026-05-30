@@ -234,6 +234,9 @@ private fun ScheduleGrid(
     onCourseClick: (Course) -> Unit,
 ) {
     val today = remember { LocalDate.now().dayOfWeek.value } // 1=周一
+    // 大一大二接口会下发第0节（早自习），存在时网格从第0节起画；大三等无第0节则从第1节起，行为不变
+    val firstSection = if (courses.any { it.startSection <= 0 }) 0 else 1
+    val rowCount = SECTION_COUNT - firstSection + 1
 
     Column(
         modifier = Modifier
@@ -283,13 +286,14 @@ private fun ScheduleGrid(
         Row(modifier = Modifier.fillMaxWidth()) {
             // 节次列
             Column(modifier = Modifier.width(SECTION_LABEL_WIDTH)) {
-                repeat(SECTION_COUNT) { section ->
+                repeat(rowCount) { row ->
+                    val section = firstSection + row
                     Box(
                         modifier = Modifier.height(CELL_HEIGHT),
                         contentAlignment = Alignment.Center,
                     ) {
                         Text(
-                            text = "${section + 1}",
+                            text = if (section == 0) "早" else "$section",
                             fontSize = 10.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -305,14 +309,14 @@ private fun ScheduleGrid(
                 Box(
                     modifier = Modifier
                         .weight(1f)
-                        .height(CELL_HEIGHT * SECTION_COUNT)
+                        .height(CELL_HEIGHT * rowCount)
                         .then(
                             if (isToday) Modifier.background(LxTerraGlow) else Modifier
                         ),
                 ) {
                     // 课程块（绝对定位）
                     dayCourses.forEach { course ->
-                        val top = (course.startSection - 1) * CELL_HEIGHT.value
+                        val top = (course.startSection - firstSection) * CELL_HEIGHT.value
                         val height = (course.endSection - course.startSection + 1) * CELL_HEIGHT.value
                         val color = courseColor(course.name)
 

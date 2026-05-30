@@ -78,7 +78,7 @@ CreditRetrofit 复用主 OkHttpClient，AuthInterceptor 默认分支会注入多
 | `@MainRetrofit` | 暂无直接消费者 | provider 已注册，但当前 feature 尚未注入使用 |
 | `@CshRetrofit` | `ScheduleRepository` | 课表与周次 |
 | `@CheckinRetrofit` | `CheckinRepository` / `FileUploadApi` / `HolidayApi` | 同一 host 下同时承载 JSON 业务接口、Multipart 文件上传、节假日登记接口 |
-| `@SportsRetrofit` | `RunningApi` | 跑步业务接口 |
+| `@SportsRetrofit` | `RunningApi` | 跑步业务接口；同时承载大一大二 `extraInfo/extraDetailInfo/index/clubInfo/auto/clubInfo` 与锻炼考勤 `getQrcodeResult` |
 | `@LaborRetrofit` | `LaborRepository` | 劳教只读查询接口 |
 | `@FifRetrofit` | `AiClassApi` | AI 课堂课程、签到、课堂状态 |
 | `@FifOkHttpClient` | `FifSessionManager` / `AiClassRepository` | 前者做 SSO，会话建立；后者做扫码签到的原始 OkHttp 请求 |
@@ -216,6 +216,7 @@ FIF 多一层 Cookie 检查的原因是 token 本身不含过期时间，但 `SE
 - **FIF 扫码签到不是 Retrofit 调用** —— 必须保留 `authorization + Visit-Type + Cookie + WebView 风格头 + 禁止重定向` 这一整套请求形态，不能简单改成 Retrofit `@GET`（`feature/aiclass/data/AiClassRepository.kt:229-273`）。
 - **劳教链路是"调用方显式传三字段 + Interceptor 再补字段"的双轨** —— `LaborRepository` 先显式传 `userCode / xh / accessToken`（`feature/labor/data/LaborRepository.kt:23-35` / `feature/labor/data/LaborApi.kt:9-35`），`AuthInterceptor` 劳教分支再追加 `_userCode / _userName / _userType / appId` 以及一组劳教额外字段（`core/network/AuthInterceptor.kt:85-97`）。改这条链路时，两边要一起看。
 - **跑步数据加密必须字段名和值都加密**（业务层约束，使用 `SportsRetrofit` 上游）：用 `RSAUtils.encryptSportData()`（`core/auth/RSAUtils.kt:36`）。来源：`docs/接口分析/跑步接口深度分析报告.md`。
+- **大一大二智慧运动复用 SportsRetrofit，但接口形态不同**：`extraInfo/extraDetailInfo/index/clubInfo/auto/clubInfo` 是表单接口，`qrcode/getQrcodeResult.do` 是 multipart 轮询接口；年级参数 `grade` 直接取 `checkDsStudent.do` 的 `result`，不本地推断。
 - **观察项：`AuthInterceptor` 顶部注释过时**（`AuthInterceptor.kt:16`）—— 注释说"查寝不由 Interceptor 注入（在 Api 层处理）"，但实际 54-69 行已经注入。交给下次维护者修注释。
 - **观察项：`MainRetrofit` 当前无消费者**（`core/network/NetworkModule.kt:64-66`）—— provider 已存在，但 `app/src/main/java/com/lightxin/feature/` 下暂无注入点；后续若新增主站 `zhxy-new-scps` 请求，应先复用这条 provider。
 - **观察项：当前退出链不会清 FIF 会话**（`feature/home/ui/ProfileViewModel.kt:49-53` / `core/auth/SessionManager.kt:18-20`）—— UI 登出只清校内 DataStore，不会触发 `FifSessionManager.clear()`。

@@ -1,11 +1,11 @@
 ---
 doc_type: architecture
 slug: schedule-overview
-scope: feature/schedule/ 的周课表获取、三态周选择器、课程网格渲染，以及与首页 SceneResolver 的共享边界
-summary: schedule 以 ScheduleRepository 封装周次信息与课表数据，UI 层用 LazyRow 胶囊周选择器 + 绝对定位网格渲染 7 天课程，详情走 ModalBottomSheet
+scope: feature/schedule/ 的周课表获取、三态周选择器、动态节次课程网格渲染，以及与首页 SceneResolver 的共享边界
+summary: schedule 以 ScheduleRepository 封装周次信息与课表数据，UI 层用 LazyRow 胶囊周选择器 + 支持第 0 节的绝对定位网格渲染 7 天课程，详情走 ModalBottomSheet
 status: current
-last_reviewed: 2026-04-22
-tags: [schedule, course, timetable, week-selector, grid]
+last_reviewed: 2026-05-31
+tags: [schedule, course, timetable, week-selector, grid, section-zero]
 depends_on: [network-overview, home-overview]
 ---
 
@@ -15,7 +15,7 @@ depends_on: [network-overview, home-overview]
 
 - **三态周选择器** — 周次胶囊支持三种视觉状态：普通、当前周、选中周；选中周填充陶土色，当前周有边框，普通周透明
 - **周次信息** — `WeekInfo` 包含当前周、总周数、学年、学期，由 `getWeekList` 接口返回
-- **固定节次** — 课表网格固定渲染 10 节（1-10），与首页 `SectionSchedule` 的节次表保持一致
+- **动态节次范围** — 常规课表渲染 1-10 节；当任一课程 `startSection <= 0` 时，网格从第 0 节开始渲染，并把第 0 节标签显示为“早”
 
 ## 1. 定位与受众
 
@@ -63,7 +63,9 @@ ScheduleScreen (ui)        → 周选择器 + 网格 + 详情弹窗
 - 按 `dayOfWeek`（1-7）区分七天
 - 每门课记录 `startSection` / `endSection`，用于网格中计算高度与偏移
 
-UI 层用 `CELL_HEIGHT = 58.dp` 为基准，课程块按 `top = (startSection - 1) * CELL_HEIGHT` 绝对定位。
+UI 层用 `CELL_HEIGHT = 58.dp` 为基准，先根据课程数据计算 `firstSection`：没有第 0 节课程时为 1；存在 `startSection <= 0` 时为 0。课程块按 `top = (startSection - firstSection) * CELL_HEIGHT` 绝对定位，避免第 0 节课程产生负偏移或崩溃。
+
+锚点：`feature/schedule/ui/ScheduleScreen.kt:238-320`。
 
 ### 2.4 三态周选择器
 
@@ -115,7 +117,7 @@ UI 层用 `CELL_HEIGHT = 58.dp` 为基准，课程块按 `top = (startSection - 
 - **课程块用绝对定位而非 LazyColumn** —— 网格按 10 节固定高度渲染，不虚拟化。因为课表数据量小（最多 7 天 × 每天数门课），绝对定位更直观。
 - **课程颜色用 name.hashCode() 取色** —— 确保同一课程颜色稳定，不与后端绑定。来源：`ScheduleScreen.kt:70-73`。
 - **课表数据进入 splash 预加载** —— 首页冷启动时 `HomeBootstrap` 预取课表数据，让首屏可直接展示。来源：`feature/home/domain/HomeBootstrap.kt:54-68`。
-- **课表路由挂在 `HomeScreen` 的 tab 1 下** —— 课表不是独立路由入口，而是首页三 tab 的第二个标签。来源：`NavGraph.kt:11`（`Routes.SCHEDULE` 未在 NavHost 中注册，由 `HomeScreen` 内部管理）。
+- **课表不走独立 NavHost 路由** —— 课表是首页三 tab 的第二个标签，由 `HomeScreen` 内部管理；当前 `Routes.kt` 不再定义独立 `SCHEDULE` 常量。
 
 ## 5. 代码锚点
 
@@ -130,7 +132,8 @@ UI 层用 `CELL_HEIGHT = 58.dp` 为基准，课程块按 `top = (startSection - 
 ## 6. 已知约束 / 边界情况
 
 - **课表数据不缓存到本地** —— 每次进入或切换周次都重新请求后端。无离线课表能力。
-- **固定 10 节，不跟随学期调整** —— 网格硬编码 `SECTION_COUNT = 10`，即使学校实际只有 8 节也渲染 10 行。来源：`ScheduleScreen.kt:61`。
+- **最大节次仍按 10 节处理** —— `SECTION_COUNT = 10` 仍是网格最大常量；常规显示 1-10，遇到第 0 节课程时显示 0-10（第 0 节标签为“早”）。来源：`ScheduleScreen.kt:61,238-320`。
+- **第 0 节只影响课表页网格起点** —— 首页课程时间判断仍由 `feature/home/domain/SectionSchedule.kt` 维护，不从课表 UI 的动态 `firstSection` 反推。
 - **课程详情中的 `LxDetailRow` 使用固定 48dp labelWidth** —— 适用于当前字段长度，若新增字段需要调整。
 - **`selectedWeek` 在 ViewModel 重建时回到 init 值** —— 不持久化，进程重建后从当前周开始。
 

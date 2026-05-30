@@ -51,32 +51,69 @@ class RunningRepository @Inject constructor(
                 val juniorParams = if (isJunior) params + ("grade" to studentTypeLabel) else params
                 val extraDeferred = if (isJunior) async { runCatching { api.getExtraInfo(juniorParams) }.getOrNull() } else null
                 val clubDeferred = if (isJunior) async { runCatching { api.getClubInfo(juniorParams) }.getOrNull() } else null
+                val detailDeferred = if (isJunior) {
+                    async { runCatching { api.getExtraDetailInfo(juniorParams + ("runningType" to "1")) }.getOrNull() }
+                } else {
+                    null
+                }
                 val extraJson = extraDeferred?.await()
+                val extraDetailJson = detailDeferred?.await()
+                val extraDetail = SportsGradeMapper.parseExtraDetail(extraDetailJson)
                 val clubSummary = SportsGradeMapper.parseClubSummary(clubDeferred?.await())
 
                 val startIndexCompletedKm = dashboardJson.lookupDouble("completedKM", "dsTaskMile")
                 val startIndexTargetKm = dashboardJson.lookupDouble("dsTaskThreshold", "totalTaskThreshold")
-                val leftKm = dashboardJson.lookupDouble("leftKM")
+                val startIndexLeftKm = dashboardJson.lookupDouble("leftKM")
 
                 // 大二目标值改取服务端下发的课外跑步计划（extraInfo）；大三保持 startIndex 字段。不本地按性别/年级计算。
                 val (extraCompletedKm, extraPlanKm) = SportsGradeMapper.parseExtraProgress(extraJson)
-                val completedKm = if (isJunior && extraPlanKm > 0.0) extraCompletedKm else startIndexCompletedKm
+                val completedKm = when {
+                    isJunior && extraPlanKm > 0.0 -> extraCompletedKm
+                    isJunior && extraDetail.completedMileKm > 0.0 -> extraDetail.completedMileKm
+                    else -> startIndexCompletedKm
+                }
                 val taskTargetKm = when {
                     isJunior && extraPlanKm > 0.0 -> extraPlanKm
+                    isJunior && (extraDetail.completedMileKm > 0.0 || extraDetail.surplusMileKm > 0.0) ->
+                        extraDetail.completedMileKm + extraDetail.surplusMileKm
                     startIndexTargetKm > 0.0 -> startIndexTargetKm
-                    completedKm > 0.0 || leftKm > 0.0 -> completedKm + leftKm
+                    completedKm > 0.0 || startIndexLeftKm > 0.0 -> completedKm + startIndexLeftKm
                     else -> 0.0
+                }
+                val leftKm = when {
+                    isJunior && extraDetail.surplusMileKm > 0.0 -> extraDetail.surplusMileKm
+                    startIndexLeftKm > 0.0 -> startIndexLeftKm
+                    else -> (taskTargetKm - completedKm).coerceAtLeast(0.0)
+                }
+                val startIndexTodayKm = dashboardJson.lookupDouble("todayKM", "todayMile")
+                val todayKm = if (isJunior) {
+                    extraDetail.todayMileKm.takeIf { it > 0.0 } ?: startIndexTodayKm
+                } else {
+                    startIndexTodayKm
+                }
+                val startIndexSingleRunKm = dashboardJson.lookupDouble("validSettingLJ", "mixOnceMile")
+                val singleRunTargetKm = if (isJunior) {
+                    extraDetail.mixOnceMileKm.takeIf { extraDetailJson != null && it > 0.0 } ?: startIndexSingleRunKm
+                } else {
+                    startIndexSingleRunKm
+                }
+                val startIndexMaxKm = dashboardJson.lookupDouble("maxKM")
+                val maxKm = if (isJunior) extraDetail.maxMileKm.takeIf { it > 0.0 } ?: startIndexMaxKm else startIndexMaxKm
+                val maxKmDate = if (isJunior) {
+                    extraDetail.maxMileDate.ifBlank { dashboardJson.lookupString("maxKmDate") }
+                } else {
+                    dashboardJson.lookupString("maxKmDate")
                 }
 
                 Result.success(
                     RunningDashboard(
-                        todayKm = dashboardJson.lookupDouble("todayKM", "todayMile"),
+                        todayKm = todayKm,
                         completedKm = completedKm,
-                        leftKm = if (leftKm > 0.0) leftKm else (taskTargetKm - completedKm).coerceAtLeast(0.0),
+                        leftKm = leftKm,
                         taskTargetKm = taskTargetKm,
-                        singleRunTargetKm = dashboardJson.lookupDouble("validSettingLJ", "mixOnceMile"),
-                        maxKm = dashboardJson.lookupDouble("maxKM"),
-                        maxKmDate = dashboardJson.lookupString("maxKmDate"),
+                        singleRunTargetKm = singleRunTargetKm,
+                        maxKm = maxKm,
+                        maxKmDate = maxKmDate,
                         dsFlag = dashboardJson.lookupBoolean("dsFlag", "taskFlag"),
                         studentTypeLabel = studentTypeLabel,
                         clubSummary = clubSummary,
@@ -124,12 +161,18 @@ class RunningRepository @Inject constructor(
 
     suspend fun startRunning(extraId: String? = null): Result<RunningStartInfo> {
         return try {
-            val params = sportsAuthParams().toMutableMap().apply {
+            val params = sportsAuthParams()
+            val grade = api.checkDsStudent(params).lookupString("result", "msg")
+            // 大一大二无 startRunning.do：会话标识来自 extraInfo.do(extraId) + extraDetailInfo.do(memberId/mixOnceMile)
+            if (SportsGradeMapper.isJuniorGrade(grade)) {
+                return startJuniorRunning(params + ("grade" to grade))
+            }
+            val startParams = params.toMutableMap().apply {
                 if (!extraId.isNullOrBlank()) {
                     put("extraId", extraId)
                 }
             }
-            val response = api.startRunning(params)
+            val response = api.startRunning(startParams)
             response.requireSportsSuccess("开始跑步失败")
             val exerciseId = response.lookupString("extraId")
             if (exerciseId.isBlank()) {
@@ -153,6 +196,25 @@ class RunningRepository @Inject constructor(
         } catch (e: Exception) {
             Result.failure(Exception(e.message ?: "开始跑步失败", e))
         }
+    }
+
+    /** 大一大二课外跑步会话：extraId 取自 extraInfo.do，memberId/mixOnceMile 取自 extraDetailInfo.do。 */
+    private suspend fun startJuniorRunning(juniorParams: Map<String, String>): Result<RunningStartInfo> {
+        val extraJson = api.getExtraInfo(juniorParams)
+        val exerciseId = SportsGradeMapper.parseExtraId(extraJson)
+        if (exerciseId.isBlank()) {
+            return Result.failure(Exception("未获取到课外跑步任务，无法开始跑步"))
+        }
+        val extraDetail = SportsGradeMapper.parseExtraDetail(
+            api.getExtraDetailInfo(juniorParams + ("runningType" to "1"))
+        )
+        return Result.success(
+            RunningStartInfo(
+                exerciseId = exerciseId,
+                memberId = extraDetail.memberId,
+                mixOnceMileKm = extraDetail.mixOnceMileKm,
+            )
+        )
     }
 
     suspend fun submitSimulation(
@@ -222,12 +284,14 @@ class RunningRepository @Inject constructor(
 
             val encryptedList = encryption.encryptUploadPayload(payload)
             val response = api.uploadRunningRecord(encryptedList)
-            val success = response.lookupString("result").equals("OK", ignoreCase = true)
+            val resultCode = response.lookupString("result")
             val uploadId = response.lookupString("id")
-            val message = if (success) {
-                "上传成功"
-            } else {
-                response.lookupString("msg", "result").ifBlank { "上传失败" }
+            val success = resultCode.equals("OK", ignoreCase = true) && uploadId.isValidUploadId()
+            val message = when {
+                success -> "上传成功"
+                resultCode.equals("OK", ignoreCase = true) ->
+                    "服务器未生成有效跑步记录（id=${uploadId.ifBlank { "空" }}），本次里程可能未入账"
+                else -> response.lookupString("msg", "result").ifBlank { "上传失败" }
             }
 
             if (!success) {
@@ -374,6 +438,9 @@ class RunningRepository @Inject constructor(
             false
         }
     }
+
+    private fun String.isValidUploadId(): Boolean =
+        isNotBlank() && this != "0" && !equals("null", ignoreCase = true)
 
     companion object {
         private val FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss", Locale.CHINA)

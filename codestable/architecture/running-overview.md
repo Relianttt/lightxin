@@ -1,11 +1,11 @@
 ---
 doc_type: architecture
 slug: running-overview
-scope: 跑步模块的整体架构，覆盖真实 GPS 跑步、前台 Service 跟踪、模拟提交、路线模板录制与管理、以及跑步数据加密上传链路
-summary: running 以 RunningRepository + RunningTracker 为主干，把真实跑步、模拟提交、模板录制三条路径收束到同一套 TrackPoint/RunningSnapshot 模型，再通过 SportsRetrofit 完成加密上传
+scope: 跑步模块的整体架构，覆盖真实 GPS 跑步、前台 Service 跟踪、模拟提交、路线模板录制与管理、大一大二智慧运动分流、俱乐部/锻炼考勤、以及跑步数据加密上传链路
+summary: running 以 RunningRepository + RunningTracker 为主干，把真实跑步、模拟提交、模板录制收束到 RunningSnapshot 上传模型；智慧运动入口按 checkDsStudent.result 分流，大一大二读取 extraInfo/extraDetailInfo 与 clubInfo，上传成功需同时满足 result=OK 和有效非 0 id
 status: current
-last_reviewed: 2026-05-03
-tags: [running, gps, service, route-template, rsa, sports]
+last_reviewed: 2026-05-31
+tags: [running, gps, service, route-template, rsa, sports, grade, club]
 depends_on: [network-overview]
 ---
 
@@ -18,6 +18,10 @@ depends_on: [network-overview]
 - **路线模板** — 保存在 `route_templates.json` 的本地轨迹资产；可设默认、重命名、删除，并在模拟提交时驱动 `PolylineSampler`
 - **上传快照** — `RunningSnapshot`，是“可上传一次跑步”的统一中间态；真实跑步与模拟提交都先归一成它再走加密上传
 - **距离计算** — `GeoDistance.metersBetween()` 提供统一 Haversine 米制距离，供 GPS 采集、模板采样和路线质量校验复用
+- **年级分流** — 智慧运动以 `checkDsStudent.do` 返回的 `result` 为唯一分流依据；包含“大一大二”时走课外跑步/俱乐部接口，其他维持大三大四 startIndex 路径
+- **俱乐部摘要/任务** — 大一大二分支的 `ClubSummary` 来自 `mobile/index/clubInfo.do`，俱乐部详情任务来自 `mobile/auto/clubInfo.do`
+- **锻炼考勤** — 俱乐部活动任务的本地二维码 + `getQrcodeResult.do` 轮询确认流程
+- **有效上传 ID** — 跑步上传返回必须同时满足 `result=OK` 且 `id` 非空、非 `"0"`；否则按失败处理，避免 UI 显示“成功”但今日里程仍为 0
 
 ## 1. 定位与受众
 
@@ -31,6 +35,7 @@ depends_on: [network-overview]
 
 - 要改跑步上传链路、加密逻辑或定位策略的人
 - 要继续扩路线模板系统的人
+- 要维护大一大二智慧运动、俱乐部详情或锻炼考勤的人
 - 在首页、我的页或导航里接跑步入口的人
 
 ## 2. 结构与交互
@@ -47,6 +52,24 @@ depends_on: [network-overview]
 锚点：`feature/running/domain/RunningModels.kt:24-67` / `feature/running/domain/RouteTemplate.kt:3-18`。
 
 这样分的好处是：采集、模板、上传不需要互相转换多套中间结构。真实跑步产出的点、模板录制产出的点、模拟生成的点，最终都能落回 `List<TrackPoint>`。
+
+### 2.1.1 智慧运动年级分流与大一大二摘要
+
+`RunningRepository.getDashboard()` 先读取 `checkDsStudent.do` 的 `result`，并通过 `SportsGradeMapper.isJuniorGrade()` 判断是否为大一大二。大三大四仍读取 `startIndex.do` 的任务目标；大一大二并行读取：
+
+- `extraInfo.do`：课外跑步任务主信息，提供 `extraId / planMile / completeMile`
+- `extraDetailInfo.do`：今日/累计/剩余里程、`memberId`、单次目标等细节
+- `index/clubInfo.do`：俱乐部摘要卡片
+
+大一大二目标里程优先使用 `extraInfo.planMile/completeMile`；当 `extraInfo` 临时失败但 `extraDetailInfo` 成功时，可用 `completeMile + surplusMile` 兜底目标，保持接口独立降级。UI 是否显示俱乐部卡直接看 `RunningDashboard.clubSummary != null`，不在 UI 层散落年级字符串判断。
+
+锚点：`feature/running/data/RunningRepository.kt:34-100` / `feature/running/data/SportsGradeMapper.kt:23-56` / `feature/running/domain/RunningModels.kt:3-20`。
+
+### 2.1.2 俱乐部详情与锻炼考勤
+
+俱乐部详情不膨胀 `RunningViewModel`，而是由独立 `ClubDetailViewModel` 调 `RunningRepository.getClubDetail()`，解析 `auto/clubInfo.do` 的任务时间线与 `checkList` 历史。锻炼考勤由 `ExerciseCheckViewModel` 生成本轮 timestamp 与二维码内容，并每 1.5 秒轮询 `getQrcodeResult.do`，60 秒超时。
+
+锚点：`feature/running/exercise/ui/ClubDetailViewModel.kt:21-38` / `feature/running/exercise/ui/ExerciseCheckViewModel.kt:44-91` / `feature/running/data/RunningRepository.kt:128-155`。
 
 ### 2.2 真实跑步主链
 
@@ -148,8 +171,9 @@ navigation 层把 running 明确拆成两套共享作用域：
 3. 组装 `RunningUploadPayload`
 4. `RunningEncryption.encryptUploadPayload()` 对**字段名和值**都做 `publicKey2` RSA 加密
 5. 作为表单字段 `list` 调 `uploadRunningRecord()`
+6. 检查上传响应：只有 `result=OK` 且 `id` 是有效非 0 值才返回成功，否则向 UI 报错，避免“显示上传成功但服务端未入账”
 
-锚点：`feature/running/data/RunningRepository.kt:140-202` / `feature/running/data/RunningEncryption.kt:11-59` / `core/auth/RSAUtils.kt:23-36` / `feature/running/data/RunningApi.kt:38-45`。
+锚点：`feature/running/data/RunningRepository.kt:253-315,442-443` / `feature/running/data/RunningEncryption.kt:11-59` / `core/auth/RSAUtils.kt:23-36` / `feature/running/data/RunningApi.kt:38-55`。
 
 本地抓包文档对这条链路的协议约束有补充：结束上传走 `addExtraCheckNew.do`，请求头必须带 `studentCode`，且 `runningType` 当前在原实现里固定为 `"1"`。来源：`docs/接口分析/跑步接口深度分析报告.md` §8.2 / §8.10。
 
@@ -160,12 +184,15 @@ navigation 层把 running 明确拆成两套共享作用域：
 | 类型 | 含义 | 定义位置 |
 |---|---|---|
 | `RunningDashboard` | 跑步首页统计摘要 | `feature/running/domain/RunningModels.kt:3-13` |
+| `ClubSummary` | 大一大二俱乐部摘要卡片数据 | `feature/running/domain/RunningModels.kt:17-22` |
 | `RunningStartInfo` | 一次服务端跑步会话的起始元数据（`exerciseId/memberId` 等） | `feature/running/domain/RunningModels.kt:15-22` |
 | `TrackPoint` | 统一轨迹点模型 | `feature/running/domain/RunningModels.kt:24-28` |
 | `RunningTrackerState` | 当前采集中的内存态 | `feature/running/domain/RunningModels.kt:30-40` |
 | `RunningSnapshot` | 上传前的统一中间态 | `feature/running/domain/RunningModels.kt:42-49` |
 | `RouteTemplate` | 本地可复用模板资产 | `feature/running/domain/RouteTemplate.kt:3-18` |
 | `GeoDistance` | 统一 Haversine 米制距离计算 | `feature/running/domain/GeoDistance.kt:9-18` |
+| `ClubTask / ClubCheckRecord` | 俱乐部任务时间线与历史打卡记录 | `feature/running/exercise/domain/ClubModels.kt` |
+| `ExerciseQrPayload` | 锻炼考勤二维码 JSON 载荷 | `feature/running/exercise/domain/ExerciseQrPayload.kt` |
 
 ### 3.2 状态归属
 
@@ -210,6 +237,9 @@ navigation 层把 running 明确拆成两套共享作用域：
 - **上传前才做 WGS-84 -> BD-09 转换** —— 真实跑步采集阶段保留原生坐标，统一在 repository 上传前转换（`feature/running/data/RunningRepository.kt:146-157`）。
 - **跑步加密要求字段名和值都加密** —— 不能只加密 JSON value（`feature/running/data/RunningEncryption.kt:37-58`）。
 - **`runningType` 当前按 `"1"` 处理** —— 代码与本地协议文档都按这一假设实现；若后续补抓发现跑团/补跑场景存在分支，这里要回看。来源：`docs/接口分析/跑步接口深度分析报告.md` §8.10。
+- **年级只读服务端 result** —— 不按学号、性别或本地规则推断年级；大一大二目标值只取服务端字段，`extraDetailInfo` 只能作为接口失败时的目标兜底来源。
+- **大一大二开始跑步不走 startRunning.do** —— 会话标识来自 `extraInfo.do` 的 `extraId` 与 `extraDetailInfo.do` 的 `memberId/mixOnceMile`（`feature/running/data/RunningRepository.kt:162-219`）。
+- **上传成功要校验有效 ID** —— `result=OK` 但 `id` 为空或 `"0"` 视为失败，提示服务端未生成有效跑步记录（`feature/running/data/RunningRepository.kt:287-305`）。
 
 ## 7. 相关文档
 
@@ -217,3 +247,4 @@ navigation 层把 running 明确拆成两套共享作用域：
 - 架构总入口：`codestable/architecture/DESIGN.md`
 - 历史规划：`docs/项目规划/路线模拟实现文档.md`
 - 协议与上传约束：`docs/接口分析/跑步接口深度分析报告.md`
+- 大一大二上传 ID 为 0 修复：`codestable/issues/2026-05-30-junior-running-upload-id-zero/junior-running-upload-id-zero-fix-note.md`
