@@ -16,5 +16,7 @@ local.properties
 /prototype
 /docs
 .reasonix
-.tmp
+.codegraph
+/tmp
+reasonix.toml
 

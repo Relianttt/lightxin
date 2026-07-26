@@ -7,6 +7,8 @@ import android.content.Context
 import android.content.ContextWrapper
 import android.os.Build
 import android.widget.Toast
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -16,9 +18,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.navigation.NavHostController
@@ -56,6 +60,7 @@ import com.lightxin.feature.running.exercise.ui.ExerciseCheckScreen
 import com.lightxin.feature.running.ui.RunningResultScreen
 import com.lightxin.feature.running.ui.RunningSimScreen
 import com.lightxin.feature.running.ui.RunningViewModel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 
@@ -91,11 +96,22 @@ fun LightXinNavHost(
     val context = LocalContext.current
     val currentOnShortcutConsumed by rememberUpdatedState(onShortcutConsumed)
 
+    // shortcut 落位静态化（仿 LibChecker setCurrentItem(index, false)）：
+    // 链式 navigate 期间禁用 NavHost 转场，避免 splash 后再叠加多段滑动动画
+    var suppressTransitions by remember { mutableStateOf(false) }
+    LaunchedEffect(suppressTransitions) {
+        if (suppressTransitions) {
+            delay(600)
+            suppressTransitions = false
+        }
+    }
+
     LaunchedEffect(shortcutTarget, resolvedStartRoute, pendingDormTaskId, isDormShortcutResolved) {
         val target = shortcutTarget ?: return@LaunchedEffect
         if (resolvedStartRoute != Routes.HOME) return@LaunchedEffect
         if (target == ShortcutTarget.DORM_CHECKIN && !isDormShortcutResolved) return@LaunchedEffect
 
+        suppressTransitions = true
         navController.navigate(Routes.HOME) {
             launchSingleTop = true
             popUpTo(Routes.HOME) { inclusive = false }
@@ -130,16 +146,20 @@ fun LightXinNavHost(
         navController = navController,
         startDestination = resolvedStartRoute,
         enterTransition = {
-            fadeIn(tween(300)) + slideInHorizontally(tween(300)) { it / 4 }
+            if (suppressTransitions) EnterTransition.None
+            else fadeIn(tween(300)) + slideInHorizontally(tween(300)) { it / 4 }
         },
         exitTransition = {
-            fadeOut(tween(200))
+            if (suppressTransitions) ExitTransition.None
+            else fadeOut(tween(200))
         },
         popEnterTransition = {
-            fadeIn(tween(300)) + slideInHorizontally(tween(300)) { -it / 4 }
+            if (suppressTransitions) EnterTransition.None
+            else fadeIn(tween(300)) + slideInHorizontally(tween(300)) { -it / 4 }
         },
         popExitTransition = {
-            fadeOut(tween(200)) + slideOutHorizontally(tween(200)) { it / 4 }
+            if (suppressTransitions) ExitTransition.None
+            else fadeOut(tween(200)) + slideOutHorizontally(tween(200)) { it / 4 }
         },
     ) {
         composable(

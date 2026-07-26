@@ -4,6 +4,8 @@ import android.content.Intent
 import android.content.res.Configuration
 import android.graphics.Color
 import android.os.Bundle
+import android.view.View
+import android.view.ViewTreeObserver
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
@@ -11,7 +13,6 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.lifecycleScope
 import com.lightxin.core.auth.SessionManager
 import com.lightxin.core.designsystem.theme.LightXinTheme
@@ -41,11 +42,9 @@ class MainActivity : ComponentActivity() {
     private var pendingNotificationRoute by mutableStateOf<String?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        val splashScreen = installSplashScreen()
-        // splash 放行闭包：数据就绪 OR 1500ms 超时均会置 false；两路解耦，超时不会取消加载协程
-        var keepSplashOnScreen = true
-        splashScreen.setKeepOnScreenCondition { keepSplashOnScreen }
         super.onCreate(savedInstanceState)
+        // splash 放行标志：数据就绪 OR 1500ms 超时均会置 true；两路解耦，超时不会取消加载协程
+        var splashReleased = false
         shortcutTarget = ShortcutTarget.fromAction(intent?.action)
         pendingNotificationRoute = intent?.getStringExtra("notification_route")
 
@@ -67,7 +66,7 @@ class MainActivity : ComponentActivity() {
                 homeBootstrap.ready.first { it }
                 dormShortcutReady?.await()
             }
-            keepSplashOnScreen = false
+            splashReleased = true
         }
 
         // 状态栏与导航栏按系统深色模式切换图标明暗：浅色主题下用 light（深色图标贴暖底），深色主题下用 dark（浅色图标）
@@ -105,6 +104,18 @@ class MainActivity : ComponentActivity() {
                 )
             }
         }
+        // 官方"挂起首帧"手法：放行前 onPreDraw 返回 false，系统 starting window（splash）保持显示；
+        // 放行后恢复绘制，splash 随首帧移除
+        val contentView = findViewById<View>(android.R.id.content)
+        contentView.viewTreeObserver.addOnPreDrawListener(
+            object : ViewTreeObserver.OnPreDrawListener {
+                override fun onPreDraw(): Boolean {
+                    if (!splashReleased) return false
+                    contentView.viewTreeObserver.removeOnPreDrawListener(this)
+                    return true
+                }
+            },
+        )
     }
 
     override fun onNewIntent(intent: Intent) {

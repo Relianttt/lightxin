@@ -58,7 +58,6 @@ dependencies {
     implementation(libs.lifecycle.runtime.compose)
     implementation(libs.core.ktx)
     implementation(libs.datastore.preferences)
-    implementation(libs.core.splashscreen)
 
     // Navigation
     implementation(libs.navigation.compose)

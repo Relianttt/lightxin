@@ -3,13 +3,9 @@
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <!-- StatusBar 图标明暗由 MainActivity 的 SystemBarStyle 在运行时决定，此处不再硬编码 -->
-    </style>
-
-    <!-- Splash 主题：承载 Android 12+ 官方 SplashScreen（以及 compat 兼容低版本）。 -->
-    <!-- 启动期间显示羊皮纸暖底 + 应用 logo，数据就绪/超时后由 postSplashScreenTheme 切换回正常主题。 -->
-    <style name="Theme.LightXin.Splash" parent="Theme.SplashScreen">
-        <item name="windowSplashScreenBackground">@color/splash_background</item>
-        <item name="windowSplashScreenAnimatedIcon">@drawable/splash_logo</item>
-        <item name="postSplashScreenTheme">@style/Theme.LightXin</item>
+        <!-- 窗口兜底背景与 splash/首页底色一致（night 变体自动生效），避免首帧前后闪白 -->
+        <item name="android:windowBackground">@color/splash_background</item>
+        <!-- API 26-30 的启动画面；31+ 由 values-v31 的 windowSplashScreen* 接管，此项被系统忽略 -->
+        <item name="android:windowSplashscreenContent">@drawable/splash_content</item>
     </style>
 </resources>

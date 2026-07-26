@@ -1,0 +1,12 @@
+<resources>
+    <!-- Android 12+ 原生 SplashScreen：普通主题直接携带 splash 属性（仿 LibChecker），
+         无专用 splash 主题、无 installSplashScreen()、无运行时主题切换。 -->
+    <style name="Theme.LightXin" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowBackground">@color/splash_background</item>
+        <item name="android:windowSplashScreenBackground">@color/splash_background</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/splash_logo</item>
+        <item name="android:windowSplashScreenAnimationDuration">500</item>
+    </style>
+</resources>
