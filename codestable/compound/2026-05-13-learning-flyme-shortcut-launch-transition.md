@@ -378,9 +378,9 @@ wm_task_removed     task=108
 - `app/src/main/AndroidManifest.xml:28-37` — `MainActivity` 使用 `singleTask`；已移除 `android.app.shortcuts` metadata
 - `app/src/main/java/com/lightxin/LightXinApp.kt:8-12` — Application 启动时注册 dynamic shortcut
 - `app/src/main/java/com/lightxin/navigation/ShortcutRegistrar.kt:15-58` — dynamic shortcut Intent 带 `FLAG_ACTIVITY_NO_ANIMATION`；实机证明该 flag 不能取消 Quickstep remote transition
-- `app/src/main/java/com/lightxin/MainActivity.kt:43-71` — `installSplashScreen()` 与 keep condition；不是本次热启动 starting window 的触发者
-- `app/src/main/java/com/lightxin/MainActivity.kt:110-129` — dynamic shortcut 热启动真实进入 `onNewIntent`，2026-07-19 实机已验证
-- `app/src/main/res/values/themes.xml:8-14` — Activity 的 Splash theme 决定 task-switch starting window 的视觉内容，但不是 remote transition 的所有者
+- `app/src/main/java/com/lightxin/MainActivity.kt:44-70` — 2026-07-26 起改为 pre-draw 挂起门控（原 `installSplashScreen()` + keep condition 已拆除）
+- `app/src/main/java/com/lightxin/MainActivity.kt:121-140` — dynamic shortcut 热启动真实进入 `onNewIntent`，2026-07-19 实机已验证
+- `app/src/main/res/values/themes.xml` / `values-v31/themes.xml` — 2026-07-26 起 `Theme.LightXin` 直接携带原生 splash 属性（专用 `Theme.LightXin.Splash` 已删除）；该主题决定 task-switch starting window 的视觉内容，但不是 remote transition 的所有者
 - `app/src/main/res/xml/shortcuts.xml` — 历史 static shortcut 资源；当前 Manifest 未引用
 - `app/src/main/java/com/lightxin/navigation/NavGraph.kt:94-143` — NavHost shortcut 编排与 Compose transition；全关后仍复现，不是决定性根因
 - `codestable/features/2026-05-12-app-shortcut-checkin/` — 本 feature 的 design / checklist / acceptance，本 learning 是该 feature acceptance 阶段沉淀
@@ -440,3 +440,47 @@ WindowManagerShell:
 - 将 dynamic shortcut 与 `FLAG_ACTIVITY_NO_ANIMATION` 从未来方向改为已验证无效。
 - 克隆并核对 LibChecker master `c316c9208905f0b71ee2038c6eb0bd3c84d7b7fd`，并在同一台 MEIZU 20 上对已安装的 LibChecker `2.5.4` 做静态 shortcut A/B；确认其同样清 task、重建 Activity、创建 Splash starting window并走 `QuickstepLaunch`。
 - 找到 API 31+ 官方 `ShortcutInfo.Builder.setStartingTheme()` 与 AOSP 服务端传递链，将 shortcut 专用 starting theme / `windowDisablePreview` 列为下一轮唯一高价值应用层实验，但不预设能够取消 Quickstep remote transition。
+
+## 2026-07-26 更新：复刻 LibChecker 原生 splash 已合入 + 帧级根因二次修正
+
+### 已合入的重写（main `e895f16`）
+
+按 LibChecker 写法重写 splash，资源全部复用：
+
+- 拆除 `core-splashscreen` compat 库、`Theme.LightXin.Splash` 专用主题与 `installSplashScreen()`；`Theme.LightXin` 直接携带 `windowSplashScreen*`（values-v31）与 `windowSplashscreenContent`（API 26-30），无 `postSplashScreenTheme` 运行时切换
+- 冷启动数据门控改用官方 pre-draw 挂起手法（`OnPreDrawListener` 返回 false），放行条件不变（`HomeBootstrap.ready` OR 1500ms）
+- manifest 补齐 `android:roundIcon`
+- shortcut 链式落位期间用状态标志抑制 NavHost 全部转场（600ms 后自动恢复），仿 LibChecker `setCurrentItem(index, false)`
+
+效果：splash/logo 闪现感消除，冷启动视觉不劣化，已被用户接受合入主线。
+
+### 帧级根因二次修正（Pixel 4 录屏逐帧取证）
+
+用户观察到关键新现象：**从首页退后台点 shortcut 有对角展开；从 AI 课堂/查寝页退后台点任一 shortcut 都没有**。若动画纯属系统层，退后台时停在哪个页面不应有影响。
+
+受控取证结论（同一 Pixel、同一 shortcut、仅退后台页面不同）：
+
+- 系统层日志**完全相同**：两场景均为 `type=OPEN` + `RemoteTransition QuickstepLaunch`（576ms vs 551ms），且这台 Pixel 上均未创建 starting window——系统对两种场景一视同仁，**对角展开两种情况都在播**。
+- 逐帧差异在 app 表面内容：
+  - 从首页退后台 → 点扫码 shortcut：`onNewIntent` 立即触发链式导航（HOME → AICLASS_HOME → AICLASS_SCAN）+ 相机初始化，主线程在整个 ~550ms 转场期间画不出首帧，系统只能显示 `windowBackground`（羊皮纸色）→ 转场里是一大块**空白亮色矩形**在深色壁纸上展开，结束后内容突变 → 强烈可感知。
+  - 从扫码页退后台 → 点扫码 shortcut：首帧即成品（页面已渲染），转场展开的是完整目标页画面 → 动画在播但**完全隐形**。
+
+**修正后的认知**：Quickstep 对角展开本身不可取消也无需取消——普通图标热启动播的是同一动画但从不刺眼。刺眼与否 ∝ **转场期间 app 画面的完成度**。此前 2026-07-19 的"应用层无解"结论只对"取消动画"成立，对"让动画不可感知"不成立。
+
+### 已验证无效（用户否决）：热启动延迟 600ms 落位
+
+实现：`onNewIntent` 中把 `shortcutTarget` 赋值延迟 600ms，错开 Quickstep 转场——转场期间显示退后台前旧页面（帧证据确认空白块消除，展开内容为渲染完好的旧页面，与普通图标热启动观感一致），全屏后再切目标页。
+
+Pixel 帧级验证技术上成立，但用户实机评价"**观感不如上一版**"——落位后移带来的二段切换感比转场里的空白块更不可接受。已撤回，不要再走"延迟落位"方向。
+
+### 剩余问题与下一步方向
+
+从首页退后台点 shortcut 的空白块展开仍存在（部分改善状态）。如果回来再做，方向是**压缩热启动落位的首帧时间**，让目标页在转场可见帧之前渲染完成：
+
+1. 给扫码页相机区域加纯黑占位（首帧不等 CameraX surface）；
+2. 排查链式三连 navigate 的重组开销，考虑单跳直达目标页（back stack 用 popUpTo 语义补齐）；
+3. 若 Flyme 上仍创建 splash starting window（Pixel 不创建，ROM 差异未复测），可叠加 `setStartingTheme()` 无图标纯色主题实验。
+
+### 取证方法沉淀
+
+录屏逐帧对比比日志更快定位"观感类"问题：`adb shell screenrecord` 后用 ffmpeg `fps=15,scale=180:-1,tile=6x4` 生成宫格图一眼看全时间线。本轮正是宫格图揭示了"转场里是空白 windowBackground 而非页面内容"这一日志完全看不出的事实。
