@@ -3,6 +3,9 @@ package com.lightxin.feature.aiclass.ui
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.lightxin.core.network.FifMappingRecovery
+import com.lightxin.core.network.FifOperation
+import com.lightxin.core.network.fifMappingFailure
 import com.lightxin.feature.aiclass.data.AiClassRepository
 import com.lightxin.feature.aiclass.domain.AiHomeworkDetail
 import com.lightxin.feature.aiclass.domain.AiStudentWork
@@ -32,146 +35,100 @@ class AiHomeworkDetailViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val repository: AiClassRepository,
 ) : ViewModel() {
-
     private val cwId: String = savedStateHandle["cwId"] ?: ""
-
     private val _uiState = MutableStateFlow(AiHomeworkDetailUiState())
     val uiState: StateFlow<AiHomeworkDetailUiState> = _uiState
-
-    // teachClassId 需要从外部传入或从上一级获取
-    // 这里通过 load 方法接收
-    private var teachClassId: String = ""
-
-    init {
-        // 延迟加载，等待 teachClassId 设置
-    }
-
+    private val recovery = FifMappingRecovery(repository::resetFifSession)
+    val mappingRecovery = recovery.state
+    private var teachClassId = ""
     private var currentPage = 1
-    private var hasMorePages = true
+    private var loadVersion = 0
+
+    fun retryMapping() { viewModelScope.launch { recovery.retry() } }
 
     fun load(classId: String) {
         if (classId.isBlank() || cwId.isBlank()) return
         teachClassId = classId
+        val version = ++loadVersion
         currentPage = 1
-        hasMorePages = true
         repository.clearJtzyCache()
-
+        _uiState.update {
+            it.copy(isLoading = true, isWorksLoadingMore = false, hasMoreWorks = true, error = null)
+        }
         viewModelScope.launch {
-            _uiState.update {
-                it.copy(
-                    isLoading = true,
-                    isWorksLoadingMore = false,
-                    hasMoreWorks = true,
-                    error = null,
-                )
-            }
-
-            // 先加载详情获取 cwDeadline
-            val detailResult = repository.getHomeworkDetail(cwId, teachClassId)
-            val detail = detailResult.getOrNull()
-            if (detail == null) {
+            recovery.execute(FifOperation.HOMEWORK_DETAIL,
+                request = { repository.getHomeworkDetail(cwId, classId) },
+                isCurrent = { loadVersion == version },
+            ) { result ->
+                val detail = result.getOrNull()
                 _uiState.update {
-                    it.copy(
-                        detail = null,
-                        studentWorks = emptyList(),
+                    it.copy(detail = detail, studentWorks = emptyList(), isLoading = detail != null,
+                        hasMoreWorks = detail != null, error = result.exceptionOrNull()?.safeMessage())
+                }
+                if (detail != null) loadWorks(detail, classId, page = 1, version = version)
+            }
+        }
+    }
+
+    private fun loadWorks(detail: AiHomeworkDetail, classId: String, page: Int, version: Int) {
+        viewModelScope.launch {
+            recovery.execute(FifOperation.WORKS_MORE,
+                request = { repository.getStuWorkList(cwId, classId, detail.cwDeadlineFormat, page = page) },
+                isCurrent = { loadVersion == version },
+            ) { result ->
+                val works = result.getOrNull()
+                if (works != null) currentPage = page
+                _uiState.update { state ->
+                    val existing = if (page == 1) emptyList() else state.studentWorks
+                    val ids = existing.mapTo(mutableSetOf()) { it.stuCwId }
+                    state.copy(
+                        studentWorks = if (works == null) state.studentWorks else existing + works.filter { ids.add(it.stuCwId) },
                         isLoading = false,
-                        hasMoreWorks = false,
-                        error = detailResult.exceptionOrNull()?.message,
+                        isWorksLoadingMore = false,
+                        hasMoreWorks = works?.let { it.size >= WORKS_PAGE_SIZE } ?: state.hasMoreWorks,
+                        error = result.exceptionOrNull()?.safeMessage(),
                     )
                 }
-                return@launch
-            }
-            val cwDeadline = detail?.cwDeadlineFormat.orEmpty()
-
-            // 再用 cwDeadline 加载提交列表
-            val worksResult = repository.getStuWorkList(cwId, teachClassId, cwDeadline, page = 1)
-            val works = worksResult.getOrDefault(emptyList())
-
-            _uiState.update {
-                it.copy(
-                    detail = detail,
-                    studentWorks = works,
-                    isLoading = false,
-                    hasMoreWorks = works.size >= WORKS_PAGE_SIZE,
-                    error = worksResult.exceptionOrNull()?.message,
-                )
             }
         }
     }
 
     fun loadMoreWorks() {
         val state = _uiState.value
-        if (!hasMorePages || state.isWorksLoadingMore || !state.hasMoreWorks) return
-        val detail = _uiState.value.detail ?: return
-        val nextPage = currentPage + 1
-        viewModelScope.launch {
-            _uiState.update { it.copy(isWorksLoadingMore = true) }
-            val result = repository.getStuWorkList(cwId, teachClassId, detail.cwDeadlineFormat, page = nextPage)
-            val newItems = result.getOrNull()
-            if (newItems == null) {
-                _uiState.update { it.copy(isWorksLoadingMore = false) }
-                return@launch
-            }
-
-            currentPage = nextPage
-            if (newItems.size < WORKS_PAGE_SIZE) {
-                hasMorePages = false
-            }
-            _uiState.update {
-                val existingIds = it.studentWorks.mapTo(mutableSetOf()) { work -> work.stuCwId }
-                val merged = it.studentWorks + newItems.filterNot { work -> work.stuCwId in existingIds }
-                it.copy(
-                    studentWorks = merged,
-                    isWorksLoadingMore = false,
-                    hasMoreWorks = hasMorePages,
-                )
-            }
-        }
+        val detail = state.detail ?: return
+        if (state.isWorksLoadingMore || !state.hasMoreWorks || mappingRecovery.value.failure != null) return
+        _uiState.update { it.copy(isWorksLoadingMore = true) }
+        loadWorks(detail, teachClassId, currentPage + 1, loadVersion)
     }
 
-    fun showSubmitSheet() {
-        _uiState.update { it.copy(showSubmitSheet = true) }
-    }
-
-    fun dismissSubmitSheet() {
-        _uiState.update { it.copy(showSubmitSheet = false) }
-    }
+    fun showSubmitSheet() { _uiState.update { it.copy(showSubmitSheet = true) } }
+    fun dismissSubmitSheet() { _uiState.update { it.copy(showSubmitSheet = false) } }
 
     fun submitHomework(text: String) {
-        if (text.isBlank()) return
+        if (text.isBlank() || _uiState.value.isSubmitting || mappingRecovery.value.failure != null) return
+        val classId = teachClassId
+        val version = loadVersion
+        _uiState.update { it.copy(isSubmitting = true, submitResult = null) }
         viewModelScope.launch {
-            _uiState.update { it.copy(isSubmitting = true, submitResult = null) }
-            val result = repository.submitHomework(cwId, teachClassId, text)
-            _uiState.update {
-                it.copy(
-                    isSubmitting = false,
-                    showSubmitSheet = false,
-                    submitResult = result.getOrElse { e -> e.message ?: "提交失败" },
-                )
-            }
-            // 提交成功后刷新列表
-            if (result.isSuccess) {
-                val cwDeadline = _uiState.value.detail?.cwDeadlineFormat.orEmpty()
-                val worksResult = repository.getStuWorkList(cwId, teachClassId, cwDeadline)
-                val works = worksResult.getOrDefault(_uiState.value.studentWorks)
-                currentPage = 1
-                hasMorePages = works.size >= WORKS_PAGE_SIZE
+            recovery.execute(FifOperation.SUBMIT_HOMEWORK,
+                request = { repository.submitHomework(cwId, classId, text) },
+                isCurrent = { loadVersion == version },
+            ) { result ->
                 _uiState.update {
-                    it.copy(
-                        studentWorks = works,
-                        hasMoreWorks = hasMorePages,
-                        isWorksLoadingMore = false,
-                    )
+                    it.copy(isSubmitting = false, showSubmitSheet = false,
+                        submitResult = if (result.exceptionOrNull()?.fifMappingFailure(FifOperation.SUBMIT_HOMEWORK) != null) null
+                            else result.getOrElse { error -> error.safeMessage() })
+                }
+                // Refresh reads separately: a failed refresh must never replay a successful submission.
+                if (result.isSuccess) _uiState.value.detail?.let { detail ->
+                    val refreshVersion = ++loadVersion
+                    _uiState.update { it.copy(isWorksLoadingMore = true) }
+                    loadWorks(detail, classId, 1, refreshVersion)
                 }
             }
         }
     }
 
-    fun consumeSubmitResult() {
-        _uiState.update { it.copy(submitResult = null) }
-    }
-
-    fun retry() {
-        load(teachClassId)
-    }
+    fun consumeSubmitResult() { _uiState.update { it.copy(submitResult = null) } }
+    fun retry() { load(teachClassId) }
 }

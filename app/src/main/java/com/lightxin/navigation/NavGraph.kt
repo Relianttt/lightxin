@@ -94,6 +94,28 @@ fun LightXinNavHost(
 
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
+    val fifReloginViewModel: FifReloginViewModel = hiltViewModel()
+    var isReloggingIn by remember { mutableStateOf(false) }
+    val onFifRelogin: () -> Unit = {
+        if (!isReloggingIn) {
+            isReloggingIn = true
+            scope.launch {
+                try {
+                    fifReloginViewModel.prepareRelogin()
+                    navController.navigate(Routes.LOGIN) {
+                        popUpTo(Routes.HOME) { inclusive = true }
+                        launchSingleTop = true
+                    }
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    throw e
+                } catch (_: Exception) {
+                    Toast.makeText(context, "暂时无法打开重新登录，请重试", Toast.LENGTH_SHORT).show()
+                } finally {
+                    isReloggingIn = false
+                }
+            }
+        }
+    }
     val currentOnShortcutConsumed by rememberUpdatedState(onShortcutConsumed)
 
     // shortcut 落位静态化（仿 LibChecker setCurrentItem(index, false)）：
@@ -196,6 +218,7 @@ fun LightXinNavHost(
         ) {
             LoginScreen(
                 onLoginSuccess = {
+                    scope.launch { fifReloginViewModel.onLoginSuccess() }
                     navController.navigate(Routes.HOME) {
                         popUpTo(Routes.LOGIN) { inclusive = true }
                     }
@@ -423,6 +446,7 @@ fun LightXinNavHost(
             val aiClassViewModel: com.lightxin.feature.aiclass.ui.AiClassViewModel = hiltViewModel(aiClassEntry)
             AiClassHomeScreen(
                 viewModel = aiClassViewModel,
+                onRelogin = onFifRelogin,
                 onBack = { navController.popBackStack() },
                 onOpenScan = {
                     navController.navigate(Routes.AICLASS_SCAN) {
@@ -460,6 +484,7 @@ fun LightXinNavHost(
             val aiClassEntry = remember(backStackEntry) { navController.getBackStackEntry(Routes.AICLASS_HOME) }
             val aiClassViewModel: com.lightxin.feature.aiclass.ui.AiClassViewModel = hiltViewModel(aiClassEntry)
             AiClassCourseDetailScreen(
+                onRelogin = onFifRelogin,
                 classId = Uri.decode(backStackEntry.arguments?.getString("classId").orEmpty()),
                 viewModel = aiClassViewModel,
                 onBack = { navController.popBackStack() },
@@ -483,6 +508,7 @@ fun LightXinNavHost(
             ),
         ) { backStackEntry ->
             AiHomeworkDetailScreen(
+                onRelogin = onFifRelogin,
                 cwId = Uri.decode(backStackEntry.arguments?.getString("cwId").orEmpty()),
                 teachClassId = Uri.decode(backStackEntry.arguments?.getString("teachClassId").orEmpty()),
                 onBack = { navController.popBackStack() },

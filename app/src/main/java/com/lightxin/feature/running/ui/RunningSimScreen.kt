@@ -26,6 +26,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.lightxin.core.designsystem.component.LxDialog
 import com.lightxin.core.designsystem.component.LxButton
 import com.lightxin.core.designsystem.component.LxCard
 import com.lightxin.core.designsystem.component.LxChoiceChip
@@ -48,6 +49,16 @@ fun RunningSimScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val scope = rememberCoroutineScope()
+    uiState.simulationWarning?.let { warning ->
+        LxDialog(
+            title = "路线模板质量提示",
+            message = "$warning\n继续将保留这些原始点位，不会自动平滑或修复坐标。",
+            confirmText = "仍然继续",
+            dismissText = "取消",
+            onConfirm = { scope.launch { viewModel.confirmSimulationWarning() } },
+            onDismissRequest = viewModel::dismissSimulationWarning,
+        )
+    }
 
     LaunchedEffect(uiState.shouldNavigateToResult) {
         if (uiState.shouldNavigateToResult) {

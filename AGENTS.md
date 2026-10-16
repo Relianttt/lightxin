@@ -35,12 +35,19 @@ These constraints are non-negotiable. Changing any of them requires consulting t
 - **API protocol must match original app** — All external requests must match the original app's captured protocol exactly. Field names with typos (e.g., FIF's `couseItemId`) are kept as-is.
 - **Check-in multi-header auth** — The check-in API (`fdygl.aiit.edu.cn`) requires 7 identity fields simultaneously; missing any one returns `-100 非法访问`. → `codestable/compound/2026-04-22-decision-checkin-multi-header-auth.md`
 
+## Workflow
+决策与经验：`.agents/notes/`；验证对照表：`.agents/verify.md`；历史文档（只读）：`codestable/`
+- 非平凡改动动手前：按 dsh-workflow 检索 notes 与铁律，取舍先确认。
+- 提交前：按 dsh-workflow 选最小足够验证，commit body 写命令与结果。
+- 改了行为/架构/协议/格式：按 dsh-workflow 同步或新建 note。
+- 同一错误第二次出现：按 dsh-workflow 沉淀为 pitfall note 或门禁。
+
 ## 项目碎片知识
 
 <!-- cs-note managed: 用 cs-note 维护，新条目按下面分节追加 -->
 
 ### 编译与构建
-- WSL 下没有 JDK，gradle 必须用 Windows 终端跑 `gradlew.bat`（`org.gradle.java.home` 指向 Android Studio 的 jbr，是 Windows 路径，WSL 下无效）。
+- 当前 Linux 环境已安装 Android Studio，可用 `JAVA_HOME=/opt/android-studio/jbr ./gradlew -Dorg.gradle.java.home=/opt/android-studio/jbr <任务>`；命令行覆盖仓库 `gradle.properties` 中的 Windows JDK 路径，SDK 路径由本机忽略的 `local.properties` 配置。
 
 ### 运行与本地起服务
 

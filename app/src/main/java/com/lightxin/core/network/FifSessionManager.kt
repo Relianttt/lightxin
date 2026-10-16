@@ -12,8 +12,10 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import okhttp3.Cookie
-import okhttp3.CookieJar
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -34,8 +36,9 @@ class FifSessionManager @Inject constructor(
     @ApplicationContext private val context: Context,
     private val tokenManager: TokenManager,
     @FifOkHttpClient private val fifClient: OkHttpClient,
-    private val cookieJar: CookieJar,
+    private val cookieJar: FifCookieJar,
 ) {
+    private val sessionMutex = Mutex()
     companion object {
         private val KEY_FIF_TOKEN = stringPreferencesKey("fif_token")
         private val KEY_STUDENT_ID = stringPreferencesKey("student_id")
@@ -78,48 +81,56 @@ class FifSessionManager @Inject constructor(
      * 3. 跟随重定向建立 Cookie 会话
      * 4. 调用 getAiktUserIdByMemberId 获取 FIF 用户标识
      */
-    suspend fun performSso(): Result<Unit> = withContext(Dispatchers.IO) {
-        try {
-            val accessToken = tokenManager.getAccessToken().orEmpty()
-            val userCode = tokenManager.getUserCode().orEmpty()
-            val userName = tokenManager.getUserName().orEmpty()
-            val userType = tokenManager.getUserType().orEmpty()
-
-            if (accessToken.isBlank() || userCode.isBlank()) {
-                return@withContext Result.failure(Exception("校内登录信息已失效，请重新登录"))
-            }
-
-            // Step 1: SSO 跳转，提取 FIF token
-            val fifToken = performSsoRedirect(accessToken, userCode, userName, userType)
-                ?: return@withContext Result.failure(Exception("FIF 单点登录失败"))
-
-            // Step 2: 用 token 访问 FIF 首页建立 Cookie
-            establishSession(fifToken)
-
-            // Step 3: 用户映射
-            val userInfo = fetchUserMapping(fifToken)
-                ?: return@withContext Result.failure(Exception("FIF 用户映射失败"))
-            val memberUserId = extractMemberUserIdFromFifToken(fifToken)
-
-            // 持久化
-            context.fifDataStore.edit { prefs ->
-                prefs[KEY_FIF_TOKEN] = fifToken
-                prefs[KEY_STUDENT_ID] = userInfo.studentId
-                prefs[KEY_USER_NAME] = userInfo.userName
-                prefs[KEY_SCHOOL_ID] = userInfo.schoolId
-                if (!memberUserId.isNullOrBlank()) {
-                    prefs[KEY_MEMBER_USER_ID] = memberUserId
-                } else {
-                    prefs.remove(KEY_MEMBER_USER_ID)
+    suspend fun performSso(forceRefresh: Boolean = false): Result<Unit> = withContext(Dispatchers.IO) {
+        sessionMutex.withLock {
+            try {
+                if (!forceRefresh && isSessionValid()) return@withContext Result.success(Unit)
+                if (forceRefresh) {
+                    context.fifDataStore.edit { it.clear() }
+                    cookieJar.clear()
                 }
+                val accessToken = tokenManager.getAccessToken().orEmpty()
+                val userCode = tokenManager.getUserCode().orEmpty()
+                val userName = tokenManager.getUserName().orEmpty()
+                val userType = tokenManager.getUserType().orEmpty()
+
+                if (accessToken.isBlank() || userCode.isBlank()) {
+                    return@withContext Result.failure(Exception("校内登录信息已失效，请重新登录"))
+                }
+
+                // Step 1: SSO 跳转，提取 FIF token
+                val fifToken = performSsoRedirect(accessToken, userCode, userName, userType)
+                    ?: return@withContext Result.failure(Exception("FIF 单点登录失败"))
+
+                // Step 2: 用 token 访问 FIF 首页建立 Cookie
+                establishSession(fifToken)
+
+                // Step 3: 用户映射
+                val userInfo = fetchUserMapping(fifToken)
+                val memberUserId = extractMemberUserIdFromFifToken(fifToken)
+
+                // 持久化
+                context.fifDataStore.edit { prefs ->
+                    prefs[KEY_FIF_TOKEN] = fifToken
+                    prefs[KEY_STUDENT_ID] = userInfo.studentId
+                    prefs[KEY_USER_NAME] = userInfo.userName
+                    prefs[KEY_SCHOOL_ID] = userInfo.schoolId
+                    if (!memberUserId.isNullOrBlank()) {
+                        prefs[KEY_MEMBER_USER_ID] = memberUserId
+                    } else {
+                        prefs.remove(KEY_MEMBER_USER_ID)
+                    }
+                }
+
+                // 同步身份 Cookie 到 OkHttp jar，让 qrcodeHandler 等原生请求能从 jar 中读取
+                saveIdentityCookies(userInfo.studentId, userInfo.userName)
+
+                Result.success(Unit)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Result.failure(Exception("AI课堂登录失败: ${e.message}", e))
             }
-
-            // 同步身份 Cookie 到 OkHttp jar，让 qrcodeHandler 等原生请求能从 jar 中读取
-            saveIdentityCookies(userInfo.studentId, userInfo.userName)
-
-            Result.success(Unit)
-        } catch (e: Exception) {
-            Result.failure(Exception("AI课堂登录失败: ${e.message}", e))
         }
     }
     private fun performSsoRedirect(
@@ -192,7 +203,7 @@ class FifSessionManager @Inject constructor(
     /**
      * Step 3: 调用用户映射接口获取 FIF 身份。
      */
-    private fun fetchUserMapping(token: String): FifUserInfo? {
+    private fun fetchUserMapping(token: String): FifUserInfo {
         val url = "${ApiConstants.BASE_FIF}/studycenter/mobile/common/getAiktUserIdByMemberId"
         val request = Request.Builder()
             .url(url)
@@ -201,21 +212,18 @@ class FifSessionManager @Inject constructor(
             .header("Visit-Type", "mobile")
             .build()
 
-        val response = fifClient.newCall(request).execute()
-        val body = response.body?.string() ?: return null
-        response.close()
-
-        // 解析 JSON: { data: { id, userType, number, userName, schoolId } }
         return try {
-            val json = com.google.gson.JsonParser.parseString(body).asJsonObject
-            val data = json.getAsJsonObject("data") ?: return null
-            FifUserInfo(
-                studentId = data.get("id")?.asString ?: return null,
-                userName = data.get("userName")?.asString.orEmpty(),
-                schoolId = data.get("schoolId")?.asString.orEmpty(),
-            )
-        } catch (_: Exception) {
-            null
+            fifClient.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) {
+                    throw FifUserMappingException(
+                        reason = if (response.code >= 500) FifMappingReason.SERVER else FifMappingReason.UNKNOWN,
+                        httpStatus = response.code,
+                    )
+                }
+                parseFifUserMapping(response.body?.string())
+            }
+        } catch (e: Exception) {
+            throw mappingRequestFailure(e)
         }
     }
 
@@ -266,18 +274,30 @@ class FifSessionManager @Inject constructor(
         }.build().toString()
     }
 
-    suspend fun clear() {
+    suspend fun clear() = sessionMutex.withLock {
         context.fifDataStore.edit { it.clear() }
-        // 清除 FIF 相关 Cookie
-        val fifUrl = ApiConstants.BASE_FIF.toHttpUrl()
-        cookieJar.loadForRequest(fifUrl) // 触发读取，无法直接清除，但会话失效后不影响
+        cookieJar.clear()
     }
+}
 
-    private data class FifUserInfo(
-        val studentId: String,
-        val userName: String,
-        val schoolId: String,
-    )
+internal data class FifUserInfo(val studentId: String, val userName: String, val schoolId: String)
+
+internal fun parseFifUserMapping(body: String?): FifUserInfo {
+    try {
+        val data = JsonParser.parseString(body.orEmpty()).asJsonObject.getAsJsonObject("data")
+            ?: throw FifUserMappingException(FifMappingReason.ACCOUNT_INFO)
+        val id = data.get("id")?.takeUnless { it.isJsonNull }?.asString
+        if (id.isNullOrBlank()) throw FifUserMappingException(FifMappingReason.ACCOUNT_INFO)
+        return FifUserInfo(
+            id,
+            data.get("userName")?.takeUnless { it.isJsonNull }?.asString.orEmpty(),
+            data.get("schoolId")?.takeUnless { it.isJsonNull }?.asString.orEmpty(),
+        )
+    } catch (e: FifUserMappingException) {
+        throw e
+    } catch (e: Exception) {
+        throw FifUserMappingException(FifMappingReason.ACCOUNT_INFO, cause = e)
+    }
 }
 
 internal fun extractMemberUserIdFromFifToken(token: String): String? {

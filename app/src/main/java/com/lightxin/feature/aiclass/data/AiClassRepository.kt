@@ -49,10 +49,15 @@ class AiClassRepository @Inject constructor(
     private val cookieJar: CookieJar,
     @FifOkHttpClient private val fifClient: OkHttpClient,
 ) {
+    suspend fun resetFifSession() {
+        clearJtzyCache()
+        fifSession.clear()
+    }
+
     /** 确保 FIF 会话有效，无效则自动 SSO */
     private suspend fun ensureSession(forceRefresh: Boolean = false): String {
         if (forceRefresh || !fifSession.isSessionValid()) {
-            fifSession.performSso().getOrThrow()
+            fifSession.performSso(forceRefresh = forceRefresh).getOrThrow()
         }
         return fifSession.buildAuthHeader()
     }

@@ -12,7 +12,6 @@ import com.lightxin.feature.running.domain.RunningSnapshot
 import com.lightxin.feature.running.domain.RunningStartInfo
 import com.lightxin.feature.running.domain.SimConfig
 import com.lightxin.feature.running.domain.TrackPoint
-import com.lightxin.feature.running.domain.TrajectoryGenerator
 import dagger.hilt.android.scopes.ViewModelScoped
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
@@ -219,27 +218,21 @@ class RunningRepository @Inject constructor(
 
     suspend fun submitSimulation(
         config: SimConfig,
-        overridePoints: List<TrackPoint>? = null,
+        overridePoints: List<TrackPoint>,
         overrideIsBd09: Boolean = false,
     ): Result<RunningResult> {
         return try {
+            require(overridePoints.size >= 2) { "没有可用的模板轨迹，请先录制路线并设置默认模板" }
             val startInfo = startRunning().getOrElse { return Result.failure(it) }
-            val trajectory: List<TrackPoint>
-            val isBd09: Boolean
-            if (overridePoints != null && overridePoints.size >= 2) {
-                trajectory = overridePoints
-                isBd09 = overrideIsBd09
-            } else {
-                trajectory = TrajectoryGenerator.generate(config)
-                isBd09 = true
-            }
             val snapshot = RunningSnapshot(
                 startInfo = startInfo,
                 startTimeMillis = config.startTimeMillis,
                 durationSeconds = config.durationMinutes * 60L,
-                distanceMeters = config.distanceKm * 1000.0,
-                points = trajectory,
-                pointsAreBd09 = isBd09,
+                distanceMeters = overridePoints.zipWithNext { a, b ->
+                    com.lightxin.feature.running.domain.GeoDistance.metersBetween(a.latitude, a.longitude, b.latitude, b.longitude)
+                }.sum(),
+                points = overridePoints,
+                pointsAreBd09 = overrideIsBd09,
             )
             uploadSnapshot(snapshot)
         } catch (e: Exception) {

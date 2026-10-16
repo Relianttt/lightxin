@@ -40,11 +40,19 @@ class HomeBootstrap @Inject constructor(
 
     private val loadMutex = Mutex()
     private var loaded = false
+    private var generation = 0L
+
+    suspend fun resetAfterRelogin() = loadMutex.withLock {
+        generation++
+        loaded = false
+        _snapshot.value = null
+    }
 
     suspend fun load() {
-        loadMutex.withLock {
+        val currentGeneration = loadMutex.withLock {
             if (loaded) return
             loaded = true
+            generation
         }
         try {
             val token = tokenManager.getAccessToken()
@@ -57,7 +65,7 @@ class HomeBootstrap @Inject constructor(
                 val courseResult = coursesDeferred.await()
                 val checkinResult = checkinDeferred.await()
 
-                _snapshot.value = HomeBootstrapSnapshot(
+                val snapshot = HomeBootstrapSnapshot(
                     userName = userName,
                     todayCourses = courseResult.courses,
                     tomorrowFirstSection = courseResult.tomorrowFirstSection,
@@ -66,6 +74,9 @@ class HomeBootstrap @Inject constructor(
                     scheduleError = courseResult.error,
                     checkinError = checkinResult.second,
                 )
+                loadMutex.withLock {
+                    if (currentGeneration == generation) _snapshot.value = snapshot
+                }
             }
         } finally {
             _ready.value = true

@@ -42,6 +42,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.lightxin.core.designsystem.component.LxButton
 import com.lightxin.core.designsystem.component.LxCard
 import com.lightxin.core.designsystem.component.LxError
+import com.lightxin.core.designsystem.component.FifMappingErrorPage
 import com.lightxin.core.designsystem.component.LxLoading
 import com.lightxin.core.designsystem.component.LxTopBar
 import com.lightxin.core.designsystem.theme.LxCream
@@ -56,10 +57,13 @@ fun AiHomeworkDetailScreen(
     cwId: String,
     teachClassId: String,
     onBack: () -> Unit,
+    onRelogin: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: AiHomeworkDetailViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val mapping by viewModel.mappingRecovery.collectAsState()
+    val mappingFailure = mapping.failure
     val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(teachClassId) {
@@ -80,6 +84,13 @@ fun AiHomeworkDetailScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { padding ->
         when {
+            mappingFailure != null -> FifMappingErrorPage(
+                failure = mappingFailure,
+                isRetrying = mapping.isRetrying,
+                onRetry = viewModel::retryMapping,
+                onRelogin = onRelogin,
+                modifier = Modifier.padding(padding),
+            )
             uiState.isLoading -> LxLoading(modifier = Modifier.padding(padding))
             uiState.error != null && uiState.detail == null -> LxError(
                 message = uiState.error!!,
@@ -95,7 +106,7 @@ fun AiHomeworkDetailScreen(
         }
     }
 
-    if (uiState.showSubmitSheet) {
+    if (uiState.showSubmitSheet && mappingFailure == null) {
         SubmitBottomSheet(
             isSubmitting = uiState.isSubmitting,
             onDismiss = viewModel::dismissSubmitSheet,

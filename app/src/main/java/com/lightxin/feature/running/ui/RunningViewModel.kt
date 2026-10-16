@@ -12,7 +12,9 @@ import com.lightxin.feature.running.domain.RunningSnapshot
 import com.lightxin.feature.running.domain.RunningStartInfo
 import com.lightxin.feature.running.domain.RunningTrackerState
 import com.lightxin.feature.running.domain.SimConfig
-import com.lightxin.feature.running.domain.TrajectoryGenerator
+import com.lightxin.feature.running.domain.RouteReplayPlanner
+import com.lightxin.feature.running.domain.RouteReplayPreparation
+import com.lightxin.feature.running.domain.TrackPoint
 import com.lightxin.feature.running.service.RunningTracker
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -20,6 +22,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -35,6 +39,7 @@ data class RunningUiState(
     val isStarting: Boolean = false,
     val startError: String? = null,
     val simError: String? = null,
+    val simulationWarning: String? = null,
     val simDistance: String = "3.20",
     val simDurationMinutes: String = "24",
     val simStartTimeMillis: Long = System.currentTimeMillis() - TimeUnit.MINUTES.toMillis(24),
@@ -204,38 +209,56 @@ class RunningViewModel @Inject constructor(
         }
     }
 
+    private data class SimulationDraft(val config: SimConfig, val template: RouteTemplate?)
+    private var pendingSimulation: SimulationDraft? = null
+
     suspend fun submitSimulation() {
-        if (_uiState.value.isSubmittingSimulation) return
+        if (_uiState.value.isSubmittingSimulation || pendingSimulation != null) return
         val config = validateSimulation() ?: return
-        val template = _uiState.value.defaultTemplate
-        val overridePoints = template?.let { TrajectoryGenerator.generateFromTemplate(config, it) }
-        val templatePoints = overridePoints?.takeIf { it.size >= 2 }
-        val trajectorySize = templatePoints?.size ?: TrajectoryGenerator.generate(config).size
+        prepareSimulation(SimulationDraft(config, _uiState.value.defaultTemplate), qualityConfirmed = false)
+    }
 
-        _uiState.update {
-            it.copy(
-                isSubmittingSimulation = true,
-                simError = null,
-                lastResult = null,
-                shouldNavigateToResult = false,
-            )
-        }
+    fun dismissSimulationWarning() {
+        pendingSimulation = null
+        _uiState.update { it.copy(simulationWarning = null) }
+    }
 
-        val submitCall = if (templatePoints != null) {
-            repository.submitSimulation(
-                config = config,
-                overridePoints = templatePoints,
-                overrideIsBd09 = false,
-            )
-        } else {
-            repository.submitSimulation(config)
+    suspend fun confirmSimulationWarning() {
+        val draft = pendingSimulation ?: return
+        dismissSimulationWarning()
+        if (draft.template != _uiState.value.defaultTemplate) {
+            _uiState.update { it.copy(simError = "默认模板已变化，请重新生成轨迹") }
+            return
         }
+        prepareSimulation(draft, qualityConfirmed = true)
+    }
+
+    private suspend fun prepareSimulation(draft: SimulationDraft, qualityConfirmed: Boolean) {
+        if (_uiState.value.isSubmittingSimulation) return
+        _uiState.update { it.copy(isSubmittingSimulation = true, simError = null, lastResult = null, shouldNavigateToResult = false) }
+        try {
+            when (val prepared = withContext(Dispatchers.Default) {
+                RouteReplayPlanner.prepare(draft.template, draft.config, qualityConfirmed)
+            }) {
+                is RouteReplayPreparation.Invalid -> _uiState.update { it.copy(simError = prepared.message) }
+                is RouteReplayPreparation.NeedsConfirmation -> {
+                    pendingSimulation = draft
+                    _uiState.update { it.copy(simulationWarning = prepared.message) }
+                }
+                is RouteReplayPreparation.Ready -> uploadSimulation(draft.config, draft.template!!, prepared.points)
+            }
+        } finally {
+            _uiState.update { it.copy(isSubmittingSimulation = false) }
+        }
+    }
+
+    private suspend fun uploadSimulation(config: SimConfig, template: RouteTemplate, templatePoints: List<TrackPoint>) {
+        val trajectorySize = templatePoints.size
+        val submitCall = repository.submitSimulation(config, templatePoints, overrideIsBd09 = false)
 
         submitCall.fold(
             onSuccess = { result ->
-                if (templatePoints != null) {
-                    templateStore.markUsed(template.id)
-                }
+                templateStore.markUsed(template.id)
                 _uiState.update {
                     it.copy(
                         isSubmittingSimulation = false,

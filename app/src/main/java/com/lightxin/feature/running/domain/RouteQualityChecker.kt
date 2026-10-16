@@ -4,7 +4,7 @@ package com.lightxin.feature.running.domain
  * 轻量路线质量校验：硬闸由 RouteTemplateRules 负责；本校验仅对已通过硬闸的轨迹做"警告级"检测。
  * 规则（任一触发即 WARNING）：
  *   - 校园边界框外点占比 > 30%
- *   - 存在 >80m 的大跳段且数量 > 总段数的 5%
+ *   - 存在 >80m 的大跳段、零距离段或异常时间戳/采样间断
  *   - 有效移动段占比 < 60%（表示长时间原地停留）
  */
 object RouteQualityChecker {
@@ -22,6 +22,10 @@ object RouteQualityChecker {
 
         var jumpCount = 0
         var movingSegments = 0
+        var stationarySegments = 0
+        var repeatedTimes = 0
+        var reversedTimes = 0
+        var interruptedSegments = 0
         val totalSegments = points.size - 1
         for (i in 1 until points.size) {
             val d = GeoDistance.metersBetween(
@@ -30,20 +34,31 @@ object RouteQualityChecker {
             )
             if (d > JUMP_SEGMENT_METERS) jumpCount++
             if (d >= MIN_MOVING_SEGMENT_METERS) movingSegments++
+            if (d == 0.0) stationarySegments++
+            val before = points[i - 1].timestampMillis
+            val after = points[i].timestampMillis
+            when {
+                after == before -> repeatedTimes++
+                after < before -> reversedTimes++
+                after.toDouble() - before.toDouble() > 30_000 -> interruptedSegments++
+            }
         }
-        val jumpRatio = jumpCount.toDouble() / totalSegments
         val movingRatio = movingSegments.toDouble() / totalSegments
 
         val warnings = mutableListOf<String>()
         if (outRatio > 0.30) {
             warnings += "约 ${(outRatio * 100).toInt()}% 的点超出校园范围"
         }
-        if (jumpRatio > 0.05) {
+        if (jumpCount > 0) {
             warnings += "存在 $jumpCount 个大跳段（>${JUMP_SEGMENT_METERS.toInt()}m）"
         }
         if (movingRatio < 0.60) {
             warnings += "有效移动段占比仅 ${(movingRatio * 100).toInt()}%"
         }
+        if (stationarySegments > 0) warnings += "存在 $stationarySegments 个零距离段"
+        if (repeatedTimes > 0) warnings += "存在 $repeatedTimes 个重复时间戳"
+        if (reversedTimes > 0) warnings += "存在 $reversedTimes 个倒退时间戳"
+        if (interruptedSegments > 0) warnings += "存在 $interruptedSegments 处采样间隔超过 30 秒"
 
         return if (warnings.isEmpty()) Result(RouteQualityStatus.PASS, null)
         else Result(RouteQualityStatus.WARNING, warnings.joinToString("；"))

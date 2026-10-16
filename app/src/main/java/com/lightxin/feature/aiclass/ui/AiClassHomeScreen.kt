@@ -52,6 +52,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.lightxin.core.designsystem.component.LxButton
 import com.lightxin.core.designsystem.component.LxCard
 import com.lightxin.core.designsystem.component.LxError
+import com.lightxin.core.designsystem.component.FifMappingErrorPage
 import com.lightxin.core.designsystem.component.LxFloatingActionButton
 import com.lightxin.core.designsystem.component.LxProgressIndicator
 import com.lightxin.core.designsystem.component.LxTextField
@@ -66,6 +67,7 @@ import com.lightxin.feature.aiclass.domain.studentCountText
 @Composable
 fun AiClassHomeScreen(
     onBack: () -> Unit,
+    onRelogin: () -> Unit,
     onOpenScan: () -> Unit,
     onOpenCourseDetail: (classId: String) -> Unit,
     onOpenWorkingDetail: () -> Unit = {},
@@ -73,6 +75,8 @@ fun AiClassHomeScreen(
     viewModel: AiClassViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val mapping by viewModel.mappingRecovery.collectAsState()
+    val mappingFailure = mapping.failure
     val error = uiState.error
     val signResult = uiState.signResult
     val snackbarHostState = remember { SnackbarHostState() }
@@ -85,10 +89,10 @@ fun AiClassHomeScreen(
     Scaffold(
         modifier = modifier,
         containerColor = MaterialTheme.colorScheme.background,
-        topBar = { LxTopBar(title = "AI课堂", onBack = onBack) },
+        topBar = { LxTopBar(title = "AI 课堂", onBack = onBack) },
         snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
-            if (!uiState.isLoading && error == null) {
+            if (!uiState.isLoading && error == null && mappingFailure == null) {
                 LxFloatingActionButton(
                     onClick = onOpenScan,
                 ) {
@@ -102,6 +106,13 @@ fun AiClassHomeScreen(
         },
     ) { padding ->
         when {
+            mappingFailure != null -> FifMappingErrorPage(
+                failure = mappingFailure,
+                isRetrying = mapping.isRetrying,
+                onRetry = viewModel::retryMapping,
+                onRelogin = onRelogin,
+                modifier = Modifier.padding(padding),
+            )
             uiState.isLoading || uiState.isSsoInProgress -> {
                 Box(
                     modifier = Modifier
@@ -139,7 +150,7 @@ fun AiClassHomeScreen(
         }
     }
 
-    if (showSignResultSheet && signResult != null) {
+    if (showSignResultSheet && signResult != null && mappingFailure == null) {
         ModalBottomSheet(
             onDismissRequest = {
                 showSignResultSheet = false

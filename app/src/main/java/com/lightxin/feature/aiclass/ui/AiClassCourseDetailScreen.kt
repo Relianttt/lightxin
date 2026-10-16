@@ -32,6 +32,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.lightxin.core.designsystem.component.LxCard
 import com.lightxin.core.designsystem.component.LxDetailRow
 import com.lightxin.core.designsystem.component.LxError
+import com.lightxin.core.designsystem.component.FifMappingErrorPage
 import com.lightxin.core.designsystem.component.LxLoading
 import com.lightxin.core.designsystem.component.LxTopBar
 import com.lightxin.core.designsystem.theme.LxSuccess
@@ -44,11 +45,14 @@ import com.lightxin.feature.aiclass.domain.studentCountText
 fun AiClassCourseDetailScreen(
     classId: String,
     onBack: () -> Unit,
+    onRelogin: () -> Unit,
     onOpenHomeworkDetail: (String) -> Unit = {},
     modifier: Modifier = Modifier,
     viewModel: AiClassViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val mapping by viewModel.mappingRecovery.collectAsState()
+    val mappingFailure = mapping.failure
 
     LaunchedEffect(classId) {
         viewModel.openCourseDetail(classId)
@@ -61,6 +65,13 @@ fun AiClassCourseDetailScreen(
     ) { padding ->
         val course = uiState.selectedCourse
         when {
+            mappingFailure != null -> FifMappingErrorPage(
+                failure = mappingFailure,
+                isRetrying = mapping.isRetrying,
+                onRetry = viewModel::retryMapping,
+                onRelogin = onRelogin,
+                modifier = Modifier.padding(padding),
+            )
             course == null && uiState.isQuizLoading -> LxLoading(modifier = Modifier.padding(padding))
             course == null -> LxError(
                 message = uiState.quizError ?: "课程信息不存在",

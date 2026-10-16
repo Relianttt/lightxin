@@ -95,6 +95,8 @@ fun HomeDashboard(
     modifier: Modifier = Modifier,
     navController: NavHostController,
     onTabSelected: (Int) -> Unit,
+    showSessionExpiredBanner: Boolean = false,
+    onRelogin: () -> Unit = {},
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
@@ -127,6 +129,11 @@ fun HomeDashboard(
                 subtitle = uiState.subtitle,
                 modifier = Modifier.padding(horizontal = 24.dp),
             )
+
+            if (showSessionExpiredBanner) {
+                Spacer(modifier = Modifier.height(16.dp))
+                MainSessionExpiredBanner(onRelogin, Modifier.padding(horizontal = 24.dp))
+            }
 
             Spacer(modifier = Modifier.height(22.dp))
 

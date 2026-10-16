@@ -1,17 +1,19 @@
 package com.lightxin.feature.aiclass.ui
 
-import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.lightxin.core.network.FifSessionManager
+import com.lightxin.core.network.FifMappingRecovery
+import com.lightxin.core.network.FifOperation
+import com.lightxin.core.network.fifMappingFailure
 import com.lightxin.feature.aiclass.data.AiClassRepository
+import com.lightxin.feature.aiclass.domain.AiClassQrPayload
 import com.lightxin.feature.aiclass.domain.AiCourse
 import com.lightxin.feature.aiclass.domain.AiQuiz
-import com.lightxin.feature.aiclass.domain.AiClassQrPayload
 import com.lightxin.feature.aiclass.domain.AiWorkingRecord
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
@@ -19,7 +21,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeout
 import javax.inject.Inject
 
-private const val VIEWMODEL_LOG_TAG = "AiClassVM"
 private const val AICLASS_INITIAL_LOAD_TIMEOUT_MS = 18_000L
 private const val AICLASS_OPTIONAL_LOAD_TIMEOUT_MS = 8_000L
 private const val AICLASS_DETAIL_LOAD_TIMEOUT_MS = 12_000L
@@ -44,251 +45,161 @@ data class AiClassUiState(
 @HiltViewModel
 class AiClassViewModel @Inject constructor(
     private val repository: AiClassRepository,
-    private val fifSession: FifSessionManager,
 ) : ViewModel() {
-
     private val _uiState = MutableStateFlow(AiClassUiState())
     val uiState: StateFlow<AiClassUiState> = _uiState
+    private val recovery = FifMappingRecovery(repository::resetFifSession)
+    val mappingRecovery = recovery.state
+    private var loadingHome = false
 
-    init {
-        load()
-    }
+    init { load() }
+
+    fun retryMapping() { viewModelScope.launch { recovery.retry() } }
 
     fun load() {
+        if (_uiState.value.isLoading && loadingHome) return
+        loadingHome = true
+        _uiState.update { it.copy(isLoading = true, error = null) }
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, error = null) }
-
-            // 确保 SSO
-            if (!fifSession.isSessionValid()) {
-                _uiState.update { it.copy(isSsoInProgress = true) }
-                val ssoResult = fifSession.performSso()
-                _uiState.update { it.copy(isSsoInProgress = false) }
-                if (ssoResult.isFailure) {
-                    _uiState.update {
-                        it.copy(isLoading = false, error = ssoResult.exceptionOrNull()?.message)
+            try {
+                recovery.execute(FifOperation.HOME, request = {
+                    coroutineScope {
+                        val courses = async {
+                            withResultTimeout("获取课程列表", AICLASS_INITIAL_LOAD_TIMEOUT_MS) { repository.getCourses() }
+                        }
+                        val working = async {
+                            withResultTimeout("获取课堂状态", AICLASS_OPTIONAL_LOAD_TIMEOUT_MS) { repository.getWorkingRecord() }
+                        }
+                        val courseResult = courses.await()
+                        val workingResult = working.await()
+                        val error = listOfNotNull(courseResult.exceptionOrNull(), workingResult.exceptionOrNull())
+                            .firstOrNull { it.fifMappingFailure(FifOperation.HOME) != null }
+                            ?: courseResult.exceptionOrNull()
+                        if (error != null) Result.failure(error)
+                        else Result.success(courseResult.getOrDefault(emptyList()) to workingResult.getOrNull())
                     }
-                    return@launch
+                }) { result ->
+                    _uiState.update {
+                        it.copy(
+                            courses = result.getOrNull()?.first.orEmpty(),
+                            workingRecord = result.getOrNull()?.second,
+                            isLoading = false,
+                            error = result.exceptionOrNull()?.safeMessage(),
+                        )
+                    }
                 }
-            }
-
-            // 课程是主内容；课堂状态是附属信息，不能拖住整页加载。
-            val coursesDeferred = async {
-                withResultTimeout("获取课程列表", AICLASS_INITIAL_LOAD_TIMEOUT_MS) {
-                    repository.getCourses()
-                }
-            }
-            val workingDeferred = async {
-                withResultTimeout("获取课堂状态", AICLASS_OPTIONAL_LOAD_TIMEOUT_MS) {
-                    repository.getWorkingRecord()
-                }
-            }
-
-            val coursesResult = coursesDeferred.await()
-            val workingResult = workingDeferred.await()
-
-            _uiState.update {
-                it.copy(
-                    courses = coursesResult.getOrDefault(emptyList()),
-                    workingRecord = workingResult.getOrNull(),
-                    isLoading = false,
-                    error = coursesResult.exceptionOrNull()?.message,
-                )
-            }
+            } finally { loadingHome = false }
         }
     }
 
     fun submitSignCode(signCode: String) {
         val working = _uiState.value.workingRecord ?: return
+        sign(FifOperation.SIGN_CODE) {
+            val infoResult = repository.getSignInInfo(working.teachClassId, working.courseRecordId)
+            val info = infoResult.getOrNull()
+            when {
+                infoResult.isFailure -> Result.failure(infoResult.exceptionOrNull()!!)
+                info == null || !info.hasActiveSign -> Result.success("当前没有进行中的签到")
+                else -> repository.submitSignCode(info.signId, signCode)
+            }
+        }
+    }
+
+    fun submitSignCodeDirect(signId: String, signCode: String) {
+        sign(FifOperation.SIGN_CODE) { repository.submitSignCode(signId, signCode) }
+    }
+
+    fun submitQrCode(payload: AiClassQrPayload) {
+        sign(FifOperation.QR_SIGN) { repository.submitQrCode(payload) }
+    }
+
+    private fun sign(operation: FifOperation, request: suspend () -> Result<String>) {
+        if (_uiState.value.isSigningIn || mappingRecovery.value.failure != null) return
+        _uiState.update { it.copy(isSigningIn = true, signResult = null) }
         viewModelScope.launch {
-            _uiState.update { it.copy(isSigningIn = true, signResult = null) }
-
-            // 先查签到信息获取 signId
-            val signInfoResult = repository.getSignInInfo(
-                teachClassId = working.teachClassId,
-                courseRecordId = working.courseRecordId,
-            )
-            val signInfo = signInfoResult.getOrNull()
-
-            if (signInfo == null || !signInfo.hasActiveSign) {
+            recovery.execute(operation, request) { result ->
                 _uiState.update {
                     it.copy(
                         isSigningIn = false,
-                        signResult = signInfoResult.exceptionOrNull()?.message ?: "当前没有进行中的签到",
+                        signResult = if (result.exceptionOrNull()?.fifMappingFailure(operation) != null) null
+                            else result.getOrElse { error -> error.safeMessage() },
                     )
                 }
-                return@launch
-            }
-
-            // 提交数字码
-            val result = repository.submitSignCode(signInfo.signId, signCode)
-            _uiState.update {
-                it.copy(
-                    isSigningIn = false,
-                    signResult = result.getOrElse { e -> e.message ?: "签到失败" },
-                )
             }
         }
     }
 
-    /** 直接用 signId 签到（当已知 signId 时） */
-    fun submitSignCodeDirect(signId: String, signCode: String) {
-        viewModelScope.launch {
-            _uiState.update { it.copy(isSigningIn = true, signResult = null) }
-            val result = repository.submitSignCode(signId, signCode)
-            _uiState.update {
-                it.copy(
-                    isSigningIn = false,
-                    signResult = result.getOrElse { e -> e.message ?: "签到失败" },
-                )
-            }
-        }
-    }
-
-    fun consumeSignResult() {
-        _uiState.update { it.copy(signResult = null) }
-    }
-
-    /** 扫码签到 */
-    fun submitQrCode(payload: AiClassQrPayload) {
-        viewModelScope.launch {
-            Log.i(
-                VIEWMODEL_LOG_TAG,
-                "submitQrCode called, raw=${payload.rawValue.previewForLog(32)}, token=${payload.token.previewForLog()}, length=${payload.token.length}",
-            )
-            _uiState.update { it.copy(isSigningIn = true, signResult = null) }
-            val result = repository.submitQrCode(payload)
-            Log.i(
-                VIEWMODEL_LOG_TAG,
-                "submitQrCode finished, success=${result.isSuccess}, message=${result.getOrNull() ?: result.exceptionOrNull()?.message}",
-            )
-            _uiState.update {
-                it.copy(
-                    isSigningIn = false,
-                    signResult = result.getOrElse { e -> e.message ?: "扫码签到失败" },
-                )
-            }
-        }
-    }
-
-    fun retry() {
-        load()
-    }
+    fun consumeSignResult() { _uiState.update { it.copy(signResult = null) } }
+    fun retry() { load() }
 
     fun openCourseDetail(classId: String) {
-        if (classId == "_working") return // 由 openWorkingRecordDetail() 已处理
+        if (classId == "_working") return
         val course = _uiState.value.courses.find { it.stableId == classId }
         if (course == null) {
             _uiState.update {
-                it.copy(
-                    selectedCourse = null,
-                    quizList = emptyList(),
-                    homeworkList = emptyList(),
-                    isQuizLoading = false,
-                    isHomeworkLoading = false,
-                    quizError = "课程信息不存在，请返回重试",
-                )
+                it.copy(selectedCourse = null, isQuizLoading = false, isHomeworkLoading = false,
+                    quizError = "课程信息不存在，请返回重试")
             }
             return
         }
-
         _uiState.update {
-            it.copy(
-                selectedCourse = course,
-                quizList = emptyList(),
-                homeworkList = emptyList(),
-                isQuizLoading = true,
-                isHomeworkLoading = true,
-                quizError = null,
-                homeworkError = null,
-            )
+            it.copy(selectedCourse = course, quizList = emptyList(), homeworkList = emptyList(),
+                isQuizLoading = true, isHomeworkLoading = true, quizError = null, homeworkError = null)
         }
-
+        loadQuiz(course, course.courseId)
         viewModelScope.launch {
-            val quizResult = withResultTimeout("获取测验列表", AICLASS_DETAIL_LOAD_TIMEOUT_MS) {
-                repository.getQuizList(course.courseId)
-            }
-            _uiState.update { current ->
-                if (current.selectedCourse?.stableId != classId) return@update current
-                current.copy(
-                    quizList = quizResult.getOrDefault(emptyList()),
-                    isQuizLoading = false,
-                    quizError = quizResult.exceptionOrNull()?.message,
-                )
+            recovery.execute(FifOperation.HOMEWORK, request = {
+                withResultTimeout("获取作业列表", AICLASS_DETAIL_LOAD_TIMEOUT_MS) {
+                    repository.getHomeworkList(course.courseId, course.teachClassId)
+                }
+            }, isCurrent = { _uiState.value.selectedCourse?.stableId == classId }) { result ->
+                _uiState.update {
+                    it.copy(homeworkList = result.getOrDefault(emptyList()), isHomeworkLoading = false,
+                        homeworkError = result.exceptionOrNull()?.safeMessage())
+                }
             }
         }
+    }
 
+    private fun loadQuiz(course: AiCourse, courseId: String) {
         viewModelScope.launch {
-            val hwResult = withResultTimeout("获取作业列表", AICLASS_DETAIL_LOAD_TIMEOUT_MS) {
-                repository.getHomeworkList(course.courseId, course.teachClassId)
-            }
-            _uiState.update { current ->
-                if (current.selectedCourse?.stableId != classId) return@update current
-                current.copy(
-                    homeworkList = hwResult.getOrDefault(emptyList()),
-                    isHomeworkLoading = false,
-                    homeworkError = hwResult.exceptionOrNull()?.message,
-                )
+            recovery.execute(FifOperation.QUIZ, request = {
+                withResultTimeout("获取测验列表", AICLASS_DETAIL_LOAD_TIMEOUT_MS) { repository.getQuizList(courseId) }
+            }, isCurrent = { _uiState.value.selectedCourse?.stableId == course.stableId }) { result ->
+                _uiState.update {
+                    it.copy(quizList = result.getOrDefault(emptyList()), isQuizLoading = false,
+                        quizError = result.exceptionOrNull()?.safeMessage())
+                }
             }
         }
     }
 
     fun retryQuiz() {
-        _uiState.value.selectedCourse?.stableId?.let(::openCourseDetail)
+        val course = _uiState.value.selectedCourse ?: return
+        _uiState.update { it.copy(isQuizLoading = true, quizError = null) }
+        loadQuiz(course, if (course.stableId == "_working") course.teachClassId else course.courseId)
     }
 
-    /** 从"正在上课"卡片进入测验详情 */
     fun openWorkingRecordDetail() {
         val record = _uiState.value.workingRecord ?: return
-        val existing = _uiState.value.courses.find { it.teachClassId == record.teachClassId }
-        val base = existing ?: AiCourse(
-            stableId = "",
-            id = "",
-            code = "",
-            classId = record.teachClassId,
-            courseId = record.teachClassId,
-            courseRecordId = record.courseRecordId,
-            courseName = record.courseItemName.ifBlank { record.courseName },
-            teacherName = "",
-            studentNum = 0,
-            teachClassId = record.teachClassId,
-            cover = "",
-            termYear = "",
-            term = "",
-            typeName = "",
+        val base = _uiState.value.courses.find { it.teachClassId == record.teachClassId } ?: AiCourse(
+            stableId = "", id = "", code = "", classId = record.teachClassId,
+            courseId = record.teachClassId, courseRecordId = record.courseRecordId,
+            courseName = record.courseItemName.ifBlank { record.courseName }, teacherName = "",
+            studentNum = 0, teachClassId = record.teachClassId, cover = "", termYear = "", term = "", typeName = "",
         )
-        val course = base.copy(stableId = "_working") // 统一哨兵值，协程防护依赖此值
+        val course = base.copy(stableId = "_working")
         _uiState.update {
-            it.copy(selectedCourse = course, quizList = emptyList(), isQuizLoading = true, quizError = null)
+            it.copy(selectedCourse = course, quizList = emptyList(), isQuizLoading = true, quizError = null,
+                homeworkList = emptyList(), isHomeworkLoading = false, homeworkError = null)
         }
-        viewModelScope.launch {
-            val quizResult = withResultTimeout("获取测验列表", AICLASS_DETAIL_LOAD_TIMEOUT_MS) {
-                repository.getQuizList(record.teachClassId)
-            }
-            _uiState.update { current ->
-                if (current.selectedCourse?.stableId != "_working") return@update current
-                current.copy(
-                    quizList = quizResult.getOrDefault(emptyList()),
-                    isQuizLoading = false,
-                    quizError = quizResult.exceptionOrNull()?.message,
-                )
-            }
-        }
+        loadQuiz(course, record.teachClassId)
     }
 }
 
-private suspend fun <T> withResultTimeout(
-    action: String,
-    timeoutMs: Long,
-    block: suspend () -> Result<T>,
-): Result<T> {
-    return try {
-        withTimeout(timeoutMs) { block() }
-    } catch (e: TimeoutCancellationException) {
-        Result.failure(Exception("${action}超时，请稍后重试", e))
-    }
-}
+private suspend fun <T> withResultTimeout(action: String, timeoutMs: Long, block: suspend () -> Result<T>): Result<T> =
+    try { withTimeout(timeoutMs) { block() } }
+    catch (e: TimeoutCancellationException) { Result.failure(Exception("${action}超时，请稍后重试", e)) }
 
-private fun String.previewForLog(maxLen: Int = 16): String {
-    if (isBlank()) return "<blank>"
-    return if (length <= maxLen) this else take(maxLen) + "..."
-}
+internal fun Throwable.safeMessage(): String =
+    fifMappingFailure(FifOperation.HOME)?.message ?: message ?: "操作失败，请稍后重试"
