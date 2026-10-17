@@ -1,9 +1,22 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ksp)
     alias(libs.plugins.hilt)
 }
+
+// release 签名：读仓库根目录不入库的 keystore.properties。
+// 文件缺失时不配签名，assembleRelease 仍会成功，但产出的是装不上的 unsigned 包 —— 不可发布。
+val keystorePropertiesFile = rootProject.file("keystore.properties")
+val keystoreProperties = Properties().apply {
+    if (keystorePropertiesFile.exists()) {
+        keystorePropertiesFile.inputStream().use { load(it) }
+    }
+}
+val hasReleaseKeystore = keystorePropertiesFile.exists() &&
+    !keystoreProperties.getProperty("storeFile").isNullOrBlank()
 
 android {
     namespace = "com.lightxin"
@@ -13,14 +26,31 @@ android {
         applicationId = "com.lightxin"
         minSdk = 26
         targetSdk = 35
-        versionCode = 4
-        versionName = "1.2.0"
+        versionCode = 5
+        versionName = "1.2.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    signingConfigs {
+        if (hasReleaseKeystore) {
+            create("release") {
+                storeFile = rootProject.file(keystoreProperties.getProperty("storeFile"))
+                val storePass = keystoreProperties.getProperty("storePassword")
+                storePassword = storePass
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                // PKCS#12 只有一个密码：keyPassword 省略时直接用 storePassword（JKS 才可能不同）
+                keyPassword = keystoreProperties.getProperty("keyPassword")?.takeIf { it.isNotBlank() } ?: storePass
+                storeType = keystoreProperties.getProperty("storeType") ?: "PKCS12"
+            }
+        }
+    }
+
     buildTypes {
         release {
+            if (hasReleaseKeystore) {
+                signingConfig = signingConfigs.getByName("release")
+            }
             isMinifyEnabled = true
             isShrinkResources = true
             ndk {

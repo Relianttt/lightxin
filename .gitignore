@@ -1,6 +1,11 @@
 *.iml
 .gradle
 /local.properties
+keystore.properties
+keystore.properties.example
+*.jks
+*.keystore
+*.p12
 /.idea
 /build
 /app/build
