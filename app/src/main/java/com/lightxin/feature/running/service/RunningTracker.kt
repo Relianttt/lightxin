@@ -41,6 +41,7 @@ class RunningTracker @Inject constructor() {
     fun onServiceStarted() {
         _state.value = _state.value.copy(
             isCollecting = true,
+            endTimeMillis = null,
             locationLabel = "正在获取 GPS",
             errorMessage = null,
         )
@@ -49,6 +50,8 @@ class RunningTracker @Inject constructor() {
     fun onLocationUpdate(location: Location) {
         val current = _state.value
         if (!current.isSessionActive) return
+        // 已锁定（结束/失败待重试）就不再收点，避免重试上传的轨迹悄悄变长
+        if (current.endTimeMillis != null) return
 
         val point = TrackPoint(
             latitude = location.latitude,
@@ -93,17 +96,26 @@ class RunningTracker @Inject constructor() {
         )
     }
 
+    /**
+     * 锁定轨迹与结束时间。
+     *
+     * 时长必须在这里定稿：上传失败后会保留会话让用户原地重试，若快照每次现算时长，
+     * 等待重试的几分钟会被算进配速，两次上报的 time/speed 也会自相矛盾。
+     */
     fun stopCollecting() {
-        _state.value = _state.value.copy(
+        val current = _state.value
+        _state.value = current.copy(
             isCollecting = false,
-            locationLabel = if (_state.value.points.isEmpty()) "已停止" else "轨迹已锁定",
+            endTimeMillis = current.endTimeMillis ?: System.currentTimeMillis(),
+            locationLabel = if (current.points.isEmpty()) "已停止" else "轨迹已锁定",
         )
     }
 
     fun snapshotForUpload(): RunningSnapshot? {
         val current = _state.value
         val startInfo = current.startInfo ?: return null
-        val durationSeconds = ((System.currentTimeMillis() - current.startTimeMillis) / 1000L).coerceAtLeast(1L)
+        val endTimeMillis = current.endTimeMillis ?: System.currentTimeMillis()
+        val durationSeconds = ((endTimeMillis - current.startTimeMillis) / 1000L).coerceAtLeast(1L)
         return RunningSnapshot(
             startInfo = startInfo,
             startTimeMillis = current.startTimeMillis,

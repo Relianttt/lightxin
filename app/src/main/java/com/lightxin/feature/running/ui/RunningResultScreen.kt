@@ -132,6 +132,17 @@ private fun ResultMetricsCard(result: RunningResult) {
             if (result.verdict.isNotBlank()) {
                 LxDetailRow(label = "服务端判定", value = result.verdict, showDivider = false)
             }
+            result.creditedKm?.let { credited ->
+                LxDetailRow(
+                    label = "本次计入",
+                    value = if (credited <= 0.0) {
+                        "未计入（服务端没有把这次跑步算进有效里程）"
+                    } else {
+                        String.format("%.2f km", credited)
+                    },
+                    showDivider = false,
+                )
+            }
         }
     }
 }

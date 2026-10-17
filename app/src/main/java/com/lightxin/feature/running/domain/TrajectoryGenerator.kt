@@ -6,6 +6,6 @@ object TrajectoryGenerator {
             templatePoints = template.points,
             targetDistanceMeters = config.distanceKm * 1000.0,
             startTimeMillis = config.startTimeMillis,
-            durationSeconds = config.durationMinutes * 60L,
+            durationSeconds = config.durationSeconds,
         )
 }

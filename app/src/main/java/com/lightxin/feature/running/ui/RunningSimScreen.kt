@@ -156,8 +156,8 @@ fun RunningSimScreen(
                         LxTextField(
                             value = uiState.simDurationMinutes,
                             onValueChange = viewModel::updateSimDurationMinutes,
-                            label = "时长（分钟）",
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            label = "时长（分钟，可填小数）",
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                         )
                         Spacer(modifier = Modifier.height(12.dp))
 
@@ -208,7 +208,7 @@ fun RunningSimScreen(
                             text = if (speed == null) {
                                 "请输入距离与时长"
                             } else {
-                                val inRange = speed in 6.0..15.0
+                                val inRange = speed in 2.0..15.0
                                 String.format(
                                     Locale.US,
                                     "预估速度 %.1f km/h %s",
@@ -217,7 +217,7 @@ fun RunningSimScreen(
                                 )
                             },
                             style = MaterialTheme.typography.bodyMedium,
-                            color = if (speed != null && speed in 6.0..15.0) {
+                            color = if (speed != null && speed in 2.0..15.0) {
                                 LxInk
                             } else {
                                 MaterialTheme.colorScheme.error

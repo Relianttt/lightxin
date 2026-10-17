@@ -44,6 +44,8 @@ data class RunningTrackerState(
     val totalDistanceMeters: Double = 0.0,
     val points: List<TrackPoint> = emptyList(),
     val lastPoint: TrackPoint? = null,
+    /** `stopCollecting()` 时锁定；非 null 表示轨迹与时长都已定稿，之后不再接受新点。 */
+    val endTimeMillis: Long? = null,
     val locationLabel: String = "未开始",
     val errorMessage: String? = null,
 )
@@ -59,7 +61,8 @@ data class RunningSnapshot(
 
 data class SimConfig(
     val distanceKm: Double,
-    val durationMinutes: Int,
+    /** 总时长（秒）。允许到秒，所以不再用整分钟表示。 */
+    val durationSeconds: Long,
     val startTimeMillis: Long,
 )
 
@@ -75,6 +78,8 @@ data class RunningResult(
     val pointCount: Int,
     /** 回读到的服务端判定文案；未回读或回读失败时为空，界面不显示该行。 */
     val verdict: String = "",
+    /** 上传前后 todayKm 的差值；null 表示无法判定（未取到首页数据）。0 表示服务端没计入。 */
+    val creditedKm: Double? = null,
 )
 
 /**

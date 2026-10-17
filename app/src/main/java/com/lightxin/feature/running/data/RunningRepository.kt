@@ -228,7 +228,7 @@ class RunningRepository @Inject constructor(
             val snapshot = RunningSnapshot(
                 startInfo = startInfo,
                 startTimeMillis = config.startTimeMillis,
-                durationSeconds = config.durationMinutes * 60L,
+                durationSeconds = config.durationSeconds,
                 distanceMeters = overridePoints.zipWithNext { a, b ->
                     com.lightxin.feature.running.domain.GeoDistance.metersBetween(a.latitude, a.longitude, b.latitude, b.longitude)
                 }.sum(),

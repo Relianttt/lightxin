@@ -29,6 +29,7 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import java.util.concurrent.TimeUnit
+import kotlin.math.roundToLong
 import javax.inject.Inject
 
 data class RunningUiState(
@@ -41,6 +42,7 @@ data class RunningUiState(
     val simError: String? = null,
     val simulationWarning: String? = null,
     val simDistance: String = "3.20",
+    /** 允许小数分钟（如 24.5 = 24 分 30 秒），这样不必为了几秒去加一个输入框。 */
     val simDurationMinutes: String = "24",
     val simStartTimeMillis: Long = System.currentTimeMillis() - TimeUnit.MINUTES.toMillis(24),
     val selectedSimDurationPresetMinutes: Int? = null,
@@ -51,7 +53,14 @@ data class RunningUiState(
     val defaultTemplate: RouteTemplate? = null,
     val templateCount: Int = 0,
     val advancedEnabled: Boolean = false,
-)
+) {
+    /** 只有向服务端申请过 exerciseId 的会话才是真实跑步：模板录制同样让 isSessionActive 为 true。 */
+    val isRunSessionActive: Boolean
+        get() = trackerState.isSessionActive && trackerState.startInfo != null
+
+    val isTemplateRecordingActive: Boolean
+        get() = trackerState.isSessionActive && trackerState.startInfo == null
+}
 
 @HiltViewModel
 class RunningViewModel @Inject constructor(
@@ -93,28 +102,42 @@ class RunningViewModel @Inject constructor(
     }
 
     fun refreshDashboard() {
-        viewModelScope.launch {
-            _uiState.update { it.copy(isDashboardLoading = true, dashboardError = null) }
-            repository.getDashboard().fold(
-                onSuccess = { dashboard ->
-                    _uiState.update {
-                        it.copy(
-                            dashboard = dashboard,
-                            isDashboardLoading = false,
-                            dashboardError = null,
-                        )
-                    }
-                },
-                onFailure = { error ->
-                    _uiState.update {
-                        it.copy(
-                            isDashboardLoading = false,
-                            dashboardError = error.message ?: "加载跑步首页失败",
-                        )
-                    }
-                },
-            )
-        }
+        viewModelScope.launch { applyDashboard() }
+    }
+
+    private suspend fun applyDashboard(): RunningDashboard? {
+        _uiState.update { it.copy(isDashboardLoading = true, dashboardError = null) }
+        return repository.getDashboard().fold(
+            onSuccess = { dashboard ->
+                _uiState.update {
+                    it.copy(
+                        dashboard = dashboard,
+                        isDashboardLoading = false,
+                        dashboardError = null,
+                    )
+                }
+                dashboard
+            },
+            onFailure = { error ->
+                _uiState.update {
+                    it.copy(
+                        isDashboardLoading = false,
+                        dashboardError = error.message ?: "加载跑步首页失败",
+                    )
+                }
+                null
+            },
+        )
+    }
+
+    /**
+     * 刷新首页并算出本次上传真正计入的里程增量。
+     * 为 0 表示服务端建了记录但没计里程（例如已达每日上限），无法判定时为 null。
+     */
+    private suspend fun refreshAndComputeCreditedKm(beforeTodayKm: Double?): Double? {
+        val afterTodayKm = applyDashboard()?.todayKm
+        if (beforeTodayKm == null || afterTodayKm == null) return null
+        return (afterTodayKm - beforeTodayKm).coerceAtLeast(0.0)
     }
 
     suspend fun startRealRun(): Result<RunningStartInfo> {
@@ -173,17 +196,21 @@ class RunningViewModel @Inject constructor(
     }
 
     fun updateSimDurationMinutes(value: String) {
-        val filtered = value.filter(Char::isDigit)
-        val minutes = filtered.toIntOrNull()
+        val filtered = value.filterAllowedDecimal()
+        val minutes = filtered.toDoubleOrNull()
         _uiState.update { state ->
             val next = state.copy(
                 simDurationMinutes = filtered,
-                simStartTimeMillis = if (minutes != null && minutes > 0) {
-                    System.currentTimeMillis() - minutes * 60_000L
+                simStartTimeMillis = if (minutes != null && minutes > 0.0) {
+                    System.currentTimeMillis() - (minutes * 60_000.0).toLong()
                 } else {
                     state.simStartTimeMillis
                 },
-                selectedSimDurationPresetMinutes = minutes?.takeIf { it in SIM_DURATION_PRESETS },
+                // 只有整数分钟且正好等于预设时才高亮，小数分钟不套预设
+                selectedSimDurationPresetMinutes = minutes
+                    ?.takeIf { it > 0.0 && it == kotlin.math.floor(it) }
+                    ?.toInt()
+                    ?.takeIf { it in SIM_DURATION_PRESETS },
             )
             next.withRealtimeSimulationError()
         }
@@ -254,6 +281,7 @@ class RunningViewModel @Inject constructor(
 
     private suspend fun uploadSimulation(config: SimConfig, template: RouteTemplate, templatePoints: List<TrackPoint>) {
         val trajectorySize = templatePoints.size
+        val beforeTodayKm = _uiState.value.dashboard?.todayKm
         val submitCall = repository.submitSimulation(config, templatePoints, overrideIsBd09 = false)
 
         submitCall.fold(
@@ -266,8 +294,7 @@ class RunningViewModel @Inject constructor(
                         shouldNavigateToResult = true,
                     )
                 }
-                attachServerVerdict(result)
-                refreshDashboard()
+                finalizeResult(result, beforeTodayKm)
             },
             onFailure = { error ->
                 val failureResult = buildFailedResult(
@@ -297,13 +324,20 @@ class RunningViewModel @Inject constructor(
      * 一跳转结果页那个作用域就取消，挂在上面的回读会被 Canceled 掉（历史上就这么静默丢过数据）。
      * 回读失败一律静默降级 —— 不影响上传结果本身。
      */
-    private fun attachServerVerdict(result: RunningResult) {
+    private fun finalizeResult(result: RunningResult, beforeTodayKm: Double?) {
         val checkId = result.uploadId.takeIf { it.isNotBlank() } ?: return
         viewModelScope.launch {
-            val verdict = repository.getRunRecord(checkId).getOrNull() ?: return@launch
+            val verdict = repository.getRunRecord(checkId).getOrNull()
+            val creditedKm = refreshAndComputeCreditedKm(beforeTodayKm)
+            if (verdict == null && creditedKm == null) return@launch
             _uiState.update { state ->
                 val current = state.lastResult?.takeIf { it.uploadId == checkId } ?: return@update state
-                state.copy(lastResult = current.copy(verdict = verdict.summary()))
+                state.copy(
+                    lastResult = current.copy(
+                        verdict = verdict?.summary().orEmpty(),
+                        creditedKm = creditedKm,
+                    ),
+                )
             }
         }
     }
@@ -318,8 +352,8 @@ class RunningViewModel @Inject constructor(
 
     fun simulationSpeedKmh(): Double? {
         val distance = _uiState.value.simDistance.toDoubleOrNull() ?: return null
-        val durationMinutes = _uiState.value.simDurationMinutes.toIntOrNull() ?: return null
-        if (distance <= 0.0 || durationMinutes <= 0) return null
+        val durationMinutes = _uiState.value.simDurationMinutes.toDoubleOrNull() ?: return null
+        if (distance <= 0.0 || durationMinutes <= 0.0) return null
         return distance / durationMinutes * 60.0
     }
 
@@ -332,6 +366,7 @@ class RunningViewModel @Inject constructor(
     }
 
     private suspend fun uploadSnapshot(snapshot: RunningSnapshot) {
+        val beforeTodayKm = _uiState.value.dashboard?.todayKm
         _uiState.update { it.copy(isUploadingRun = true, startError = null) }
 
         repository.uploadTrackedRun(snapshot).fold(
@@ -344,8 +379,7 @@ class RunningViewModel @Inject constructor(
                         shouldNavigateToResult = true,
                     )
                 }
-                attachServerVerdict(result)
-                refreshDashboard()
+                finalizeResult(result, beforeTodayKm)
             },
             onFailure = { error ->
                 tracker.completeSession()
@@ -369,14 +403,14 @@ class RunningViewModel @Inject constructor(
     private fun validateSimulation(): SimConfig? {
         val uiState = _uiState.value
         val distanceKm = uiState.simDistance.toDoubleOrNull()
-        val durationMinutes = uiState.simDurationMinutes.toIntOrNull()
+        val durationMinutes = uiState.simDurationMinutes.toDoubleOrNull()
         val startTimeMillis = uiState.simStartTimeMillis
 
         if (distanceKm == null || distanceKm <= 0.0) {
             _uiState.update { it.copy(simError = "请输入有效距离") }
             return null
         }
-        if (durationMinutes == null || durationMinutes <= 0) {
+        if (durationMinutes == null || durationMinutes <= 0.0) {
             _uiState.update { it.copy(simError = "请输入有效时长") }
             return null
         }
@@ -386,13 +420,15 @@ class RunningViewModel @Inject constructor(
         }
 
         val speedKmh = distanceKm / durationMinutes * 60.0
-        if (speedKmh !in 6.0..15.0) {
-            _uiState.update { it.copy(simError = "模拟速度需要在 6-15 km/h 之间") }
+        if (speedKmh !in SIM_MIN_SPEED_KMH..SIM_MAX_SPEED_KMH) {
+            _uiState.update { it.copy(simError = speedRangeErrorMessage()) }
             return null
         }
 
+        // 分钟带小数，换算成秒后四舍五入；至少 1 秒，避免 0 时长
+        val durationSeconds = (durationMinutes * 60.0).roundToLong().coerceAtLeast(1L)
         _uiState.update { it.copy(simError = null) }
-        return SimConfig(distanceKm = distanceKm, durationMinutes = durationMinutes, startTimeMillis = startTimeMillis)
+        return SimConfig(distanceKm = distanceKm, durationSeconds = durationSeconds, startTimeMillis = startTimeMillis)
     }
 
     private fun RunningUiState.withRealtimeSimulationError(): RunningUiState {
@@ -401,16 +437,20 @@ class RunningViewModel @Inject constructor(
 
     private fun RunningUiState.realtimeSimulationError(): String? {
         val distanceKm = simDistance.toDoubleOrNull()
-        val durationMinutes = simDurationMinutes.toIntOrNull()
-        if (distanceKm == null || distanceKm <= 0.0 || durationMinutes == null || durationMinutes <= 0) {
+        val durationMinutes = simDurationMinutes.toDoubleOrNull()
+        if (distanceKm == null || distanceKm <= 0.0 || durationMinutes == null || durationMinutes <= 0.0) {
             return null
         }
         if (simStartTimeMillis >= System.currentTimeMillis()) {
             return "开始时间需要早于当前时间"
         }
         val speedKmh = distanceKm / durationMinutes * 60.0
-        return if (speedKmh in 6.0..15.0) null else "模拟速度需要在 6-15 km/h 之间"
+        return if (speedKmh in SIM_MIN_SPEED_KMH..SIM_MAX_SPEED_KMH) null else speedRangeErrorMessage()
     }
+
+    /** 服务端 extraDetailInfo.do 实测下发 minSpeed=2 / maxSpeed=15；这里硬编码对齐，避免自己比服务端更严。 */
+    private fun speedRangeErrorMessage(): String =
+        "模拟速度需要在 ${SIM_MIN_SPEED_KMH.toInt()}-${SIM_MAX_SPEED_KMH.toInt()} km/h 之间"
 
     private fun buildFailedResult(
         message: String,
@@ -420,7 +460,7 @@ class RunningViewModel @Inject constructor(
         buildFailedResult(
             message = message,
             distanceKm = config.distanceKm,
-            durationSeconds = config.durationMinutes * 60L,
+            durationSeconds = config.durationSeconds,
             startTimeMillis = config.startTimeMillis,
             pointCount = pointCount,
         )
@@ -465,6 +505,8 @@ class RunningViewModel @Inject constructor(
 
     companion object {
         private val SIM_DURATION_PRESETS = setOf(20, 30, 45)
+        private const val SIM_MIN_SPEED_KMH = 2.0
+        private const val SIM_MAX_SPEED_KMH = 15.0
         private val FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss", Locale.CHINA)
     }
 }
