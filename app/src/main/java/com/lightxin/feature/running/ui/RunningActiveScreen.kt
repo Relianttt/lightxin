@@ -66,7 +66,7 @@ fun RunningActiveScreen(
     ) { padding ->
         when {
             uiState.isUploadingRun -> LxLoading(modifier = Modifier.padding(padding))
-            !uiState.trackerState.isSessionActive -> LxEmpty(
+            !uiState.isRunSessionActive -> LxEmpty(
                 message = "当前没有进行中的跑步会话",
                 modifier = Modifier.padding(padding),
             )

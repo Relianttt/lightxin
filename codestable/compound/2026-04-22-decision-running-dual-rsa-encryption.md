@@ -16,6 +16,8 @@ tags: [running, rsa, encryption, sports-api]
 
 跑步数据上传时，字段名和字段值**都要**用 `publicKey2` 进行 RSA 加密。不能只加密值。
 
+> **2026-10-14 修正：本条对 `runningRoute` 不成立。** 实测服务端解不开这个长字段的多块拼接密文，必须明文上传，否则记录被判"运动轨迹异常，无效"且画不出轨迹。其余字段与全部键名仍按本条执行。证据与机理见 → [`2026-10-14-decision-running-route-plaintext.md`](2026-10-14-decision-running-route-plaintext.md)。
+
 ## 理由
 
 服务端接口要求如此——抓包分析确认提交的请求体中 key 和 value 都是密文。这是服务端协议硬约束，不是客户端设计选择。

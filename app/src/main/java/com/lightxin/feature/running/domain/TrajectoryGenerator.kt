@@ -1,7 +1,5 @@
 package com.lightxin.feature.running.domain
 
-import kotlin.math.cos
-import kotlin.math.max
 import kotlin.random.Random
 
 object TrajectoryGenerator {
@@ -39,44 +37,30 @@ object TrajectoryGenerator {
         ),
     )
 
-    fun generate(config: SimConfig): List<TrackPoint> {
-        val baseRoute = campusRoutes.random(Random(config.startTimeMillis))
-        val targetMeters = config.distanceKm * 1000.0
-        val targetPointCount = max(2, (targetMeters / 40.0).toInt())
-        val totalDurationMillis = config.durationMinutes * 60_000L
-        val intervalMillis = if (targetPointCount <= 1) totalDurationMillis else {
-            totalDurationMillis / (targetPointCount - 1)
-        }
+    /**
+     * 内置校园环线。顶点取自 GPX / 谷歌地球，即 WGS-84，和手机原始定位同源，
+     * 所以同样要在上传前转成 BD-09 —— 见 [RunningCampus] 的坐标系说明。
+     */
+    fun generate(config: SimConfig): GeneratedTrajectory = GeneratedTrajectory(
+        points = sampleClosedLoop(campusRoutes.random(Random(config.startTimeMillis)), config),
+        isBd09 = false,
+    )
 
-        val points = ArrayList<TrackPoint>(targetPointCount)
-        var currentTime = config.startTimeMillis
+    /** 用户录制的模板来自原生 GPS，即 WGS-84，上传前需要转换。 */
+    fun generateFromTemplate(config: SimConfig, template: RouteTemplate): GeneratedTrajectory =
+        GeneratedTrajectory(
+            points = sampleClosedLoop(template.points, config),
+            isBd09 = false,
+        )
 
-        repeat(targetPointCount) { index ->
-            val basePoint = baseRoute[index % baseRoute.size]
-            points += jitter(basePoint).copy(timestampMillis = currentTime)
-            currentTime += intervalMillis
-        }
-
-        return points
-    }
-
-    /** 基于用户录制的路线模板生成轨迹，委托给 PolylineSampler。 */
-    fun generateFromTemplate(config: SimConfig, template: RouteTemplate): List<TrackPoint> =
-        PolylineSampler.sampleFromTemplate(
-            templatePoints = template.points,
+    private fun sampleClosedLoop(path: List<TrackPoint>, config: SimConfig): List<TrackPoint> {
+        if (path.size < 2) return emptyList()
+        // 采样按 polyline 总长取模循环，补上首尾闭合段才不会在回绕处瞬移
+        return PolylineSampler.sampleFromTemplate(
+            templatePoints = path + path.first(),
             targetDistanceMeters = config.distanceKm * 1000.0,
             startTimeMillis = config.startTimeMillis,
             durationSeconds = config.durationMinutes * 60L,
-        )
-
-    private fun jitter(point: TrackPoint): TrackPoint {
-        val latOffsetMeters = Random.nextDouble(-4.0, 4.0)
-        val lngOffsetMeters = Random.nextDouble(-4.0, 4.0)
-        val latOffset = latOffsetMeters / 111_320.0
-        val lngOffset = lngOffsetMeters / (111_320.0 * cos(Math.toRadians(point.latitude)))
-        return point.copy(
-            latitude = point.latitude + latOffset,
-            longitude = point.longitude + lngOffset,
         )
     }
 }

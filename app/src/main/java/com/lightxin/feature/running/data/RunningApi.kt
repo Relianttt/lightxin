@@ -50,6 +50,13 @@ interface RunningApi {
         @FieldMap params: Map<String, String>,
     ): JsonObject
 
+    /** 回读单条跑步记录的服务端判定（state / remark / 已存轨迹点数）。 */
+    @FormUrlEncoded
+    @POST("mobile/extra/getExtraCheck.do")
+    suspend fun getExtraCheck(
+        @FieldMap params: Map<String, String>,
+    ): JsonObject
+
     @FormUrlEncoded
     @POST("mobile/auto/clubInfo.do")
     suspend fun getClubDetail(

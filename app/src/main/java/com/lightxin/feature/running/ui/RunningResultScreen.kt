@@ -101,6 +101,22 @@ private fun ResultStatusCard(result: RunningResult) {
                 text = result.message,
                 style = MaterialTheme.typography.bodyMedium,
             )
+            result.creditedKm?.let { creditedKm ->
+                Spacer(modifier = Modifier.height(10.dp))
+                Text(
+                    text = if (creditedKm > 0.0) {
+                        String.format("本次计入今日里程 %.2f km", creditedKm)
+                    } else {
+                        "服务端未计入本次里程（可能已达每日上限或该记录被判无效）"
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (creditedKm > 0.0) {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    } else {
+                        MaterialTheme.colorScheme.error
+                    },
+                )
+            }
             if (result.uploadId.isNotBlank()) {
                 Spacer(modifier = Modifier.height(10.dp))
                 Text(

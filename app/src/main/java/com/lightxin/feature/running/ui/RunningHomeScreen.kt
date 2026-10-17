@@ -73,11 +73,13 @@ fun RunningHomeScreen(
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions(),
     ) { result ->
-        val granted = result.values.all { it }
-        if (!granted) {
-            permissionError = "需要定位权限；Android 13+ 还需要通知权限来显示前台服务状态"
+        val locationGranted = result[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
+            result[Manifest.permission.ACCESS_COARSE_LOCATION] == true
+        if (!locationGranted) {
+            permissionError = "缺少定位权限，无法记录跑步轨迹"
             return@rememberLauncherForActivityResult
         }
+        // 通知权限被拒只影响前台服务通知是否可见，不阻断跑步本身
         scope.launch {
             viewModel.startRealRun().onSuccess {
                 RunTrackingService.start(context)
@@ -88,8 +90,12 @@ fun RunningHomeScreen(
 
     fun requestAndStart() {
         permissionError = null
-        if (uiState.trackerState.isSessionActive) {
+        if (uiState.isRunSessionActive) {
             onOpenActive()
+            return
+        }
+        if (uiState.isTemplateRecordingActive) {
+            permissionError = "当前有模板录制进行中，先结束录制再开始跑步"
             return
         }
 
@@ -121,13 +127,13 @@ fun RunningHomeScreen(
             else -> RunningHomeContent(
                 dashboard = uiState.dashboard,
                 isStarting = uiState.isStarting,
-                isActive = uiState.trackerState.isSessionActive,
+                isActive = uiState.isRunSessionActive,
                 trackerLabel = uiState.trackerState.locationLabel,
                 startError = permissionError ?: uiState.startError,
                 advancedEnabled = uiState.advancedEnabled,
                 onOpenClub = onOpenClub,
                 onPrimaryAction = {
-                    if (uiState.trackerState.isSessionActive) {
+                    if (uiState.isRunSessionActive) {
                         onOpenActive()
                     } else {
                         requestAndStart()

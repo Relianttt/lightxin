@@ -128,8 +128,8 @@ class RouteTemplateStore @Inject constructor(
     private fun writeFile(list: List<RouteTemplate>) {
         val tmp = File(file.parentFile, "$FILE_NAME.tmp")
         tmp.writeText(gson.toJson(list))
-        if (file.exists()) file.delete()
-        tmp.renameTo(file)
+        // renameTo 本身原子覆盖；先 delete 会在 rename 失败时把已有模板一起丢掉
+        if (!tmp.renameTo(file)) tmp.delete()
     }
 
     companion object {
