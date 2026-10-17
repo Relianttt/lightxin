@@ -90,4 +90,50 @@ class SportsGradeMapperTest {
         assertNull(SportsGradeMapper.parseClubSummary(json("""{"data":{"clubInfo":null}}""")))
         assertNull(SportsGradeMapper.parseClubSummary(null))
     }
+
+    @Test
+    fun `parseCheckRecord reads invalid verdict with encrypted route`() {
+        // 真实响应形态：runningRoute 是服务端加密存储的密文字符串
+        val verdict = SportsGradeMapper.parseCheckRecord(
+            json(
+                """{"flag":true,"data":{"extraInfo":{"checkId":"9fa22fba","state":"0","remark":"运动轨迹异常，无效","mile":"1.02","runningRoute":"AbCd+/=="}}}""",
+            ),
+        )!!
+        assertEquals("9fa22fba", verdict.checkId)
+        assertEquals("0", verdict.state)
+        assertFalse(verdict.isValid)
+        assertTrue(verdict.hasStoredRoute)
+        assertEquals("无效：运动轨迹异常，无效", verdict.describe())
+        assertEquals("无效：运动轨迹异常，无效；轨迹已存：是", verdict.summary())
+    }
+
+    @Test
+    fun `parseCheckRecord marks valid record`() {
+        val verdict = SportsGradeMapper.parseCheckRecord(
+            json("""{"data":{"extraInfo":{"state":"1","runningRoute":"x"}}}"""),
+        )!!
+        assertTrue(verdict.isValid)
+        assertEquals("有效", verdict.describe())
+    }
+
+    @Test
+    fun `parseCheckRecord tolerates top-level extraInfo and non-string route`() {
+        // extraInfo 也可能直接挂在响应顶层；runningRoute 可能是数组或缺失，任何形态都不能抛
+        val verdict = SportsGradeMapper.parseCheckRecord(
+            json("""{"extraInfo":{"state":"0","remark":"无效","runningRoute":[{"latitude":"1"}]}}"""),
+        )!!
+        assertTrue(verdict.hasStoredRoute)
+
+        val withoutRoute = SportsGradeMapper.parseCheckRecord(
+            json("""{"data":{"extraInfo":{"state":"2"}}}"""),
+        )!!
+        assertFalse(withoutRoute.hasStoredRoute)
+        assertEquals("无效（state=2）", withoutRoute.describe())
+    }
+
+    @Test
+    fun `parseCheckRecord returns null when record is absent`() {
+        assertNull(SportsGradeMapper.parseCheckRecord(json("""{"flag":true,"data":{}}""")))
+        assertNull(SportsGradeMapper.parseCheckRecord(null))
+    }
 }

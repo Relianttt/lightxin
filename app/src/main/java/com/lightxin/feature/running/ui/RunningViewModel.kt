@@ -266,6 +266,7 @@ class RunningViewModel @Inject constructor(
                         shouldNavigateToResult = true,
                     )
                 }
+                attachServerVerdict(result)
                 refreshDashboard()
             },
             onFailure = { error ->
@@ -287,6 +288,24 @@ class RunningViewModel @Inject constructor(
 
     fun consumeResultNavigation() {
         _uiState.update { it.copy(shouldNavigateToResult = false) }
+    }
+
+    /**
+     * 回读服务端对本次上传的判定，回填到结果页。
+     *
+     * 必须挂 `viewModelScope`：上传由界面侧 `rememberCoroutineScope` 调起，
+     * 一跳转结果页那个作用域就取消，挂在上面的回读会被 Canceled 掉（历史上就这么静默丢过数据）。
+     * 回读失败一律静默降级 —— 不影响上传结果本身。
+     */
+    private fun attachServerVerdict(result: RunningResult) {
+        val checkId = result.uploadId.takeIf { it.isNotBlank() } ?: return
+        viewModelScope.launch {
+            val verdict = repository.getRunRecord(checkId).getOrNull() ?: return@launch
+            _uiState.update { state ->
+                val current = state.lastResult?.takeIf { it.uploadId == checkId } ?: return@update state
+                state.copy(lastResult = current.copy(verdict = verdict.summary()))
+            }
+        }
     }
 
     fun clearStartError() {
@@ -325,6 +344,7 @@ class RunningViewModel @Inject constructor(
                         shouldNavigateToResult = true,
                     )
                 }
+                attachServerVerdict(result)
                 refreshDashboard()
             },
             onFailure = { error ->

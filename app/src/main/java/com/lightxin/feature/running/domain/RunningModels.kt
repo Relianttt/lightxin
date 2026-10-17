@@ -73,4 +73,30 @@ data class RunningResult(
     val durationSeconds: Long,
     val speedKmh: Double,
     val pointCount: Int,
+    /** 回读到的服务端判定文案；未回读或回读失败时为空，界面不显示该行。 */
+    val verdict: String = "",
 )
+
+/**
+ * 服务端对单条跑步记录的判定，来自 `mobile/extra/getExtraCheck.do`。
+ *
+ * `addExtraCheckNew.do` 返回的 `flag/result/id` 只代表记录建了；是否算有效只有这里知道。
+ */
+data class RunRecordVerdict(
+    val checkId: String = "",
+    val state: String = "",
+    val remark: String = "",
+    /** 轨迹有没有存下来。实测服务端以密文存储，只能判断有无，不解析点数。 */
+    val hasStoredRoute: Boolean = false,
+) {
+    val isValid: Boolean get() = state == "1"
+
+    fun describe(): String = when {
+        isValid -> "有效"
+        remark.isNotBlank() -> "无效：$remark"
+        else -> "无效（state=$state）"
+    }
+
+    /** 结果页一行文案；是否显示由调用方按空白判断。 */
+    fun summary(): String = "${describe()}；轨迹已存：${if (hasStoredRoute) "是" else "否"}"
+}

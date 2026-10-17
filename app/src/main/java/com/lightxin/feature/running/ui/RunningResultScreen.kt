@@ -129,6 +129,9 @@ private fun ResultMetricsCard(result: RunningResult) {
             LxDetailRow(label = "时长", value = "${result.durationSeconds} 秒", showDivider = false)
             LxDetailRow(label = "速度", value = String.format("%.2f km/h", result.speedKmh), showDivider = false)
             LxDetailRow(label = "轨迹点", value = "${result.pointCount} 个", showDivider = false)
+            if (result.verdict.isNotBlank()) {
+                LxDetailRow(label = "服务端判定", value = result.verdict, showDivider = false)
+            }
         }
     }
 }

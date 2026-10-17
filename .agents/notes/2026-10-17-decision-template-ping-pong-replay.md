@@ -17,7 +17,7 @@ tags: [running, route-template, replay]
 - 回放时间按累计距离分配用户设置的总时长，不继承原始采样节奏。保留原始零距离样本并保证递增时间戳；时长不足以容纳全部样本时拒绝生成。
 - 无默认模板、点位无效、无移动距离或模板被拒绝时阻止提交，仓库接口要求显式提供轨迹，不提供内置随机路线兜底。
 - 大跳段、零距离段、重复/倒退时间戳、超过 30 秒的采样间断均显示质量提示，经用户确认才继续，不静默修补坐标。
-- 模板保留 WGS-84 坐标；上传快照的距离取实际轨迹累计值。真实 GPS 采集、上传边界坐标转换及 RSA 字段名/字段值双加密保持不变。
+- 模板保留 WGS-84 坐标；上传快照的距离取实际轨迹累计值。真实 GPS 采集与上传边界坐标转换保持不变；RSA 字段名全加密、值除 `runningRoute` 外全加密（后者后由 [`2026-10-17-decision-running-route-plaintext.md`](2026-10-17-decision-running-route-plaintext.md) 修正）。
 
 继续遵守 [JSON 模板存储决定](../../codestable/compound/2026-04-22-decision-route-template-json-not-room.md)、[无地图 SDK 约束](../../codestable/compound/2026-04-22-decision-no-map-sdk.md) 和 [跑步双 RSA 约束](../../codestable/compound/2026-04-22-decision-running-dual-rsa-encryption.md)。
 

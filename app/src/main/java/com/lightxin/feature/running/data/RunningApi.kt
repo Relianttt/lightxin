@@ -77,6 +77,13 @@ interface RunningApi {
     suspend fun uploadRunningRecord(
         @Field("list") list: String,
     ): JsonObject
+
+    /** 回读单条跑步记录的服务端判定（state / remark / 轨迹是否已存）。 */
+    @FormUrlEncoded
+    @POST("mobile/extra/getExtraCheck.do")
+    suspend fun getExtraCheck(
+        @FieldMap params: Map<String, String>,
+    ): JsonObject
 }
 
 @Module

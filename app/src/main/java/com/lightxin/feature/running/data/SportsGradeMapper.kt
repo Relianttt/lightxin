@@ -1,7 +1,9 @@
 package com.lightxin.feature.running.data
 
+import com.google.gson.JsonElement
 import com.google.gson.JsonObject
 import com.lightxin.feature.running.domain.ClubSummary
+import com.lightxin.feature.running.domain.RunRecordVerdict
 
 data class JuniorExtraDetail(
     val memberId: String = "",
@@ -47,6 +49,31 @@ object SportsGradeMapper {
             maxMileKm = detail.string("maxMile").toDoubleOrNull() ?: 0.0,
             maxMileDate = detail.string("maxMileDate"),
         )
+    }
+
+    /**
+     * 解析 extra/getExtraCheck.do → 服务端对单条跑步记录的判定。
+     *
+     * `extraInfo` 挂在 `data` 下还是响应顶层两种形态都见过（H5 里写的是 `e.data.extraInfo`），
+     * 两种都试；都没有则返回 null（无记录）。
+     */
+    fun parseCheckRecord(json: JsonObject?): RunRecordVerdict? {
+        val extra = json?.dataObject()?.getAsJsonObjectOrNull("extraInfo")
+            ?: json?.getAsJsonObjectOrNull("extraInfo")
+            ?: return null
+        return RunRecordVerdict(
+            checkId = extra.string("checkId"),
+            state = extra.string("state"),
+            remark = extra.string("remark"),
+            hasStoredRoute = hasRouteValue(extra.get("runningRoute")),
+        )
+    }
+
+    /** `runningRoute` 实测是密文字符串，但数组、缺失、null 都不能抛（`asString` 遇数组会抛）。 */
+    private fun hasRouteValue(element: JsonElement?): Boolean = when {
+        element == null || element.isJsonNull -> false
+        element.isJsonArray -> element.asJsonArray.size() > 0
+        else -> runCatching { element.asString }.getOrNull()?.isNotBlank() == true
     }
 
     /** 解析 index/clubInfo.do → ClubSummary；大三/大四 clubInfo 为 null 时返回 null。 */
