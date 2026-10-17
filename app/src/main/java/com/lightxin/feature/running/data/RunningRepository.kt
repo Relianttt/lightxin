@@ -6,15 +6,20 @@ import com.google.gson.JsonElement
 import com.google.gson.JsonObject
 import com.lightxin.core.auth.TokenManager
 import com.lightxin.core.location.CoordinateConverter
+import com.lightxin.feature.running.domain.GeneratedTrajectory
 import com.lightxin.feature.running.domain.RunningDashboard
 import com.lightxin.feature.running.domain.RunningResult
 import com.lightxin.feature.running.domain.RunningSnapshot
 import com.lightxin.feature.running.domain.RunningStartInfo
+import com.lightxin.feature.running.domain.RunRecordVerdict
 import com.lightxin.feature.running.domain.SimConfig
 import com.lightxin.feature.running.domain.TrackPoint
 import com.lightxin.feature.running.domain.TrajectoryGenerator
 import dagger.hilt.android.scopes.ViewModelScoped
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.coroutineScope
 import java.time.Instant
 import java.time.LocalDateTime
@@ -117,9 +122,13 @@ class RunningRepository @Inject constructor(
                         dsFlag = dashboardJson.lookupBoolean("dsFlag", "taskFlag"),
                         studentTypeLabel = studentTypeLabel,
                         clubSummary = clubSummary,
+                        minSpeedKmh = extraDetail.minSpeedKmh,
+                        maxSpeedKmh = extraDetail.maxSpeedKmh,
                     )
                 )
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Result.failure(Exception(e.message ?: "获取跑步首页失败", e))
         }
@@ -132,8 +141,27 @@ class RunningRepository @Inject constructor(
             val clubJson = api.getClubDetail(params + ("grade" to grade))
             clubJson.requireSportsSuccess("获取俱乐部详情失败")
             Result.success(ClubDetailMapper.parseTasks(clubJson))
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Result.failure(Exception(e.message ?: "获取俱乐部详情失败", e))
+        }
+    }
+
+    /**
+     * 回读服务端对这条记录的判定。上传返回 `result=OK` 只代表记录建了，
+     * 是否真的有效、以及轨迹有没有存下来，只有这个接口知道。
+     */
+    suspend fun getRunRecord(checkId: String): Result<RunRecordVerdict> {
+        return try {
+            val json = api.getExtraCheck(sportsAuthParams() + ("checkId" to checkId))
+            val verdict = SportsGradeMapper.parseCheckRecord(json)
+                ?: return Result.failure(Exception("未查询到该跑步记录"))
+            Result.success(verdict)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Result.failure(Exception(e.message ?: "回读跑步记录失败", e))
         }
     }
 
@@ -151,6 +179,8 @@ class RunningRepository @Inject constructor(
                 ?.takeIf { it.isJsonObject }?.asJsonObject
                 ?.get("hasResult")?.takeUnless { it.isJsonNull }?.asString.orEmpty()
             Result.success(hasResult.equals("YES", ignoreCase = true))
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Result.failure(Exception(e.message ?: "查询打卡结果失败", e))
         }
@@ -159,7 +189,7 @@ class RunningRepository @Inject constructor(
     private fun String.toPlainBody(): okhttp3.RequestBody =
         okhttp3.RequestBody.create("text/plain".toMediaTypeOrNull(), this)
 
-    suspend fun startRunning(extraId: String? = null): Result<RunningStartInfo> {
+    suspend fun startRunning(): Result<RunningStartInfo> {
         return try {
             val params = sportsAuthParams()
             val grade = api.checkDsStudent(params).lookupString("result", "msg")
@@ -167,12 +197,7 @@ class RunningRepository @Inject constructor(
             if (SportsGradeMapper.isJuniorGrade(grade)) {
                 return startJuniorRunning(params + ("grade" to grade))
             }
-            val startParams = params.toMutableMap().apply {
-                if (!extraId.isNullOrBlank()) {
-                    put("extraId", extraId)
-                }
-            }
-            val response = api.startRunning(startParams)
+            val response = api.startRunning(params)
             response.requireSportsSuccess("开始跑步失败")
             val exerciseId = response.lookupString("extraId")
             if (exerciseId.isBlank()) {
@@ -193,6 +218,8 @@ class RunningRepository @Inject constructor(
                     taskFlag = response.lookupString("taskFlag"),
                 )
             )
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Result.failure(Exception(e.message ?: "开始跑步失败", e))
         }
@@ -219,29 +246,23 @@ class RunningRepository @Inject constructor(
 
     suspend fun submitSimulation(
         config: SimConfig,
-        overridePoints: List<TrackPoint>? = null,
-        overrideIsBd09: Boolean = false,
+        overrideTrajectory: GeneratedTrajectory? = null,
     ): Result<RunningResult> {
         return try {
             val startInfo = startRunning().getOrElse { return Result.failure(it) }
-            val trajectory: List<TrackPoint>
-            val isBd09: Boolean
-            if (overridePoints != null && overridePoints.size >= 2) {
-                trajectory = overridePoints
-                isBd09 = overrideIsBd09
-            } else {
-                trajectory = TrajectoryGenerator.generate(config)
-                isBd09 = true
-            }
+            val trajectory = overrideTrajectory?.takeIf { it.points.size >= 2 }
+                ?: TrajectoryGenerator.generate(config)
             val snapshot = RunningSnapshot(
                 startInfo = startInfo,
                 startTimeMillis = config.startTimeMillis,
                 durationSeconds = config.durationMinutes * 60L,
                 distanceMeters = config.distanceKm * 1000.0,
-                points = trajectory,
-                pointsAreBd09 = isBd09,
+                points = trajectory.points,
+                pointsAreBd09 = trajectory.isBd09,
             )
             uploadSnapshot(snapshot)
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Result.failure(Exception(e.message ?: "模拟提交失败", e))
         }
@@ -256,33 +277,34 @@ class RunningRepository @Inject constructor(
             val distanceKm = snapshot.distanceMeters / 1000.0
             val durationSeconds = snapshot.durationSeconds.coerceAtLeast(1L)
             val speedKmh = distanceKm / durationSeconds * 3600.0
-            val route = if (snapshot.pointsAreBd09) {
-                snapshot.points
-            } else {
-                snapshot.points.map { point ->
-                    val bdPoint = CoordinateConverter.wgs84ToBd09(point.latitude, point.longitude)
-                    TrackPoint(
-                        latitude = bdPoint.latitude,
-                        longitude = bdPoint.longitude,
-                        timestampMillis = point.timestampMillis,
-                    )
+            // 逐点坐标转换 + 分段 RSA 加密都是 CPU 活，长轨迹下会卡主线程
+            val (route, encryptedList) = withContext(Dispatchers.Default) {
+                val converted = if (snapshot.pointsAreBd09) {
+                    snapshot.points
+                } else {
+                    snapshot.points.map { point ->
+                        val bdPoint = CoordinateConverter.wgs84ToBd09(point.latitude, point.longitude)
+                        TrackPoint(
+                            latitude = bdPoint.latitude,
+                            longitude = bdPoint.longitude,
+                            timestampMillis = point.timestampMillis,
+                        )
+                    }
                 }
+                val payload = RunningUploadPayload(
+                    exerciseId = snapshot.startInfo.exerciseId,
+                    memberId = snapshot.startInfo.memberId,
+                    runningType = snapshot.startInfo.runningType,
+                    startDate = formatDateTime(snapshot.startTimeMillis),
+                    endDate = serverTime,
+                    mileKm = distanceKm,
+                    timeSeconds = durationSeconds,
+                    speedKmh = speedKmh,
+                    runningRoute = converted,
+                    sourceInfo = Build.MODEL ?: "Android",
+                )
+                converted to encryption.encryptUploadPayload(payload)
             }
-
-            val payload = RunningUploadPayload(
-                exerciseId = snapshot.startInfo.exerciseId,
-                memberId = snapshot.startInfo.memberId,
-                runningType = snapshot.startInfo.runningType,
-                startDate = formatDateTime(snapshot.startTimeMillis),
-                endDate = serverTime,
-                mileKm = distanceKm,
-                timeSeconds = durationSeconds,
-                speedKmh = speedKmh,
-                runningRoute = route,
-                sourceInfo = Build.MODEL ?: "Android",
-            )
-
-            val encryptedList = encryption.encryptUploadPayload(payload)
             val response = api.uploadRunningRecord(encryptedList)
             val resultCode = response.lookupString("result")
             val uploadId = response.lookupString("id")
@@ -303,14 +325,16 @@ class RunningRepository @Inject constructor(
                     success = true,
                     message = message,
                     uploadId = uploadId,
-                    startDate = payload.startDate,
-                    endDate = payload.endDate,
+                    startDate = formatDateTime(snapshot.startTimeMillis),
+                    endDate = serverTime,
                     distanceKm = distanceKm,
                     durationSeconds = durationSeconds,
                     speedKmh = speedKmh,
                     pointCount = route.size,
                 )
             )
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Result.failure(Exception(e.message ?: "上传跑步记录失败", e))
         }

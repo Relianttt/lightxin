@@ -25,6 +25,7 @@
 | `publicKey / publicKey2` | RSA 登录密码加密公钥 / 跑步数据加密公钥；两者不可混用；见 `core/auth/RSAUtils.kt` |
 | `FIF` | AI 课堂接入的第三方教学平台 (`sttp.fifedu.com`)；独立登录态、独立会话、与校内主站 token 体系不互通；SSO 链路由 `core/network/FifSessionManager.kt` 承载 |
 | `RouteTemplate` | 跑步模拟提交用的路线模板资产；以 JSON 文件落地（非 Room），由 `RouteTemplateStore` 管理、`TrajectoryGenerator` 消费、`RouteQualityChecker` 校验 |
+| `GeneratedTrajectory` | 模拟轨迹及其坐标系标记（`isBd09`）；内置环线与用户录制模板两个来源都产出 WGS-84 点（`isBd09 = false`），上传前由 `RunningRepository` 逐点转 BD-09，围栏判定则用转换前的原始点 |
 | `HolidayTask` | 节假日离返校登记任务；入口在首页卡片和查寝列表页双 section，表单页由 `feature/holiday/` 独立承载 |
 | `LiveActivityNotifier` | 跨 feature 的实况通知统一门面；根据设备能力选择 Flyme 私有 / Android 16 promoted / 普通通知 backend |
 | `MoreFeaturesScreen` | 更多功能聚合页；承载劳动教育、考试成绩、素质学分，以及实况通知权限引导开关 |

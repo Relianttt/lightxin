@@ -8,6 +8,9 @@ import kotlin.math.abs
 /**
  * WGS-84 → GCJ-02 → BD-09 坐标转换。
  * 服务端使用百度BD-09坐标系，Android原生定位返回WGS-84。
+ *
+ * 校园附近这三步各自的位移（535 / 897 / 1165 m）记在
+ * `codestable/architecture/location-overview.md` §2.3，排查轨迹画歪时先拿它比对方向。
  */
 object CoordinateConverter {
 

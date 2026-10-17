@@ -158,21 +158,19 @@ fun RouteTemplateRecordScreen(
                             text = "保存条件：轨迹点需大于 20 个且距离需大于 1 km。",
                             style = MaterialTheme.typography.bodyMedium,
                         )
-                        tracker.errorMessage?.takeIf { it.isNotBlank() }?.let { errorMessage ->
+                        val errorMessages = listOfNotNull(
+                            tracker.errorMessage?.takeIf { it.isNotBlank() },
+                            uiState.errorMessage?.takeIf { it.isNotBlank() },
+                        )
+                        if (errorMessages.isNotEmpty()) {
                             Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                text = errorMessage,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.error,
-                            )
-                        }
-                        uiState.errorMessage?.takeIf { it.isNotBlank() }?.let { errorMessage ->
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                text = errorMessage,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.error,
-                            )
+                            errorMessages.forEach { errorMessage ->
+                                Text(
+                                    text = errorMessage,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.error,
+                                )
+                            }
                         }
                     }
                 }

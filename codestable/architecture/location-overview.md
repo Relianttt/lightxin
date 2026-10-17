@@ -68,6 +68,16 @@ WGS-84 → wgs84ToGcj02() → GCJ-02 → gcj02ToBd09() → BD-09
 
 锚点：`app/src/main/java/com/lightxin/core/location/CoordinateConverter.kt:21-25`。
 
+校园中心（31.134154 / 118.631502）附近各步的位移量与方向，是排查"轨迹画歪了"最省事的指纹——偏移对上了就知道哪一步多做或漏做：
+
+| 多做 / 漏做的一步 | 位移 | 方位分解 |
+|---|---|---|
+| WGS-84 → GCJ-02 | ≈ 535 m | 南 253 m + 东 472 m（东南） |
+| GCJ-02 → BD-09 | ≈ 897 m | 北 642 m + 东 626 m（东北） |
+| WGS-84 → BD-09（整链） | ≈ 1165 m | 北 389 m + 东 1098 m（东北偏东） |
+
+2026-10-14 就是靠这张表定的案：一条模拟轨迹在校方地图上偏**东南约 530 m**，正好等于多做了一步 WGS→GCJ —— 于是确认服务端显示侧确实是 BD-09，而那份测试数据本身已经是 GCJ-02（详见 `codestable/compound/2026-10-13-explore-sports-h5-protocol-evidence.md` §1 追加）。同日端到端复核通过：改用原始 WGS-84 的 GPX 路径录模板再模拟提交，官方 App 里轨迹正常落回校内操场。
+
 实现边界：
 
 - `wgs84ToGcj02()` 对中国范围外坐标直接返回原坐标。锚点：`app/src/main/java/com/lightxin/core/location/CoordinateConverter.kt:27-39,66-68`。
@@ -92,7 +102,7 @@ WGS-84 → wgs84ToGcj02() → GCJ-02 → gcj02ToBd09() → BD-09
 跑步有两处消费 location 基础层：
 
 - `RunTrackingService` 注入 `LocationProvider`，以 `locationUpdates(intervalMs = 3000L, minDistanceM = 2f)` 采集真实跑步轨迹。锚点：`app/src/main/java/com/lightxin/feature/running/service/RunTrackingService.kt:28,64`。
-- `RunningRepository` 在上传前把轨迹点转换为 BD-09。锚点：`app/src/main/java/com/lightxin/feature/running/data/RunningRepository.kt:150`。
+- `RunningRepository` 在上传前把轨迹点转换为 BD-09。锚点：`app/src/main/java/com/lightxin/feature/running/data/RunningRepository.kt:281-292`。
 
 因此实时记录保存的轨迹点和最终提交给服务端的坐标系不是同一层职责：采集在 service，坐标转换在 data/repository 上传链路。
 
@@ -122,8 +132,8 @@ WGS-84 → wgs84ToGcj02() → GCJ-02 → gcj02ToBd09() → BD-09
 ## 4. 关键决策
 
 - **不引入地图 SDK** —— 当前定位基础层只用 Android 原生 `LocationManager` 和数学转换；没有地图视图或地图 SDK 类型进入 core/location。来源：`app/src/main/java/com/lightxin/core/location/LocationProvider.kt:3-10,22-23` / `codestable/compound/2026-04-22-decision-no-map-sdk.md:15-18`。
-- **坐标转换放客户端完成** —— 服务端期望 BD-09，Android 原生定位返回 WGS-84；上传前由客户端转 WGS-84 → GCJ-02 → BD-09。来源：`app/src/main/java/com/lightxin/core/location/CoordinateConverter.kt:8-24`。
-- **定位采集与坐标转换分离** —— `LocationProvider` 只产出系统 `Location`，不暗中转换；调用方明确在提交/上传链路调用 `CoordinateConverter`。来源：`app/src/main/java/com/lightxin/feature/checkin/ui/CheckinDetailViewModel.kt:82-104` / `app/src/main/java/com/lightxin/feature/running/data/RunningRepository.kt:150`。
+- **坐标转换放客户端完成** —— 服务端期望 BD-09，Android 原生定位返回 WGS-84；上传前由客户端转 WGS-84 → GCJ-02 → BD-09。BD-09 这个结论有两条独立证据：官方 H5 的 `BMap` + `Convertor.translate(1→5)`，以及 §2.3 表格里那次 535 m 东南偏移的实测。来源：`app/src/main/java/com/lightxin/core/location/CoordinateConverter.kt:8-24`。
+- **定位采集与坐标转换分离** —— `LocationProvider` 只产出系统 `Location`，不暗中转换；调用方明确在提交/上传链路调用 `CoordinateConverter`。来源：`app/src/main/java/com/lightxin/feature/checkin/ui/CheckinDetailViewModel.kt:82-104` / `app/src/main/java/com/lightxin/feature/running/data/RunningRepository.kt:281-292`。
 - **权限检查只做读，不发起权限请求** —— `LocationProvider.hasLocationPermission()` 只返回当前状态；权限弹窗属于页面或服务调用方职责。来源：`app/src/main/java/com/lightxin/core/location/LocationProvider.kt:25-29,43-48`。
 
 ## 5. 代码锚点
@@ -137,7 +147,7 @@ WGS-84 → wgs84ToGcj02() → GCJ-02 → gcj02ToBd09() → BD-09
 - `app/src/main/java/com/lightxin/core/location/CoordinateConverter.kt:50-68` — 中国范围判断与转换辅助函数。
 - `app/src/main/java/com/lightxin/feature/checkin/ui/CheckinDetailViewModel.kt:82-104` — 查寝定位与转换消费。
 - `app/src/main/java/com/lightxin/feature/running/service/RunTrackingService.kt:64` — 跑步真实模式位置流消费。
-- `app/src/main/java/com/lightxin/feature/running/data/RunningRepository.kt:150` — 跑步上传前 BD-09 转换。
+- `app/src/main/java/com/lightxin/feature/running/data/RunningRepository.kt:281-292` — 跑步上传前 BD-09 转换。
 
 ## 6. 已知约束 / 边界情况
 

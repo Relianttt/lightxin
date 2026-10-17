@@ -1,7 +1,9 @@
 package com.lightxin.feature.running.data
 
+import com.google.gson.JsonElement
 import com.google.gson.JsonObject
 import com.lightxin.feature.running.domain.ClubSummary
+import com.lightxin.feature.running.domain.RunRecordVerdict
 
 data class JuniorExtraDetail(
     val memberId: String = "",
@@ -11,6 +13,10 @@ data class JuniorExtraDetail(
     val surplusMileKm: Double = 0.0,
     val maxMileKm: Double = 0.0,
     val maxMileDate: String = "",
+    /** 服务端下发的有效速度下限（km/h）；缺失为 null，调用方自定兜底。 */
+    val minSpeedKmh: Double? = null,
+    /** 服务端下发的有效速度上限（km/h）；超出即被判无效。 */
+    val maxSpeedKmh: Double? = null,
 )
 
 /**
@@ -46,7 +52,31 @@ object SportsGradeMapper {
             surplusMileKm = detail.string("surplusMile").toDoubleOrNull() ?: 0.0,
             maxMileKm = detail.string("maxMile").toDoubleOrNull() ?: 0.0,
             maxMileDate = detail.string("maxMileDate"),
+            minSpeedKmh = detail.string("minSpeed").toPositiveDoubleOrNull(),
+            maxSpeedKmh = detail.string("maxSpeed").toPositiveDoubleOrNull(),
         )
+    }
+
+    /** 解析 extra/getExtraCheck.do → 服务端对单条跑步记录的判定。无 extraInfo 时返回 null。 */
+    fun parseCheckRecord(json: JsonObject?): RunRecordVerdict? {
+        // 该接口的 extraInfo 在 data 下还是在响应顶层，两种形态都见过；不赌，都试。
+        val extra = json?.dataObject()?.getAsJsonObjectOrNull("extraInfo")
+            ?: json?.getAsJsonObjectOrNull("extraInfo")
+            ?: return null
+        return RunRecordVerdict(
+            checkId = extra.string("checkId"),
+            state = extra.string("state"),
+            remark = extra.string("remark"),
+            // 实测 runningRoute 是密文（服务端加密存储），只能判断有没有存
+            hasStoredRoute = hasRouteValue(extra.get("runningRoute")),
+        )
+    }
+
+    /** runningRoute 实测为密文字符串，但也可能以数组或缺失出现，任何一种都不能抛。 */
+    private fun hasRouteValue(element: JsonElement?): Boolean = when {
+        element == null || element.isJsonNull -> false
+        element.isJsonArray -> element.asJsonArray.size() > 0
+        else -> runCatching { element.asString }.getOrNull()?.isNotBlank() == true
     }
 
     /** 解析 index/clubInfo.do → ClubSummary；大三/大四 clubInfo 为 null 时返回 null。 */

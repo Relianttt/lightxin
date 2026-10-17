@@ -46,7 +46,14 @@ data class RunningUiState(
     val defaultTemplate: RouteTemplate? = null,
     val templateCount: Int = 0,
     val advancedEnabled: Boolean = false,
-)
+) {
+    /** 只有申请过 exerciseId 的会话才是真实跑步；模板录制同样让 isSessionActive 为 true。 */
+    val isRunSessionActive: Boolean
+        get() = trackerState.isSessionActive && trackerState.startInfo != null
+
+    val isTemplateRecordingActive: Boolean
+        get() = trackerState.isSessionActive && trackerState.startInfo == null
+}
 
 @HiltViewModel
 class RunningViewModel @Inject constructor(
@@ -88,28 +95,42 @@ class RunningViewModel @Inject constructor(
     }
 
     fun refreshDashboard() {
-        viewModelScope.launch {
-            _uiState.update { it.copy(isDashboardLoading = true, dashboardError = null) }
-            repository.getDashboard().fold(
-                onSuccess = { dashboard ->
-                    _uiState.update {
-                        it.copy(
-                            dashboard = dashboard,
-                            isDashboardLoading = false,
-                            dashboardError = null,
-                        )
-                    }
-                },
-                onFailure = { error ->
-                    _uiState.update {
-                        it.copy(
-                            isDashboardLoading = false,
-                            dashboardError = error.message ?: "加载跑步首页失败",
-                        )
-                    }
-                },
-            )
-        }
+        viewModelScope.launch { applyDashboard() }
+    }
+
+    private suspend fun applyDashboard(): RunningDashboard? {
+        _uiState.update { it.copy(isDashboardLoading = true, dashboardError = null) }
+        return repository.getDashboard().fold(
+            onSuccess = { dashboard ->
+                _uiState.update {
+                    it.copy(
+                        dashboard = dashboard,
+                        isDashboardLoading = false,
+                        dashboardError = null,
+                    )
+                }
+                dashboard
+            },
+            onFailure = { error ->
+                _uiState.update {
+                    it.copy(
+                        isDashboardLoading = false,
+                        dashboardError = error.message ?: "加载跑步首页失败",
+                    )
+                }
+                null
+            },
+        )
+    }
+
+    /**
+     * 刷新首页并算出本次上传真正计入的里程增量。
+     * 为 0 表示服务端建了记录但没计里程（例如已达每日上限）；无法判定时为 null。
+     */
+    private suspend fun refreshAndComputeCreditedKm(beforeTodayKm: Double?): Double? {
+        val afterTodayKm = applyDashboard()?.todayKm
+        if (beforeTodayKm == null || afterTodayKm == null) return null
+        return (afterTodayKm - beforeTodayKm).coerceAtLeast(0.0)
     }
 
     suspend fun startRealRun(): Result<RunningStartInfo> {
@@ -208,9 +229,13 @@ class RunningViewModel @Inject constructor(
         if (_uiState.value.isSubmittingSimulation) return
         val config = validateSimulation() ?: return
         val template = _uiState.value.defaultTemplate
-        val overridePoints = template?.let { TrajectoryGenerator.generateFromTemplate(config, it) }
-        val templatePoints = overridePoints?.takeIf { it.size >= 2 }
-        val trajectorySize = templatePoints?.size ?: TrajectoryGenerator.generate(config).size
+        val templateTrajectory = template
+            ?.let { TrajectoryGenerator.generateFromTemplate(config, it) }
+            ?.takeIf { it.points.size >= 2 }
+        val usedTemplateId = templateTrajectory?.let { template?.id }
+        val templateIgnored = template != null && templateTrajectory == null
+        val trajectorySize = templateTrajectory?.points?.size
+            ?: TrajectoryGenerator.generate(config).points.size
 
         _uiState.update {
             it.copy(
@@ -221,29 +246,30 @@ class RunningViewModel @Inject constructor(
             )
         }
 
-        val submitCall = if (templatePoints != null) {
-            repository.submitSimulation(
-                config = config,
-                overridePoints = templatePoints,
-                overrideIsBd09 = false,
-            )
-        } else {
-            repository.submitSimulation(config)
-        }
+        val beforeTodayKm = _uiState.value.dashboard?.todayKm
 
-        submitCall.fold(
+        repository.submitSimulation(config, templateTrajectory).fold(
             onSuccess = { result ->
-                if (templatePoints != null) {
-                    templateStore.markUsed(template.id)
+                usedTemplateId?.let { templateStore.markUsed(it) }
+                // 模板采样为空时仓库会退回内置路线；不说明的话，用户以为传的是自己录的线
+                val effective = if (templateIgnored) {
+                    result.copy(message = result.message + "（模板未生成有效轨迹，本次改用内置路线）")
+                } else {
+                    result
                 }
                 _uiState.update {
                     it.copy(
                         isSubmittingSimulation = false,
-                        lastResult = result,
+                        lastResult = effective,
                         shouldNavigateToResult = true,
                     )
                 }
-                refreshDashboard()
+                // 同上：跳转后调用方的 scope 会被取消，收尾走 viewModelScope
+                viewModelScope.launch {
+                    _uiState.update {
+                        it.copy(lastResult = buildFinalResult(effective, beforeTodayKm))
+                    }
+                }
             },
             onFailure = { error ->
                 val failureResult = buildFailedResult(
@@ -281,6 +307,27 @@ class RunningViewModel @Inject constructor(
         return distance / durationMinutes * 60.0
     }
 
+    /** 有效速度区间以服务端下发为准（extraDetailInfo 的 minSpeed/maxSpeed），未下发时用兜底值。 */
+    fun simulationSpeedWindow(): Pair<Double, Double> {
+        val dashboard = _uiState.value.dashboard
+        return (dashboard?.minSpeedKmh ?: FALLBACK_MIN_SPEED_KMH) to
+            (dashboard?.maxSpeedKmh ?: FALLBACK_MAX_SPEED_KMH)
+    }
+
+    fun isSimulationSpeedValid(): Boolean {
+        val speedKmh = simulationSpeedKmh() ?: return false
+        val (minSpeed, maxSpeed) = simulationSpeedWindow()
+        return speedKmh in minSpeed..maxSpeed
+    }
+
+    /** 供 UI 展示的有效区间文案，如 "2-15 km/h"。 */
+    fun simulationSpeedRangeLabel(): String {
+        val (minSpeed, maxSpeed) = simulationSpeedWindow()
+        return "${minSpeed.formatSpeedLimit()}-${maxSpeed.formatSpeedLimit()} km/h"
+    }
+
+    private fun speedRangeErrorMessage(): String = "模拟速度需要在 ${simulationSpeedRangeLabel()} 之间"
+
     private fun observeTracker() {
         viewModelScope.launch {
             tracker.state.collectLatest { trackerState ->
@@ -289,7 +336,22 @@ class RunningViewModel @Inject constructor(
         }
     }
 
+    /**
+     * 上传成功后回读服务端：本次真计入了多少里程、判有效还是无效、轨迹存下几个点。
+     * `result=OK` 只代表记录建了，这三件事它都不保证。
+     */
+    private suspend fun buildFinalResult(base: RunningResult, beforeTodayKm: Double?): RunningResult {
+        val creditedKm = refreshAndComputeCreditedKm(beforeTodayKm)
+        val verdict = base.uploadId.takeIf { it.isNotBlank() }
+            ?.let { repository.getRunRecord(it).getOrNull() }
+        val suffix = verdict?.let {
+            "（服务端判定：${it.describe()}；轨迹已存：${if (it.hasStoredRoute) "是" else "否"}）"
+        }.orEmpty()
+        return base.copy(creditedKm = creditedKm, message = base.message + suffix)
+    }
+
     private suspend fun uploadSnapshot(snapshot: RunningSnapshot) {
+        val beforeTodayKm = _uiState.value.dashboard?.todayKm
         _uiState.update { it.copy(isUploadingRun = true, startError = null) }
 
         repository.uploadTrackedRun(snapshot).fold(
@@ -302,10 +364,14 @@ class RunningViewModel @Inject constructor(
                         shouldNavigateToResult = true,
                     )
                 }
-                refreshDashboard()
+                // 跳转后调用方的 rememberCoroutineScope 会随界面销毁而取消，
+                // 收尾必须挂到 viewModelScope，否则回读请求会被 Canceled
+                viewModelScope.launch {
+                    _uiState.update { it.copy(lastResult = buildFinalResult(result, beforeTodayKm)) }
+                }
             },
             onFailure = { error ->
-                tracker.completeSession()
+                // 不 clear session：轨迹与 exerciseId 要留着，回跑步页还能重试上传
                 _uiState.update {
                     it.copy(
                         isUploadingRun = false,
@@ -343,8 +409,9 @@ class RunningViewModel @Inject constructor(
         }
 
         val speedKmh = distanceKm / durationMinutes * 60.0
-        if (speedKmh !in 6.0..15.0) {
-            _uiState.update { it.copy(simError = "模拟速度需要在 6-15 km/h 之间") }
+        val (minSpeed, maxSpeed) = simulationSpeedWindow()
+        if (speedKmh !in minSpeed..maxSpeed) {
+            _uiState.update { it.copy(simError = speedRangeErrorMessage()) }
             return null
         }
 
@@ -366,7 +433,8 @@ class RunningViewModel @Inject constructor(
             return "开始时间需要早于当前时间"
         }
         val speedKmh = distanceKm / durationMinutes * 60.0
-        return if (speedKmh in 6.0..15.0) null else "模拟速度需要在 6-15 km/h 之间"
+        val (minSpeed, maxSpeed) = simulationSpeedWindow()
+        return if (speedKmh in minSpeed..maxSpeed) null else speedRangeErrorMessage()
     }
 
     private fun buildFailedResult(
@@ -410,6 +478,9 @@ class RunningViewModel @Inject constructor(
         )
     }
 
+    private fun Double.formatSpeedLimit(): String =
+        if (this % 1.0 == 0.0) toInt().toString() else String.format(Locale.US, "%.1f", this)
+
     private fun String.filterAllowedDecimal(): String {
         val filtered = filter { it.isDigit() || it == '.' }
         val dotIndex = filtered.indexOf('.')
@@ -422,6 +493,8 @@ class RunningViewModel @Inject constructor(
 
     companion object {
         private val SIM_DURATION_PRESETS = setOf(20, 30, 45)
+        private const val FALLBACK_MIN_SPEED_KMH = 2.0
+        private const val FALLBACK_MAX_SPEED_KMH = 15.0
         private val FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss", Locale.CHINA)
     }
 }
