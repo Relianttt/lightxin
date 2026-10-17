@@ -15,7 +15,9 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -41,6 +43,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.lightxin.core.designsystem.component.LxCard
 import com.lightxin.core.designsystem.component.LxDetailRow
 import com.lightxin.core.designsystem.component.LxError
+import com.lightxin.core.designsystem.component.ServiceErrorCard
 import com.lightxin.core.designsystem.component.LxLoading
 import com.lightxin.core.designsystem.component.LxTopBar
 import com.lightxin.core.designsystem.theme.LxCategoryColors
@@ -52,11 +55,13 @@ import com.lightxin.feature.labor.domain.HoursSummary
 @Composable
 fun LaborSummaryScreen(
     onBack: () -> Unit,
+    onRelogin: () -> Unit = {},
     modifier: Modifier = Modifier,
     viewModel: LaborViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val error = uiState.error
+    val authExpiredDetail = uiState.authExpiredDetail
 
     Scaffold(
         modifier = modifier,
@@ -65,6 +70,24 @@ fun LaborSummaryScreen(
     ) { padding ->
         when {
             uiState.isLoading -> LxLoading(modifier = Modifier.padding(padding))
+            // 登录态被拒走整张恢复卡片，与 AI课堂/查寝同一版式：一行红字说不清该重试还是重登
+            authExpiredDetail != null -> Box(
+                modifier = Modifier.padding(padding).fillMaxSize()
+                    .verticalScroll(rememberScrollState()).padding(20.dp),
+            ) {
+                ServiceErrorCard(
+                    title = "暂时无法加载劳动教育",
+                    message = "学校服务端没有认可你的登录状态，所以读不到工时和活动。\n\n" +
+                        "只是网络抖动的话，重试一下就好；一直这样的话，重新登录通常能恢复。",
+                    technicalDetail = authExpiredDetail,
+                    isRetrying = uiState.isLoading,
+                    onRetry = viewModel::retry,
+                    onRelogin = onRelogin,
+                    retryLabel = "重新加载劳动教育",
+                    retryingLabel = "正在重新加载…",
+                    footer = "你仍可以返回首页，使用其他功能。",
+                )
+            }
             error != null -> LxError(
                 message = error,
                 onRetry = viewModel::retry,

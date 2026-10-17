@@ -3,6 +3,7 @@ package com.lightxin.feature.checkin.ui
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.lightxin.feature.checkin.data.CheckinRepository
+import com.lightxin.feature.checkin.data.CheckinRejectedException
 import com.lightxin.feature.checkin.domain.CheckinTask
 import com.lightxin.feature.holiday.data.HolidayRepository
 import com.lightxin.feature.holiday.domain.HolidayTask
@@ -20,6 +21,8 @@ data class CheckinUiState(
     val isLoadingHoliday: Boolean = false,
     val isLoadingMore: Boolean = false,
     val error: String? = null,
+    /** 查寝服务端拒绝了身份（`flag:false` + `非法访问`）：用整张恢复卡片，而不是一行红字。 */
+    val rejectedDetail: String? = null,
     val holidayError: String? = null,
     val hasMore: Boolean = true,
     val currentPage: Int = 1,
@@ -41,7 +44,7 @@ class CheckinViewModel @Inject constructor(
 
     private fun loadInitial() {
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, error = null) }
+            _uiState.update { it.copy(isLoading = true, error = null, rejectedDetail = null) }
 
             repository.getTasks(page = 1).fold(
                 onSuccess = { list ->
@@ -56,7 +59,11 @@ class CheckinViewModel @Inject constructor(
                 },
                 onFailure = { e ->
                     _uiState.update {
-                        it.copy(isLoading = false, error = e.message ?: "加载失败")
+                        it.copy(
+                            isLoading = false,
+                            error = e.message ?: "加载失败",
+                            rejectedDetail = (e as? CheckinRejectedException)?.technicalDetail,
+                        )
                     }
                 },
             )

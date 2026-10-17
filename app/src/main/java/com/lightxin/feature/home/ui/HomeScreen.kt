@@ -62,6 +62,7 @@ fun HomeScreen(
     navController: NavHostController,
     homeViewModel: HomeViewModel = hiltViewModel(),
     updatePromptViewModel: UpdatePromptViewModel = hiltViewModel(),
+    onRelogin: () -> Unit = {},
 ) {
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
 
@@ -118,6 +119,7 @@ fun HomeScreen(
                     modifier = Modifier.padding(padding),
                     navController = navController,
                     onTabSelected = { selectedTab = it },
+                    onRelogin = onRelogin,
                 )
                 1 -> ScheduleScreen(modifier = Modifier.padding(padding))
                 2 -> ProfileScreen(

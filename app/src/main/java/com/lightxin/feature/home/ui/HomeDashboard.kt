@@ -13,6 +13,7 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -29,7 +30,10 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.SyncProblem
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -40,6 +44,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -56,15 +61,19 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.navigation.NavHostController
 import com.lightxin.core.designsystem.component.LxCard
+import com.lightxin.core.designsystem.component.LxDialog
+import com.lightxin.core.designsystem.component.LxDialogConfirmTone
 import com.lightxin.core.designsystem.component.LxEmptyHint
 import com.lightxin.core.designsystem.component.LxErrorHint
 import com.lightxin.core.designsystem.component.LxShimmerCard
+import com.lightxin.core.designsystem.theme.LxAmberSoft
 import com.lightxin.core.designsystem.theme.LxCategoryColors
 import com.lightxin.core.designsystem.theme.LxInk
 import com.lightxin.core.designsystem.theme.LxInkMuted
 import com.lightxin.core.designsystem.theme.LxSage
 import com.lightxin.core.designsystem.theme.LxSand
 import com.lightxin.core.designsystem.theme.LxTerra
+import com.lightxin.core.designsystem.theme.LxWarning
 import com.lightxin.core.designsystem.theme.NewsreaderLarge
 import com.lightxin.feature.checkin.domain.CheckinTask
 import com.lightxin.feature.holiday.domain.HolidayTask
@@ -95,10 +104,11 @@ fun HomeDashboard(
     modifier: Modifier = Modifier,
     navController: NavHostController,
     onTabSelected: (Int) -> Unit,
-    showSessionExpiredBanner: Boolean = false,
     onRelogin: () -> Unit = {},
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    // 重登会把官方 App 顶下线，必须让用户知道后再动手
+    var showReloginDialog by rememberSaveable { mutableStateOf(false) }
 
     // 生命周期：ON_PAUSE 记录时间戳，ON_RESUME 触发副标题轮换判定 + 重算场景
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { viewModel.onResumed() }
@@ -130,9 +140,22 @@ fun HomeDashboard(
                 modifier = Modifier.padding(horizontal = 24.dp),
             )
 
-            if (showSessionExpiredBanner) {
-                Spacer(modifier = Modifier.height(16.dp))
-                MainSessionExpiredBanner(onRelogin, Modifier.padding(horizontal = 24.dp))
+            when (uiState.sessionAlert) {
+                SessionAlert.LoginExpired -> {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    MainSessionExpiredBanner(
+                        onRelogin = { showReloginDialog = true },
+                        modifier = Modifier.padding(horizontal = 24.dp),
+                    )
+                }
+                SessionAlert.AiClassBlocked -> {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    AiClassBlockedBanner(
+                        onRelogin = { showReloginDialog = true },
+                        modifier = Modifier.padding(horizontal = 24.dp),
+                    )
+                }
+                null -> Unit
             }
 
             Spacer(modifier = Modifier.height(22.dp))
@@ -223,9 +246,65 @@ fun HomeDashboard(
             }
         }
     }
+
+    if (showReloginDialog) {
+        LxDialog(
+            title = "重新登录会挤下线官方 App",
+            message = "校内账号同一时刻只认一个客户端：这里重新登录会把「爱信校园」官方 App 顶下线，" +
+                "之后要回官方 App 再登一次。\n\n" +
+                "如果只是想看课表、查寝或跑步，可以先不重新登录 —— 这些不受影响，" +
+                "只有 AI课堂的扫码签到在重新登录前用不了。",
+            confirmText = "仍要重新登录",
+            dismissText = "先不登录",
+            onDismissRequest = { showReloginDialog = false },
+            onDismiss = { showReloginDialog = false },
+            onConfirm = {
+                showReloginDialog = false
+                onRelogin()
+            },
+            confirmTone = LxDialogConfirmTone.Destructive,
+        )
+    }
 }
 
-// ═══════════════ 问候区 ═══════════════
+// ═══════════════ 登录态降级横幅 ═══════════════
+
+/** AI课堂映射被顶：只宣告签到不可用，不阻断课表/查寝/跑步。样式对齐课表页的离线快照横幅。 */
+@Composable
+private fun AiClassBlockedBanner(onRelogin: () -> Unit, modifier: Modifier = Modifier) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(10.dp))
+            .background(LxAmberSoft)
+            .padding(start = 12.dp, end = 2.dp, top = 8.dp, bottom = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            imageVector = Icons.Outlined.SyncProblem,
+            contentDescription = null,
+            modifier = Modifier.size(15.dp),
+            tint = LxWarning,
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(
+            text = "账号已在其他设备登录，AI课堂签到不可用",
+            fontSize = 12.sp,
+            color = LxInkMuted,
+            modifier = Modifier.weight(1f),
+        )
+        Text(
+            text = "重新登录",
+            fontSize = 12.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = LxTerra,
+            modifier = Modifier
+                .clip(RoundedCornerShape(8.dp))
+                .clickable(onClick = onRelogin)
+                .padding(horizontal = 10.dp, vertical = 6.dp),
+        )
+    }
+}
 
 @Composable
 private fun GreetingSection(

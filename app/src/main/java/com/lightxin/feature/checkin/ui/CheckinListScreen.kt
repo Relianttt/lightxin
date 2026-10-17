@@ -15,6 +15,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -39,6 +41,7 @@ import com.lightxin.core.designsystem.component.LxError
 import com.lightxin.core.designsystem.component.LxInlineErrorCard
 import com.lightxin.core.designsystem.component.LxLoading
 import com.lightxin.core.designsystem.component.LxTopBar
+import com.lightxin.core.designsystem.component.ServiceErrorCard
 import com.lightxin.core.designsystem.theme.LxInkMuted
 import com.lightxin.core.designsystem.theme.LxSuccess
 import com.lightxin.core.designsystem.theme.LxTerra
@@ -50,6 +53,7 @@ fun CheckinListScreen(
     onBack: () -> Unit,
     onTaskClick: (taskDateId: String) -> Unit,
     onHolidayClick: (holidayId: String) -> Unit = {},
+    onRelogin: () -> Unit = {},
     shouldRefresh: Boolean,
     onRefreshConsumed: () -> Unit,
     modifier: Modifier = Modifier,
@@ -57,6 +61,7 @@ fun CheckinListScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val error = uiState.error
+    val rejectedDetail = uiState.rejectedDetail
 
     LaunchedEffect(shouldRefresh) {
         if (shouldRefresh) {
@@ -72,6 +77,23 @@ fun CheckinListScreen(
     ) { padding ->
         when {
             uiState.isLoading -> LxLoading(modifier = Modifier.padding(padding))
+            // 身份被拒（flag:false + 非法访问）走整张恢复卡片：一行红字说不清该重试还是该重登
+            rejectedDetail != null -> Box(
+                modifier = Modifier.padding(padding).fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),
+            ) {
+                ServiceErrorCard(
+                    title = "暂时无法加载查寝信息",
+                    message = "服务端这次没有认可你的身份信息。常见原因是登录已过期；也可能只是这一下没对上。\n\n" +
+                        "可以先重试一次；如果一直这样，重新登录通常能恢复。",
+                    technicalDetail = rejectedDetail,
+                    isRetrying = uiState.isLoading,
+                    onRetry = viewModel::retry,
+                    onRelogin = onRelogin,
+                    retryLabel = "重新加载查寝",
+                    retryingLabel = "正在重新加载…",
+                    footer = "你仍可以返回首页，使用其他功能。",
+                )
+            }
             error != null -> LxError(
                 message = error,
                 onRetry = viewModel::retry,

@@ -32,6 +32,9 @@ class CheckinRepository @Inject constructor(
                 "taskMajorType" to "3",
             )
             val response = api.pageStudentSignIn(body)
+            if (isCheckinRejection(response.flag, response.msg)) {
+                return Result.failure(CheckinRejectedException(listOfNotNull(response.code, response.msg)))
+            }
             if (!response.isSuccess()) {
                 return Result.failure(Exception(response.msg ?: "获取签到任务失败"))
             }
@@ -58,6 +61,9 @@ class CheckinRepository @Inject constructor(
         return try {
             val body = mapOf("dateId" to dateId)
             val response = api.getTaskInfoByDateId(body)
+            if (isCheckinRejection(response.flag, response.msg)) {
+                return Result.failure(CheckinRejectedException(listOfNotNull(response.code, response.msg)))
+            }
             if (!response.isSuccess()) {
                 return Result.failure(Exception(response.msg ?: "获取任务详情失败"))
             }
@@ -149,9 +155,11 @@ class CheckinRepository @Inject constructor(
         }
     }
 
-    private fun SignInPageResponse.isSuccess(): Boolean = code == "0" || code == "200"
+    private fun SignInPageResponse.isSuccess(): Boolean =
+        !isCheckinRejection(flag, msg) && (code == "0" || code == "200")
 
-    private fun TaskInfoResponse.isSuccess(): Boolean = code == "0" || code == "200"
+    private fun TaskInfoResponse.isSuccess(): Boolean =
+        !isCheckinRejection(flag, msg) && (code == "0" || code == "200")
 
     private fun JsonElement?.extractUploadUrl(): String? {
         val element = this ?: return null

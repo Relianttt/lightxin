@@ -6,9 +6,11 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -24,6 +26,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -45,6 +49,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.lightxin.core.designsystem.component.LxButton
 import com.lightxin.core.designsystem.component.LxCard
@@ -53,6 +58,8 @@ import com.lightxin.core.designsystem.component.LxProgressIndicator
 import com.lightxin.core.designsystem.component.LxTextField
 import com.lightxin.core.designsystem.theme.LxCardBorder
 import com.lightxin.core.designsystem.theme.LxCream
+import com.lightxin.core.designsystem.theme.LxInk
+import com.lightxin.core.designsystem.theme.LxTerra
 
 @Composable
 fun LoginScreen(
@@ -150,6 +157,12 @@ fun LoginScreen(
                         enabled = !uiState.isLoading,
                     )
 
+                    RememberPasswordRow(
+                        checked = uiState.rememberPassword,
+                        enabled = !uiState.isLoading,
+                        onCheckedChange = viewModel::onRememberPasswordChange,
+                    )
+
                     AnimatedVisibility(
                         visible = uiState.error != null,
                         enter = fadeIn(),
@@ -188,5 +201,35 @@ fun LoginScreen(
 
             Spacer(modifier = Modifier.height(32.dp))
         }
+    }
+}
+
+@Composable
+private fun RememberPasswordRow(
+    checked: Boolean,
+    enabled: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .clickable(enabled = enabled) { onCheckedChange(!checked) },
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Checkbox(
+            checked = checked,
+            onCheckedChange = onCheckedChange,
+            enabled = enabled,
+            colors = CheckboxDefaults.colors(
+                checkedColor = LxTerra,
+                checkmarkColor = MaterialTheme.colorScheme.onPrimary,
+            ),
+        )
+        Text(
+            text = "记住密码",
+            fontSize = 14.sp,
+            color = LxInk,
+        )
     }
 }

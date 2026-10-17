@@ -3,7 +3,10 @@ package com.lightxin.feature.home.ui
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.lightxin.core.auth.TokenManager
+import com.lightxin.core.network.isAuthExpired
 import com.lightxin.core.notification.CourseNotificationScheduler
+import com.lightxin.feature.aiclass.data.AiClassSessionCheck
+import com.lightxin.feature.aiclass.data.AiClassSessionGuard
 import com.lightxin.feature.checkin.data.CheckinRepository
 import com.lightxin.feature.checkin.domain.CheckinTask
 import com.lightxin.feature.holiday.data.HolidayRepository
@@ -49,7 +52,12 @@ data class HomeUiState(
     val isLoading: Boolean = true,
     val isRefreshing: Boolean = false,
     val errors: Map<String, String> = emptyMap(),
+    /** 登录态降级提示；null 表示不提示（断网、超时、服务端异常都不构成证据）。 */
+    val sessionAlert: SessionAlert? = null,
 )
+
+/** 首页登录态横幅的两种降级：一个说校内会话没了，一个说只有 AI课堂被顶。 */
+enum class SessionAlert { LoginExpired, AiClassBlocked }
 
 @HiltViewModel
 class HomeViewModel @Inject constructor(
@@ -61,6 +69,7 @@ class HomeViewModel @Inject constructor(
     private val laborRepository: LaborRepository,
     private val tokenManager: TokenManager,
     private val courseNotificationScheduler: CourseNotificationScheduler,
+    private val aiClassSessionGuard: AiClassSessionGuard,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HomeUiState())
@@ -84,6 +93,8 @@ class HomeViewModel @Inject constructor(
         }
         // 自行加载 bootstrap 不覆盖的 running / labor
         viewModelScope.launch { loadExtras() }
+        // AI课堂会话体检：官方 App 登录后 FIF 服务端映射会被顶掉，本地 Cookie 却看不出来
+        viewModelScope.launch { checkAiClassSession() }
         // 启动课程倒计时通知调度
         courseNotificationScheduler.start(viewModelScope) {
             _uiState.value.dashboardData.todayCourses
@@ -99,6 +110,44 @@ class HomeViewModel @Inject constructor(
             } finally {
                 _uiState.update { it.copy(isRefreshing = false) }
             }
+        }
+        // 探测最坏要等 12s 超时，不塞进下拉动画里
+        viewModelScope.launch { checkAiClassSession() }
+    }
+
+    /**
+     * 会话体检，结果只用于决定是否在首页挂一条降级横幅。
+     *
+     * 只有 Blocked（服务端拒绝 FIF 映射）与 LoginExpired（本地无校内凭据）才提示 ——
+     * 断网与超时归 Inconclusive，必须沉默，否则就是把网络故障说成别人顶号。
+     */
+    private suspend fun checkAiClassSession() {
+        val alert = when (aiClassSessionGuard.checkOnLaunch()) {
+            AiClassSessionCheck.Blocked -> SessionAlert.AiClassBlocked
+            AiClassSessionCheck.LoginExpired -> SessionAlert.LoginExpired
+            AiClassSessionCheck.Healthy,
+            AiClassSessionCheck.Skipped,
+            AiClassSessionCheck.Inconclusive,
+            -> null
+        }
+        applySessionAlert(alert)
+    }
+
+    /**
+     * 横幅优先级：校内登录失效 > AI课堂被顶 > 不提示。
+     *
+     * `LoginExpired` 是粘性的：它一旦成立，后续一次 Healthy 的会话体检不该把横幅抹掉 ——
+     * 校内 token 失效时哪些接口还能通，取决于各服务端的容忍度，不能用其中一个成功来反证。
+     */
+    private fun applySessionAlert(incoming: SessionAlert?) {
+        _uiState.update { current ->
+            val next = when {
+                current.sessionAlert == SessionAlert.LoginExpired -> SessionAlert.LoginExpired
+                incoming == SessionAlert.LoginExpired -> SessionAlert.LoginExpired
+                incoming != null -> incoming
+                else -> current.sessionAlert
+            }
+            current.copy(sessionAlert = next)
         }
     }
 
@@ -294,6 +343,10 @@ class HomeViewModel @Inject constructor(
 
     private suspend fun loadLabor(): Pair<HoursSummary?, String?> {
         val result = laborRepository.getHoursSummary()
+        // 劳动教育的 token 失效是 200 + "非法访问"，不是 401；识别出来后归到「校内登录失效」
+        if (result.exceptionOrNull()?.isAuthExpired() == true) {
+            applySessionAlert(SessionAlert.LoginExpired)
+        }
         return Pair(result.getOrNull(), result.exceptionOrNull()?.message)
     }
 

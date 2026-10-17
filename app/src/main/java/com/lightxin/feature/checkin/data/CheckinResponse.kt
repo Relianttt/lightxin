@@ -9,6 +9,8 @@ import com.google.gson.JsonElement
 data class SignInPageResponse(
     val code: String?,
     val msg: String?,
+    /** 服务端把鉴权失败也塞进 200：`{"code":"0","flag":false,"msg":"非法访问"}`，光看 code 会当成成功。 */
+    val flag: Boolean? = null,
     val data: SignInPageData?,
     val rows: List<SignInTaskRow>?,
     val total: Int?,
@@ -48,6 +50,7 @@ data class SignInTaskRow(
 data class TaskInfoResponse(
     val code: String?,
     val msg: String?,
+    val flag: Boolean? = null,
     val data: TaskInfoData?,
 )
 

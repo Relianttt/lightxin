@@ -116,6 +116,27 @@ fun LightXinNavHost(
             }
         }
     }
+    // 只失效校内登录态时用：不清 FIF 会话
+    val onSessionRelogin: () -> Unit = {
+        if (!isReloggingIn) {
+            isReloggingIn = true
+            scope.launch {
+                try {
+                    fifReloginViewModel.prepareSessionRelogin()
+                    navController.navigate(Routes.LOGIN) {
+                        popUpTo(Routes.HOME) { inclusive = true }
+                        launchSingleTop = true
+                    }
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    throw e
+                } catch (_: Exception) {
+                    Toast.makeText(context, "暂时无法打开重新登录，请重试", Toast.LENGTH_SHORT).show()
+                } finally {
+                    isReloggingIn = false
+                }
+            }
+        }
+    }
     val currentOnShortcutConsumed by rememberUpdatedState(onShortcutConsumed)
 
     // shortcut 落位静态化（仿 LibChecker setCurrentItem(index, false)）：
@@ -231,7 +252,7 @@ fun LightXinNavHost(
             enterTransition = { fadeIn(tween(400)) },
             exitTransition = { fadeOut(tween(200)) },
         ) {
-            HomeScreen(navController = navController)
+            HomeScreen(navController = navController, onRelogin = onFifRelogin)
         }
 
         // Checkin
@@ -241,6 +262,7 @@ fun LightXinNavHost(
                 .collectAsState()
             CheckinListScreen(
                 onBack = { navController.popBackStack() },
+                onRelogin = onSessionRelogin,
                 onTaskClick = { taskDateId ->
                     navController.navigate(Routes.checkinDetail(taskDateId))
                 },
@@ -437,6 +459,7 @@ fun LightXinNavHost(
         composable(Routes.LABOR_SUMMARY) {
             LaborSummaryScreen(
                 onBack = { navController.popBackStack() },
+                onRelogin = onSessionRelogin,
             )
         }
 

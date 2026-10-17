@@ -1,6 +1,7 @@
 package com.lightxin.feature.labor.data
 
 import com.lightxin.core.auth.TokenManager
+import com.lightxin.core.network.AuthExpiredException
 import com.lightxin.core.network.LaborRetrofit
 import com.lightxin.feature.labor.domain.ActivityDetail
 import com.lightxin.feature.labor.domain.ActivityRecord
@@ -32,6 +33,9 @@ class LaborRepository @Inject constructor(
             if (userCode.isBlank()) return Result.failure(Exception("登录信息已失效，请重新登录"))
 
             val response = api.queryHoursTotal(userCode, xh, token)
+            if (isLaborAuthRejection(response.flag, response.result)) {
+                return Result.failure(laborAuthRejected("获取工时总览", response.flag, response.result))
+            }
             val data = response.data?.data
                 ?: return Result.failure(Exception(response.result ?: "获取工时数据失败"))
 
@@ -55,6 +59,9 @@ class LaborRepository @Inject constructor(
             if (userCode.isBlank()) return Result.failure(Exception("登录信息已失效，请重新登录"))
 
             val response = api.queryActivities(userCode, xh, token, page.toString(), pageSize.toString())
+            if (isLaborAuthRejection(response.flag, response.result)) {
+                return Result.failure(laborAuthRejected("获取活动列表", response.flag, response.result))
+            }
             val list = response.rows.orEmpty()
 
             Result.success(
@@ -80,6 +87,9 @@ class LaborRepository @Inject constructor(
             if (userCode.isBlank()) return Result.failure(Exception("登录信息已失效，请重新登录"))
 
             val response = api.queryActivityDetail(userCode, xh, token, id, type)
+            if (isLaborAuthRejection(response.flag, response.result)) {
+                return Result.failure(laborAuthRejected("获取活动详情", response.flag, response.result))
+            }
             val data = response.data?.data
                 ?: return Result.failure(Exception(response.result ?: "获取活动详情失败"))
 
@@ -110,6 +120,26 @@ class LaborRepository @Inject constructor(
         }
     }
 }
+
+/**
+ * `ldjy` 用 200 + `{"flag":false,"result":"非法访问"}` 表达「token 无效」。
+ * 不转成登录失效，界面就会把它原样显示成「非法访问」—— 用户看不懂，也没法据此重登。
+ *
+ * 注意：查寝 `fdygl` 的 `-100 非法访问` 是另一回事（7 个身份字段没带全），不要在那边套这个判定。
+ */
+internal fun isLaborAuthRejection(flag: Boolean?, result: String?): Boolean =
+    flag == false && result?.contains("非法访问") == true
+
+/** 把拒绝包装成带结构化详情的登录失效异常，供界面出「服务不可用」卡片。 */
+internal fun laborAuthRejected(action: String, flag: Boolean?, result: String?): AuthExpiredException =
+    AuthExpiredException(
+        technicalDetail = buildString {
+            append("LABOR_REJECTED\n")
+            append("操作：$action\n")
+            append("阶段：ldjy 身份校验\n")
+            append("响应：flag=${flag ?: "null"} / result=${result.orEmpty().ifBlank { "无" }}")
+        },
+    )
 
 @Module
 @InstallIn(SingletonComponent::class)

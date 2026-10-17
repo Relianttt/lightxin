@@ -3,6 +3,7 @@ package com.lightxin.core.network
 import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -45,6 +46,7 @@ class FifSessionManager @Inject constructor(
         private val KEY_USER_NAME = stringPreferencesKey("user_name")
         private val KEY_SCHOOL_ID = stringPreferencesKey("school_id")
         private val KEY_MEMBER_USER_ID = stringPreferencesKey("member_user_id")
+        private val KEY_FIF_USED = booleanPreferencesKey("fif_used")
     }
 
     suspend fun getStudentId(): String? =
@@ -61,6 +63,16 @@ class FifSessionManager @Inject constructor(
 
     suspend fun getMemberUserId(): String? =
         context.fifDataStore.data.first()[KEY_MEMBER_USER_ID]
+
+    /**
+     * 用户是否用过 AI课堂。
+     *
+     * 会话体检的 `Skipped` 不能拿「有没有 FIF token」当判据：被顶号之后 SSO 失败，
+     * token 压根不会落盘，于是「用过但正被顶」会被误判成「从没用过」而永远不提示
+     * （首页横幅一直不亮，进 AI课堂才发现）。这里单独记一个只增不减的标记。
+     */
+    suspend fun isFifUsed(): Boolean =
+        context.fifDataStore.data.first()[KEY_FIF_USED] == true
 
     suspend fun isSessionValid(): Boolean =
         !getStudentId().isNullOrBlank() &&
@@ -84,48 +96,14 @@ class FifSessionManager @Inject constructor(
     suspend fun performSso(forceRefresh: Boolean = false): Result<Unit> = withContext(Dispatchers.IO) {
         sessionMutex.withLock {
             try {
+                // 走到这里说明用户主动要用 AI课堂（体检走的是 probeSession，不经过这里）
+                markFifUsed()
                 if (!forceRefresh && isSessionValid()) return@withContext Result.success(Unit)
                 if (forceRefresh) {
                     context.fifDataStore.edit { it.clear() }
                     cookieJar.clear()
                 }
-                val accessToken = tokenManager.getAccessToken().orEmpty()
-                val userCode = tokenManager.getUserCode().orEmpty()
-                val userName = tokenManager.getUserName().orEmpty()
-                val userType = tokenManager.getUserType().orEmpty()
-
-                if (accessToken.isBlank() || userCode.isBlank()) {
-                    return@withContext Result.failure(Exception("校内登录信息已失效，请重新登录"))
-                }
-
-                // Step 1: SSO 跳转，提取 FIF token
-                val fifToken = performSsoRedirect(accessToken, userCode, userName, userType)
-                    ?: return@withContext Result.failure(Exception("FIF 单点登录失败"))
-
-                // Step 2: 用 token 访问 FIF 首页建立 Cookie
-                establishSession(fifToken)
-
-                // Step 3: 用户映射
-                val userInfo = fetchUserMapping(fifToken)
-                val memberUserId = extractMemberUserIdFromFifToken(fifToken)
-
-                // 持久化
-                context.fifDataStore.edit { prefs ->
-                    prefs[KEY_FIF_TOKEN] = fifToken
-                    prefs[KEY_STUDENT_ID] = userInfo.studentId
-                    prefs[KEY_USER_NAME] = userInfo.userName
-                    prefs[KEY_SCHOOL_ID] = userInfo.schoolId
-                    if (!memberUserId.isNullOrBlank()) {
-                        prefs[KEY_MEMBER_USER_ID] = memberUserId
-                    } else {
-                        prefs.remove(KEY_MEMBER_USER_ID)
-                    }
-                }
-
-                // 同步身份 Cookie 到 OkHttp jar，让 qrcodeHandler 等原生请求能从 jar 中读取
-                saveIdentityCookies(userInfo.studentId, userInfo.userName)
-
-                Result.success(Unit)
+                runSsoChain()
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -133,6 +111,73 @@ class FifSessionManager @Inject constructor(
             }
         }
     }
+
+    /**
+     * 主动会话体检：跑完整的 SSO 链路，但**不预清本地会话**。
+     *
+     * 不能用 `performSso(forceRefresh = true)` 当探针 —— 那个会先清 DataStore 与 Cookie，
+     * 探测时一旦断网，用户就真的被自己踢下线了。这里失败只返回 failure，本地现状原样保留。
+     */
+    suspend fun probeSession(): Result<Unit> = withContext(Dispatchers.IO) {
+        sessionMutex.withLock {
+            try {
+                runSsoChain()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Result.failure(Exception("AI课堂会话体检失败: ${e.message}", e))
+            }
+        }
+    }
+
+    /**
+     * SSO 四步链路的实体。不判缓存、不清会话，由调用方决定前后是否加条件。
+     *
+     * 1. 携带校内 token 请求 aiitpass.fifedu.com
+     * 2. 从 302 Location 提取 FIF token
+     * 3. 跟随重定向建立 Cookie 会话
+     * 4. 调用 getAiktUserIdByMemberId 获取 FIF 用户标识
+     */
+    private suspend fun runSsoChain(): Result<Unit> {
+        val accessToken = tokenManager.getAccessToken().orEmpty()
+        val userCode = tokenManager.getUserCode().orEmpty()
+        val userName = tokenManager.getUserName().orEmpty()
+        val userType = tokenManager.getUserType().orEmpty()
+
+        if (accessToken.isBlank() || userCode.isBlank()) {
+            return Result.failure(Exception("校内登录信息已失效，请重新登录"))
+        }
+
+        // Step 1: SSO 跳转，提取 FIF token
+        val fifToken = performSsoRedirect(accessToken, userCode, userName, userType)
+            ?: return Result.failure(Exception("FIF 单点登录失败"))
+
+        // Step 2: 用 token 访问 FIF 首页建立 Cookie
+        establishSession(fifToken)
+
+        // Step 3: 用户映射
+        val userInfo = fetchUserMapping(fifToken)
+        val memberUserId = extractMemberUserIdFromFifToken(fifToken)
+
+        // 持久化
+        context.fifDataStore.edit { prefs ->
+            prefs[KEY_FIF_TOKEN] = fifToken
+            prefs[KEY_STUDENT_ID] = userInfo.studentId
+            prefs[KEY_USER_NAME] = userInfo.userName
+            prefs[KEY_SCHOOL_ID] = userInfo.schoolId
+            if (!memberUserId.isNullOrBlank()) {
+                prefs[KEY_MEMBER_USER_ID] = memberUserId
+            } else {
+                prefs.remove(KEY_MEMBER_USER_ID)
+            }
+        }
+
+        // 同步身份 Cookie 到 OkHttp jar，让 qrcodeHandler 等原生请求能从 jar 中读取
+        saveIdentityCookies(userInfo.studentId, userInfo.userName)
+
+        return Result.success(Unit)
+    }
+
     private fun performSsoRedirect(
         accessToken: String,
         userCode: String,
@@ -272,6 +317,10 @@ class FifSessionManager @Inject constructor(
                 addQueryParameter("returnFromIscToAppFunc", "ReturnDefault")
             }
         }.build().toString()
+    }
+
+    private suspend fun markFifUsed() {
+        context.fifDataStore.edit { if (it[KEY_FIF_USED] != true) it[KEY_FIF_USED] = true }
     }
 
     suspend fun clear() = sessionMutex.withLock {

@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.lightxin.core.auth.SessionManager
 import com.lightxin.core.auth.TokenManager
+import com.lightxin.core.network.FifSessionManager
 import com.lightxin.core.settings.DeveloperPrefs
 import com.lightxin.core.settings.UpdatePrefs
 import com.lightxin.feature.update.domain.AppVersion
@@ -28,6 +29,7 @@ data class ProfileUiState(
 class ProfileViewModel @Inject constructor(
     private val tokenManager: TokenManager,
     private val sessionManager: SessionManager,
+    private val fifSession: FifSessionManager,
     private val developerPrefs: DeveloperPrefs,
     private val updatePrefs: UpdatePrefs,
     private val appVersionProvider: AppVersionProvider,
@@ -75,6 +77,8 @@ class ProfileViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoggingOut = true) }
             sessionManager.logout()
+            // FIF 身份存在自己的 DataStore 与 Cookie 里，不清会串到下一个登录账号
+            fifSession.clear()
             onDone()
         }
     }

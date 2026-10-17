@@ -2,6 +2,7 @@ package com.lightxin.feature.labor.ui
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.lightxin.core.network.AuthExpiredException
 import com.lightxin.feature.labor.data.LaborRepository
 import com.lightxin.feature.labor.domain.ActivityRecord
 import com.lightxin.feature.labor.domain.HoursSummary
@@ -19,6 +20,8 @@ data class LaborUiState(
     val isLoading: Boolean = true,
     val isLoadingMore: Boolean = false,
     val error: String? = null,
+    /** 校内登录态失效（ldjy 回 200 + 非法访问）：出整张恢复卡片，而不是一行红字。 */
+    val authExpiredDetail: String? = null,
     val hasMore: Boolean = true,
     val currentPage: Int = 1,
     val showDetailSheet: Boolean = false,
@@ -44,7 +47,7 @@ class LaborViewModel @Inject constructor(
 
     private fun loadInitial() {
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, error = null) }
+            _uiState.update { it.copy(isLoading = true, error = null, authExpiredDetail = null) }
 
             // 并行加载工时总览和首页活动
             val hoursResult = repository.getHoursSummary()
@@ -55,7 +58,13 @@ class LaborViewModel @Inject constructor(
                     _uiState.update { it.copy(hoursSummary = summary) }
                 },
                 onFailure = { e ->
-                    _uiState.update { it.copy(isLoading = false, error = e.message ?: "加载失败") }
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            error = e.message ?: "加载失败",
+                            authExpiredDetail = (e as? AuthExpiredException)?.technicalDetail,
+                        )
+                    }
                     return@launch
                 },
             )
@@ -72,7 +81,13 @@ class LaborViewModel @Inject constructor(
                     }
                 },
                 onFailure = { e ->
-                    _uiState.update { it.copy(isLoading = false, error = e.message ?: "加载失败") }
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            error = e.message ?: "加载失败",
+                            authExpiredDetail = (e as? AuthExpiredException)?.technicalDetail,
+                        )
+                    }
                 },
             )
         }
