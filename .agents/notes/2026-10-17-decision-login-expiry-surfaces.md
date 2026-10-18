@@ -40,6 +40,8 @@ tags: [auth, session, fif, aiclass, home, login, keystore]
 
 只声明「AI课堂签到不可用」，课表、查寝、跑步照常使用。点「重新登录」先弹二次确认，明说**会挤下线官方 App、之后要回官方 App 再登一次**，并提示只想看课表可以先不登录；确认后才走重登。
 
+> 2026-10-18 修订：二次确认弹窗已按用户要求删除，点「重新登录」直接进登录页；失效横幅文案补「部分功能已失效」。见 `.agents/notes/2026-10-18-decision-relogin-without-dialog.md`。
+
 ### 4. 重登只有一条路径
 
 横幅复用既有的 `FifReloginViewModel`（`resetFifSession` → `sessionManager.logout` → `homeBootstrap.resetAfterRelogin` → 登录成功后回载首页），不新开一条跳转链。`navigation/NavGraph` 已经把这条路径抽成 `onFifRelogin`，横幅接的是同一个 lambda。

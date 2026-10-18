@@ -37,7 +37,7 @@ fun MainSessionExpiredBanner(onRelogin: () -> Unit, modifier: Modifier = Modifie
             Icon(Icons.Outlined.Info, contentDescription = null, tint = LxTerra, modifier = Modifier.size(22.dp))
             Column(verticalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.weight(1f)) {
                 Text("登录状态已失效", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = LxInk)
-                Text("当前登录信息已过期，请重新登录以继续使用校园服务。",
+                Text("当前登录信息已过期，部分功能已失效，请重新登录以继续使用校园服务。",
                     style = MaterialTheme.typography.bodyMedium, color = LxInkSoft)
             }
         }

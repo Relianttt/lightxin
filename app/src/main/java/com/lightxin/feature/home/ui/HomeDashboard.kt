@@ -44,7 +44,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -62,8 +61,6 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.navigation.NavHostController
 import com.lightxin.core.designsystem.component.LxCard
-import com.lightxin.core.designsystem.component.LxDialog
-import com.lightxin.core.designsystem.component.LxDialogConfirmTone
 import com.lightxin.core.designsystem.component.LxEmptyHint
 import com.lightxin.core.designsystem.component.LxErrorHint
 import com.lightxin.core.designsystem.component.LxShimmerCard
@@ -109,8 +106,6 @@ fun HomeDashboard(
     onRelogin: () -> Unit = {},
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    // 重登会把官方 App 顶下线，必须让用户知道后再动手
-    var showReloginDialog by rememberSaveable { mutableStateOf(false) }
 
     // 生命周期：ON_PAUSE 记录时间戳，ON_RESUME 触发副标题轮换判定 + 重算场景
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { viewModel.onResumed() }
@@ -146,14 +141,14 @@ fun HomeDashboard(
                 SessionAlert.LoginExpired -> {
                     Spacer(modifier = Modifier.height(16.dp))
                     MainSessionExpiredBanner(
-                        onRelogin = { showReloginDialog = true },
+                        onRelogin = onRelogin,
                         modifier = Modifier.padding(horizontal = 24.dp),
                     )
                 }
                 SessionAlert.AiClassBlocked -> {
                     Spacer(modifier = Modifier.height(16.dp))
                     AiClassBlockedBanner(
-                        onRelogin = { showReloginDialog = true },
+                        onRelogin = onRelogin,
                         modifier = Modifier.padding(horizontal = 24.dp),
                     )
                 }
@@ -247,25 +242,6 @@ fun HomeDashboard(
                 }
             }
         }
-    }
-
-    if (showReloginDialog) {
-        LxDialog(
-            title = "重新登录会挤下线官方 App",
-            message = "校内账号同一时刻只认一个客户端：这里重新登录会把“爱信校园”官方 App 顶下线，" +
-                "之后要回官方 App 再登一次。\n\n" +
-                "如果只是想看课表、查寝或跑步，可以先不重新登录 —— 这些不受影响，" +
-                "只有 AI课堂的扫码签到在重新登录前用不了。",
-            confirmText = "仍要重新登录",
-            dismissText = "先不登录",
-            onDismissRequest = { showReloginDialog = false },
-            onDismiss = { showReloginDialog = false },
-            onConfirm = {
-                showReloginDialog = false
-                onRelogin()
-            },
-            confirmTone = LxDialogConfirmTone.Destructive,
-        )
     }
 }
 
