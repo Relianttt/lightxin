@@ -10,9 +10,12 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -35,6 +38,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -135,6 +139,11 @@ fun LxConfirmSheet(
     }
 }
 
+/**
+ * 选项弹层。选项数量由服务端决定（报修楼栋就有 36 项），必须自己滚动并限高：
+ * 用普通 Column 平铺会把 ModalBottomSheet 撑到全屏，折线以下的选项被裁掉且滑不到，
+ * 看起来就像“数据不全”。
+ */
 @Composable
 fun LxOptionSheet(
     title: String,
@@ -143,38 +152,60 @@ fun LxOptionSheet(
     onSelect: (label: String, value: String) -> Unit,
     onDismiss: () -> Unit,
 ) {
+    // 约 7 行：学院这类短列表一屏放得下，36 栋楼则内部滚动，弹层整体不超过半屏多一点。
+    val maxListHeight = (LocalConfiguration.current.screenHeightDp.dp * 0.42f)
+        .coerceIn(220.dp, 360.dp)
     LxBottomSheet(onDismiss = onDismiss) {
-        Text(
-            text = title,
-            fontSize = 18.sp,
-            lineHeight = 25.sp,
-            fontWeight = FontWeight.SemiBold,
-            color = LxText,
-            modifier = Modifier.padding(bottom = 10.dp),
-        )
-        options.forEach { (label, value) ->
-            val selected = value == selectedValue
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(LxRadiusSm))
-                    .background(if (selected) LxTint else Color.Transparent)
-                    .clickable(role = Role.RadioButton) {
-                        onSelect(label, value)
-                        onDismiss()
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = title,
+                fontSize = 18.sp,
+                lineHeight = 25.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = LxText,
+                modifier = Modifier.weight(1f),
+            )
+            if (options.size > 6) {
+                Text(text = "共 ${options.size} 项", fontSize = 11.5.sp, color = LxTextFaint)
+            }
+        }
+        if (options.isEmpty()) {
+            Text(
+                text = "暂无可选项",
+                fontSize = 13.sp,
+                color = LxTextMuted,
+                modifier = Modifier.padding(vertical = 12.dp),
+            )
+        } else {
+            LazyColumn(modifier = Modifier.fillMaxWidth().heightIn(max = maxListHeight)) {
+                items(items = options) { (label, value) ->
+                    val selected = value == selectedValue
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(LxRadiusSm))
+                            .background(if (selected) LxTint else Color.Transparent)
+                            .clickable(role = Role.RadioButton) {
+                                onSelect(label, value)
+                                onDismiss()
+                            }
+                            .padding(horizontal = 14.dp, vertical = 14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = label,
+                            fontSize = 14.sp,
+                            fontWeight = if (selected) FontWeight.Medium else FontWeight.Normal,
+                            color = LxText,
+                            modifier = Modifier.weight(1f),
+                        )
+                        if (selected) {
+                            Box(Modifier.size(6.dp).clip(CircleShape).background(LxAccent))
+                        }
                     }
-                    .padding(horizontal = 14.dp, vertical = 14.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = label,
-                    fontSize = 14.sp,
-                    fontWeight = if (selected) FontWeight.Medium else FontWeight.Normal,
-                    color = LxText,
-                    modifier = Modifier.weight(1f),
-                )
-                if (selected) {
-                    Box(Modifier.size(6.dp).clip(CircleShape).background(LxAccent))
                 }
             }
         }
