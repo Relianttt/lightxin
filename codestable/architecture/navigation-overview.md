@@ -2,11 +2,11 @@
 doc_type: architecture
 slug: navigation-overview
 scope: navigation/ 包的路由定义、导航图结构、起始页决策、页面转场动画、与跨页面 ViewModel 共享模式
-summary: navigation 以 Routes 常量 + NavGraph 集中管理 25 条路由，起始页由 isOnboarded / isLoggedIn 两态 Flow 合并决定，支持页面间 SavedStateHandle 传参与跨页面 ViewModel 共享
+summary: navigation 以 Routes 常量 + NavGraph 集中管理 32 条路由，起始页由 isOnboarded / isLoggedIn 两态 Flow 合并决定，支持页面间 SavedStateHandle 传参、跨页面 ViewModel 共享与 SharedTransitionLayout 共享元素
 status: current
-last_reviewed: 2026-05-31
-tags: [navigation, navgraph, routes, viewmodel-sharing, transition, more]
-depends_on: [home-overview, login-overview, checkin-overview, running-overview, labor-overview, aiclass-overview, about-overview, exam-overview, credit-overview]
+last_reviewed: 2026-10-18
+tags: [navigation, navgraph, routes, viewmodel-sharing, transition, shared-element, leave, repair]
+depends_on: [home-overview, login-overview, checkin-overview, running-overview, leave-overview, repair-overview, labor-overview, aiclass-overview, about-overview, exam-overview, credit-overview]
 ---
 
 # 导航模块总览
@@ -44,7 +44,9 @@ depends_on: [home-overview, login-overview, checkin-overview, running-overview, 
 |---|---|---|
 | 核心 | 3 | ONBOARDING / LOGIN / HOME |
 | 查寝 | 2 | CHECKIN_LIST / CHECKIN_DETAIL（含参数 `taskDateId`） |
-| 跑步 | 10 | RUNNING_HOME / RUNNING_ACTIVE / RUNNING_SIM / RUNNING_RESULT / RUNNING_ROUTE_SETTINGS / RUNNING_ROUTE_RECORD / RUNNING_ROUTE_LIST / RUNNING_ROUTE_DETAIL（含参数 `templateId`）/ RUNNING_CLUB_DETAIL / RUNNING_EXERCISE_CHECK（含参数 `autoId/memberId`） |
+| 跑步 | 11 | RUNNING_HOME / RUNNING_ACTIVE / RUNNING_SIM / RUNNING_RESULT / RUNNING_ROUTE_SETTINGS / RUNNING_ROUTE_RECORD / RUNNING_ROUTE_LIST / RUNNING_ROUTE_IMPORT / RUNNING_ROUTE_DETAIL（含参数 `templateId`）/ RUNNING_CLUB_DETAIL / RUNNING_EXERCISE_CHECK（含参数 `autoId/memberId`） |
+| 请假 | 3 | LEAVE_LIST / LEAVE_CREATE / LEAVE_DETAIL（含参数 `executionId`） |
+| 报修 | 3 | REPAIR_LIST / REPAIR_CREATE / REPAIR_DETAIL（含参数 `bxdh`） |
 | 劳教 | 1 | LABOR_SUMMARY |
 | AI 课堂 | 4 | AICLASS_HOME / AICLASS_SCAN / AICLASS_DETAIL（含参数 `classId`）/ AICLASS_HOMEWORK_DETAIL（含参数 `cwId/teachClassId`） |
 | 更多功能 | 1 | MORE_FEATURES |
@@ -53,7 +55,7 @@ depends_on: [home-overview, login-overview, checkin-overview, running-overview, 
 | 节假日 | 1 | HOLIDAY_REGISTER（含参数 `holidayId`） |
 | 关于 | 1 | ABOUT |
 
-合计 **25 条路由常量**。
+合计 **32 条路由常量**。
 
 参数化路由使用 `fun` 构造完整路径字符串：
 ```kotlin
@@ -83,18 +85,22 @@ onboarded && loggedIn  → HOME
 
 锚点：`navigation/NavGraph.kt:77-88`
 
-全局默认转场：
-- **进入**：`fadeIn(300ms) + slideInHorizontally(300ms) { it / 4 }`（从右滑入 1/4 屏幕）
-- **退出**：`fadeOut(200ms)`
-- **返回进入**：`fadeIn(300ms) + slideInHorizontally(300ms) { -it / 4 }`（从左滑入 1/4 屏幕）
-- **返回退出**：`fadeOut(200ms) + slideOutHorizontally(200ms) { it / 4 }`（向右滑出）
+全局默认转场全部取自 `LxMotion`（临界阻尼 / 无回弹）：
+- **进入**：`fadeIn(240ms, EaseOut) + slideInHorizontally { it × 0.12 }`
+- **退出**：`fadeOut(160ms, EaseOut)`
+- **返回进入**：`fadeIn(200ms) + slideInHorizontally { -it × 0.08 }`
+- **返回退出**：`fadeOut(160ms) + slideOutHorizontally { it × 0.08 }`
 
-部分页面覆盖默认转场：
-- ONBOARDING：`fadeIn(400ms)` / `fadeOut(300ms)` — 无滑动
-- LOGIN：`fadeIn(400ms)` / `fadeOut(300ms)` — 无滑动
-- HOME：`fadeIn(400ms)` / `fadeOut(200ms)` — 无滑动
+ONBOARDING / LOGIN / HOME 覆盖为 `fadeIn(240ms)` / `fadeOut(160ms)`。`suppressTransitions` 仍用于快捷方式链式导航，期间四个 transition 都返回 `None`。
 
-这种设计让"深层页面"有推入推出感，而"一级页面"（onboarding / login / home）只有淡入淡出。
+### 2.3.1 共享元素
+
+`NavHost` 包在 `SharedTransitionLayout` 中，两个页面的 composable 把 `this@SharedTransitionLayout` 与 `AnimatedContentScope` 透传给目标屏：
+
+- 模板列表缩略图 → 模板详情预览：key `route-preview-<templateId>`
+- 报修列表首图 → 报修详情首图：key `repair-photo-<bxdh>`
+
+共享元素只做 bounds 连续性（`LxSharedBoundsTransform`，`spring<Rect>` 临界阻尼），非共享内容走正常页面转场；无 scope 时 `Modifier.lxSharedBounds` 退化为普通 Modifier。
 
 ### 2.4 跨页面 ViewModel 共享
 
@@ -102,7 +108,7 @@ onboarded && loggedIn  → HOME
 
 跑步模块的四个页面（RUNNING_HOME / RUNNING_ACTIVE / RUNNING_SIM / RUNNING_RESULT）通过 `remember(backStackEntry) { navController.getBackStackEntry(Routes.HOME) }` 取得 HOME 的 BackStackEntry，再用 `hiltViewModel(homeEntry)` 共享同一个 `RunningViewModel` 实例。这个 ViewModel 的生命周期绑定到 HOME 路由的 BackStackEntry，而非各个跑步页面自身。
 
-同理，路线模板页面（RUNNING_ROUTE_SETTINGS / RUNNING_ROUTE_RECORD / RUNNING_ROUTE_LIST / RUNNING_ROUTE_DETAIL）共享 `RouteTemplateViewModel`，绑定到 RUNNING_ROUTE_SETTINGS 的 BackStackEntry。
+同理，路线模板页面（RUNNING_ROUTE_SETTINGS / RUNNING_ROUTE_RECORD / RUNNING_ROUTE_LIST / RUNNING_ROUTE_IMPORT / RUNNING_ROUTE_DETAIL）共享 `RouteTemplateViewModel`，绑定到 RUNNING_ROUTE_SETTINGS 的 BackStackEntry。
 
 AI 课堂页面（AICLASS_HOME / AICLASS_SCAN / AICLASS_DETAIL）共享 `AiClassViewModel`，绑定到 AICLASS_HOME。
 
@@ -119,6 +125,8 @@ AI 课堂页面（AICLASS_HOME / AICLASS_SCAN / AICLASS_DETAIL）共享 `AiClass
 1. 详情页提交成功时：`navController.previousBackStackEntry?.savedStateHandle?.set("checkin_refresh", true)`
 2. 列表页通过 `backStackEntry.savedStateHandle.getStateFlow("checkin_refresh", false)` 订阅
 3. 消费后置回 false
+
+请假列表与报修列表沿用同一套路：创建/详情页写 `leave_refresh` / `repair_refresh`，列表页订阅并消费。
 
 这是 Jetpack Navigation 推荐的"页面间通信"模式，避免了 ViewModel 级别的耦合。
 
@@ -147,9 +155,9 @@ AI 课堂页面（AICLASS_HOME / AICLASS_SCAN / AICLASS_DETAIL）共享 `AiClass
 
 ## 5. 代码锚点
 
-- `navigation/Routes.kt:5-62` — 全部 25 条路由常量与参数化构造函数
-- `navigation/NavGraph.kt:56-81` — 起始页决策逻辑 + `resolvedStartRoute` 非空绑定
-- `navigation/NavGraph.kt:78-89` — 默认转场动画
+- `navigation/Routes.kt` — 全部 32 条路由常量与参数化构造函数
+- `navigation/NavGraph.kt` — 起始页决策逻辑 + `resolvedStartRoute` 非空绑定
+- `navigation/NavGraph.kt` — `SharedTransitionLayout` + 默认转场动画
 - `navigation/NavGraph.kt:90-115` — OnboardingScreen 路由
 - `navigation/NavGraph.kt:117-129` — LoginScreen 路由
 - `navigation/NavGraph.kt:131-137` — HomeScreen 路由
@@ -158,7 +166,7 @@ AI 课堂页面（AICLASS_HOME / AICLASS_SCAN / AICLASS_DETAIL）共享 `AiClass
 - `navigation/NavGraph.kt` Route Simulation 路由 + ViewModel 共享
 - `navigation/NavGraph.kt:294-315` — Labor 路由
 - `navigation/NavGraph.kt` AI Class / AI Homework 路由 + ViewModel 共享
-- `navigation/NavGraph.kt` More / Exam / Credit / About 路由
+- `navigation/NavGraph.kt` More / Exam / Credit / Leave / Repair / About 路由
 
 ## 6. 已知约束 / 边界情况
 

@@ -2,10 +2,10 @@
 doc_type: architecture
 slug: network-overview
 scope: 项目的网络层架构，含多域名 Retrofit 分发、AuthInterceptor 按 host 注入身份、401 自动刷新、以及 AI 课堂 FIF 的独立 SSO 会话
-summary: 共享 OkHttpClient + 6 个校内默认栈 Retrofit + 独立 FIF 栈；身份注入由 AuthInterceptor 按 host 四档路由，并通过 TokenManager snapshot 保证单请求内身份字段一致；补充到各 feature 的消费映射与 FIF 扫码直连链路
+summary: 共享 OkHttpClient + 9 个默认栈 Retrofit + 独立 FIF 栈；身份注入由 AuthInterceptor 按 host 六档路由（含请假 ywlz 与报修 repair），并通过 TokenManager snapshot 保证单请求内身份字段一致；补充到各 feature 的消费映射与 FIF 扫码直连链路
 status: current
-last_reviewed: 2026-05-03
-tags: [network, auth, fif, retrofit, okhttp]
+last_reviewed: 2026-10-18
+tags: [network, auth, fif, retrofit, okhttp, leave, repair]
 depends_on: []
 ---
 
@@ -13,7 +13,7 @@ depends_on: []
 
 ## 0. 术语
 
-- **校内默认栈** — `in.aiit.edu.cn` / `fdygl.aiit.edu.cn` / `sports.aiit.edu.cn:8082` / `ldjy.aiit.edu.cn` 这 4 个域名组成的集合；共用同一个 `OkHttpClient` + `AuthInterceptor` + `TokenRefreshInterceptor`
+- **校内默认栈** — `in.aiit.edu.cn` / `fdygl.aiit.edu.cn` / `sports.aiit.edu.cn:8082` / `ldjy.aiit.edu.cn` / `cqc.aiit.edu.cn` / `ywlz.aiit.edu.cn` / `repair.aiit.edu.cn:8081` 组成的集合；共用同一个 `OkHttpClient` + `AuthInterceptor` + `TokenRefreshInterceptor`
 - **主站域名** — 单指 `in.aiit.edu.cn`。它下挂 `/zhxy-information`、`/zhxy-new-scps`、`/zhxy-csh` 三个子路径，各自对应独立 `@Qualifier` Retrofit 实例（`AuthRetrofit` / `MainRetrofit` / `CshRetrofit`）
 - **FIF** — AI 课堂接入的第三方教学平台（`aiitpass.fifedu.com` SSO + `sttp.fifedu.com` 业务）。独立 `OkHttpClient`、独立 `CookieJar`、独立身份字段；与校内默认栈 token 体系不互通
 - **身份参数** — `access_token / userCode / userName / userType / appId` 这组由校内登录接口返回的字段；按目标域名不同，注入方式有 Form 表单追加、Header 注入、Query 追加三种
@@ -47,7 +47,7 @@ depends_on: []
 - FIF 身份是 `authorization: Basic <token>` + `SESSION` Cookie，和校内默认栈的 `access_token` 字段体系不互通；若共用 `AuthInterceptor`，会把校内参数错误注入到 FIF 请求里（§2.4 第 4 档默认行为）
 - FIF SSO 必须手动处理 302 Location 来提取 token，需要在调用时 `followRedirects(false)` 局部覆盖（`core/network/FifSessionManager.kt:129-133`）
 
-### 2.2 10 个 `@Qualifier`（9 Retrofit + 1 OkHttpClient）
+### 2.2 12 个 `@Qualifier`（11 Retrofit + 1 OkHttpClient）
 
 ```
 AuthRetrofit       → in.aiit.edu.cn/zhxy-information  (登录 + token 刷新)
@@ -57,12 +57,14 @@ CheckinRetrofit    → fdygl.aiit.edu.cn                (查寝)
 SportsRetrofit     → sports.aiit.edu.cn:8082          (跑步)
 LaborRetrofit      → ldjy.aiit.edu.cn                 (劳教)
 CreditRetrofit     → cqc.aiit.edu.cn                  (素质学分)
+LeaveRetrofit      → ywlz.aiit.edu.cn/zhxy-bfc        (请假工作流)
+RepairRetrofit     → repair.aiit.edu.cn:8081          (报修手机端)
 FifRetrofit        → sttp.fifedu.com                  (AI 课堂)
 IzuoyeRetrofit     → izuoye.fifedu.com                (爱作业平台)
 FifOkHttpClient    → 区分 FIF 与默认两个 OkHttpClient 实例
 ```
 
-前 7 个 Retrofit（Auth ~ Credit）共享默认 `OkHttpClient`；`FifRetrofit` 和 `IzuoyeRetrofit` 注入 `@FifOkHttpClient` 的独立 client。锚点：`core/network/NetworkModule.kt`。
+前 9 个 Retrofit（Auth ~ Repair）共享默认 `OkHttpClient`；`FifRetrofit` 和 `IzuoyeRetrofit` 注入 `@FifOkHttpClient` 的独立 client。锚点：`core/network/NetworkModule.kt`。
 
 CreditRetrofit 复用主 OkHttpClient，AuthInterceptor 默认分支会注入多余参数到 FormBody，服务端忽略。IzuoyeRetrofit 复用 FifOkHttpClient，认证通过各接口方法显式传入 `@Header("jtzy")`。
 
@@ -80,6 +82,8 @@ CreditRetrofit 复用主 OkHttpClient，AuthInterceptor 默认分支会注入多
 | `@CheckinRetrofit` | `CheckinRepository` / `FileUploadApi` / `HolidayApi` | 同一 host 下同时承载 JSON 业务接口、Multipart 文件上传、节假日登记接口 |
 | `@SportsRetrofit` | `RunningApi` | 跑步业务接口；同时承载大一大二 `extraInfo/extraDetailInfo/index/clubInfo/auto/clubInfo` 与锻炼考勤 `getQrcodeResult` |
 | `@LaborRetrofit` | `LaborRepository` | 劳教只读查询接口 |
+| `@LeaveRetrofit` | `LeaveApi` | 请假工作流：表单定义、提交、列表、撤回、销假、附件上传 |
+| `@RepairRetrofit` | `RepairApi` | 报修手机端：列表、详情、地址/类型级联、提交、图片、撤回 |
 | `@FifRetrofit` | `AiClassApi` | AI 课堂课程、签到、课堂状态 |
 | `@FifOkHttpClient` | `FifSessionManager` / `AiClassRepository` | 前者做 SSO，会话建立；后者做扫码签到的原始 OkHttp 请求 |
 
@@ -90,7 +94,7 @@ CreditRetrofit 复用主 OkHttpClient，AuthInterceptor 默认分支会注入多
 - 新接口该复用哪一个 provider，而不是再建一个 Retrofit
 - 看见调用失败时，先沿着"feature → provider → client → interceptor"这条链回溯
 
-### 2.4 `AuthInterceptor`：按 host 四档分发
+### 2.4 `AuthInterceptor`：按 host 六档分发
 
 身份参数注入不是"所有请求一视同仁" —— 不同服务端对同一套身份的承载方式不同。`AuthInterceptor.intercept()` 按以下优先级判定（`core/network/AuthInterceptor.kt:30-105`）：
 
@@ -99,11 +103,13 @@ CreditRetrofit 复用主 OkHttpClient，AuthInterceptor 默认分支会注入多
 | 1 | 路径含 `getToken.do` / `refresh.do` | 跳过（登录本身不需要身份） |
 | 2 | host 含 `sports.aiit.edu.cn` | Header 注入 10 个字段（含 `studentCode` / `Origin` / `Referer`） |
 | 3 | host 含 `fdygl.aiit.edu.cn` | Header 注入 9 个字段（含 `Authorization: Bearer` / `X-Requested-With` / `Origin` / `Referer`） |
-| 4 | 默认（主站域名 `in.aiit.edu.cn` + `ldjy.aiit.edu.cn`） | FormBody 追加 6 个字段；劳教再追加 4 个 |
+| 4 | host 含 `ywlz.aiit.edu.cn` | FormBody 追加 `accessToken/userCode/xh/_userCode/_userType`，补 `Origin` / `Referer: .../mobile/` / `X-Requested-With`；**不加** `appId/_userName/access_token` |
+| 5 | host 含 `repair.aiit.edu.cn` | FormBody 追加 `userCode/xh/userType/userName/accessToken`，补 `X-Requested-With` / `Origin` / `Referer: .../dist-app/`；不加 `appId/_access_token` |
+| 6 | 默认（主站域名 `in.aiit.edu.cn` + `ldjy.aiit.edu.cn`） | FormBody 追加 6 个字段；劳教再追加 4 个 |
 
-**分 4 档的判定依据**：**服务端对身份的承载方式**（跳过 / Header 多字段 / Header + Bearer / Form 追加）。新增域名时，先看其 H5 侧抓包的身份在哪（Header、Cookie、Form、Query）、服务端要求哪几个字段，再决定归档或开新档。
+**分 6 档的判定依据**：**服务端对身份的承载方式**（跳过 / Header 多字段 / Header + Bearer / Form 追加）。新增域名时，先看其 H5 侧抓包的身份在哪（Header、Cookie、Form、Query）、服务端要求哪几个字段，再决定归档或开新档。
 
-第 4 档只对 `FormBody` 生效（`core/network/AuthInterceptor.kt:80`）—— Retrofit 用 `@FormUrlEncoded + @POST` 时 body 才是 FormBody，GET 或 JSON body 不会被注入。这是隐式约束：**主站域名的业务接口必须用 Form 表单**（见 §6 第 1 条）。
+默认档与请假/报修档都只对 `FormBody` 生效（`core/network/AuthInterceptor.kt:80`）—— Retrofit 用 `@FormUrlEncoded + @POST` 时 body 才是 FormBody，GET 或 JSON body 不会被注入。这是隐式约束：**主站域名的业务接口必须用 Form 表单**（见 §6 第 1 条）。
 
 ### 2.5 `TokenRefreshInterceptor`：401 自动刷新
 

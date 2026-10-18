@@ -21,7 +21,7 @@ The project uses Kotlin official code style and 4-space indentation (`.idea/code
 There are currently no committed `app/src/test` or `app/src/androidTest` directories, so new work should add tests alongside the feature being changed. Put JVM tests in `app/src/test/java/...` and device tests in `app/src/androidTest/java/...`. Name files `SomethingTest.kt` or `SomethingInstrumentedTest.kt`. At minimum, run `lint` and `test` before opening a PR; use `connectedAndroidTest` for camera, navigation, or login flows that depend on Android runtime behavior.
 
 ## Commit & Pull Request Guidelines
-Recent history uses concise Chinese task-oriented subjects, often with phase tags, for example `完成Phase9C UI精炼：首页叙事架构 + 我的页精简`. Keep commits focused on one change set. Commit messages must include both a subject line and a body; do not create title-only commits. The body must spell out what changed and what validation was run, preferably as short bullets matching recent commit history. PRs should include: what changed, affected screens/modules, commands run, and screenshots or recordings for UI updates. Link related docs or issues when the change is tied to a plan in `docs/`.
+Recent history uses concise Chinese task-oriented subjects, often with phase tags, for example `完成Phase9C UI精炼：首页叙事架构 + 我的页精简`. Keep commits focused on one change set. Commit messages must include both a subject line and a body; do not create title-only commits. The body is for recording changes and validation only: keep it short and factual, preferably as terse bullets; do not write long narrative explanations or reasoning (those belong in notes/docs). PRs should include: what changed, affected screens/modules, commands run, and screenshots or recordings for UI updates. Link related docs or issues when the change is tied to a plan in `docs/`.
 When writing multi-line commit messages from PowerShell, use real newlines such as the PowerShell escape `` `n `` or `git commit -F <message-file>`; plain `\n` is committed literally and will not render as a line break.
 
 ## Security & Configuration Tips
@@ -48,6 +48,7 @@ These constraints are non-negotiable. Changing any of them requires consulting t
 
 ### 编译与构建
 - 当前 Linux 环境已安装 Android Studio，可用 `JAVA_HOME=/opt/android-studio/jbr ./gradlew -Dorg.gradle.java.home=/opt/android-studio/jbr <任务>`；命令行覆盖仓库 `gradle.properties` 中的 Windows JDK 路径，SDK 路径由本机忽略的 `local.properties` 配置。
+- Coil 3 加载网络图片需要同时依赖 `coil-network-okhttp`；只加 `coil-compose` 时 `AsyncImage` 对 http(s) URL 会静默空白。
 
 ### 运行与本地起服务
 

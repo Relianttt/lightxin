@@ -2,10 +2,10 @@
 doc_type: architecture
 slug: running-overview
 scope: 跑步模块的整体架构，覆盖真实 GPS 跑步、前台 Service 跟踪、模拟提交、路线模板录制与管理、大一大二智慧运动分流、俱乐部/锻炼考勤、以及跑步数据加密上传链路
-summary: running 以 RunningRepository + RunningTracker 为主干，把真实跑步、模拟提交、模板录制收束到 RunningSnapshot 上传模型；智慧运动入口按 checkDsStudent.result 分流，大一大二读取 extraInfo/extraDetailInfo 与 clubInfo，上传成功需同时满足 result=OK 和有效非 0 id
+summary: running 以 RunningRepository + RunningTracker 为主干，把真实跑步、模拟提交、模板录制收束到 RunningSnapshot 上传模型；路线模板支持导入/导出与一次性系统模板；智慧运动入口按 checkDsStudent.result 分流，大一大二读取 extraInfo/extraDetailInfo 与 clubInfo，上传成功需同时满足 result=OK 和有效非 0 id
 status: current
-last_reviewed: 2026-05-31
-tags: [running, gps, service, route-template, rsa, sports, grade, club]
+last_reviewed: 2026-10-18
+tags: [running, gps, service, route-template, import-export, seed, rsa, sports, grade, club]
 depends_on: [network-overview]
 ---
 
@@ -151,14 +151,26 @@ depends_on: [network-overview]
 
 锚点：`feature/running/ui/RouteSimulationSettingsScreen.kt:51-112` / `feature/running/ui/RouteTemplateRecordScreen.kt:164-229` / `feature/running/ui/RouteTemplateViewModel.kt:64-107` / `feature/running/domain/RouteTemplate.kt:43-52` / `feature/running/domain/RouteQualityChecker.kt:23-56`。
 
+### 2.6.1 模板导入导出与系统模板
+
+模板不再只在本机录制：
+
+- **导出**：`RouteTemplateExport` 写 `cacheDir/exports/*.json`，经 `FileProvider` + `ACTION_SEND` 系统分享。信封 `{schemaVersion:1, app:"lightxin", exportedAtMillis, templates:[...]}`；单条文件名 `route-template-<名称>.json`，全部 `route-templates-<yyyyMMdd-HHmm>.json`。
+- **导入**：`RouteTemplateImportScreen` 用 SAF 选 JSON；`RouteTemplateCodec.parse()` 兼容信封与裸数组，逐条用 `GeoDistance` 重算距离、`RouteQualityChecker` 重算质量，`RouteTemplateRules` 硬闸（>20 点、>1km）拦下的条目标记「不可导入 + 原因」但仍在预览中列出。
+- **冲突**：`TemplateImportResolver` 以 `id` 或 `name.trim()` 判冲突；逐条三选覆盖 / 保留副本 / 跳过。覆盖保留本地 `isDefault/createdAt/lastUsedAt`；保留副本新 `id` + 重名后缀 ` (导入)`。
+- **系统模板**：`RouteTemplateStore.seedIfNeeded()` 只在首次启动且列表为空时读 `assets/route_templates_seed.json`，映射为「系统模板」(`source = SYSTEM`、首条默认)；注入尝试后必写 `filesDir/route_templates_seeded`，删除后不复活。
+- `RouteTemplateSource` 增加 `IMPORTED / SYSTEM`，详情页「来源」直接显示。
+
+锚点：`feature/running/domain/RouteTemplateCodec.kt` / `feature/running/domain/RouteTemplateSeed.kt` / `feature/running/data/RouteTemplateStore.kt` / `feature/running/ui/RouteTemplateImportScreen.kt` / `feature/running/ui/RouteTemplateExport.kt`。
+
 ### 2.7 路由上分成两条子链，并各自共享 ViewModel
 
 navigation 层把 running 明确拆成两套共享作用域：
 
 - **主跑步链**：`RUNNING_HOME / ACTIVE / SIM / RESULT` 共用挂在 `Routes.HOME` back stack entry 上的 `RunningViewModel`
-- **模板子链**：`RUNNING_ROUTE_SETTINGS / RECORD / LIST / DETAIL` 共用挂在 `RUNNING_ROUTE_SETTINGS` entry 上的 `RouteTemplateViewModel`
+- **模板子链**：`RUNNING_ROUTE_SETTINGS / RECORD / LIST / IMPORT / DETAIL` 共用挂在 `RUNNING_ROUTE_SETTINGS` entry 上的 `RouteTemplateViewModel`
 
-锚点：`navigation/Routes.kt:18-27` / `navigation/NavGraph.kt:169-292`。
+锚点：`navigation/Routes.kt` / `navigation/NavGraph.kt` 的 Route Simulation 分段。
 
 这让“主跑步会话状态”和“模板管理状态”既能跨多个页面共享，又不会互相污染。
 

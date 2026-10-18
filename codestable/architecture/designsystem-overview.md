@@ -2,10 +2,10 @@
 doc_type: architecture
 slug: designsystem-overview
 scope: core/designsystem/ 下的 Token 层（Color / Type / Shape）、LightXinTheme 入口、Light/Dark 切换机制，以及 11 个通用组件文件的形态与使用约束
-summary: token 分"Raw 字面量 + 语义 composable"两层，语义层用 isSystemInDarkTheme() 在 Light/Dark 自动切换；组件全部绕开 Material3 默认 ripple、自管 interactionSource；Compose Dark 与资源层 forceDarkAllowed=false 是两层正交机制
+summary: token 分"Raw 字面量 + 语义 composable"两层，语义层用 isSystemInDarkTheme() 在 Light/Dark 自动切换；组件绕开 Material3 默认 ripple，按压/颜色/转场参数统一收敛到 LxMotion（临界阻尼、无回弹）；Compose Dark 与资源层 forceDarkAllowed=false 是两层正交机制
 status: current
-last_reviewed: 2026-05-03
-tags: [designsystem, theme, color, typography, components, dark-mode]
+last_reviewed: 2026-10-18
+tags: [designsystem, theme, color, typography, components, dark-mode, motion]
 depends_on: []
 ---
 
@@ -128,7 +128,7 @@ RPill = 20dp  → 胶囊（Badge / 周选择器 chip）   → shapes.extraLarge
 
 `shapes.medium` 与 `shapes.large` 都映射到 `RLg`（16dp），Material3 提供的 large 在本项目没有差异化（§6 观察项）。UI 侧一般直接 import `RSm / RMd / RLg / RPill` 常量，而非走 `MaterialTheme.shapes.*`。
 
-### 2.7 11 个通用组件文件
+### 2.7 通用组件文件
 
 | 文件 | 导出的 Composable | 关键细节 |
 |---|---|---|
@@ -143,8 +143,10 @@ RPill = 20dp  → 胶囊（Badge / 周选择器 chip）   → shapes.extraLarge
 | `LxDetailRow.kt` | `LxDetailRow` | 72dp 标签列 + 右值；value 为空直接 `return` |
 | `LxLoadingState.kt` | `LxProgressIndicator` / `LxLoading` / `LxEmpty` / `LxError` / `LxErrorHint` / `LxEmptyHint` / `LxInlineErrorCard` / `LxShimmerCard` | 整屏加载 / 空态 / 错误、卡片内轻量提示、可重试行内错误、骨架的统一出口 |
 | `LxAnimatedNumber.kt` | `LxAnimatedNumber` | Float 插值 + 800ms tween；跑步里程等数字计量场景 |
+| `LxMenuRow.kt` | `LxMenuRow` / `LxMenuDivider` | 设置/更多页统一菜单行；按压配色 + 0.99 缩放，各页只描述内容 |
+| `LxSharedTransition.kt` | `Modifier.lxSharedBounds` / `LxSharedBoundsTransform` | 共享元素只做位置+尺寸连续性（临界阻尼 `spring<Rect>`）；无 scope 时退化为普通 Modifier |
 
-所有可点击组件（Card / Button / IconButton / FAB / ChoiceChip / TextButton）都**绕开 Material3 默认 ripple**，用 `indication = null` + 自管 `MutableInteractionSource` 做 pressed 色切换——这是项目选择"暖色质感 + 自控按压"路线的直接体现。
+所有可点击组件（Card / Button / IconButton / FAB / ChoiceChip / TextButton / MenuRow）都**绕开 Material3 默认 ripple**，用 `indication = null` + 自管 `MutableInteractionSource` 做按压态。按压反馈统一走 `LxMotion`：颜色用 `ColorSpring`（临界阻尼），缩放为 0.98（按钮）/0.99（卡片与菜单行）。
 
 组件的共同模式：
 
@@ -152,11 +154,29 @@ RPill = 20dp  → 胶囊（Badge / 周选择器 chip）   → shapes.extraLarge
 - 颜色值**全部**来自 `theme/Color.kt` 语义层，组件内部不写字面量色
 - `shape` 优先走 `MaterialTheme.shapes.*`，特殊场景再用 `RoundedCornerShape(XXdp)`
 
+### 2.8 `LxMotion`：唯一动效 token 源
+
+`theme/LxMotion.kt` 收口全部动效参数：
+
+| token | 值 | 用途 |
+|---|---|---|
+| `PressInMs / PressOutMs` | 80 / 140 | 按压下沉与回位 |
+| `StateMs` | 160 | 颜色、选中态、展开/收起 |
+| `PageMs` | 240 | 页面转场 |
+| `EaseOut / EaseInOut` | `CubicBezierEasing` | 快出慢收 / 双向过渡 |
+| `PressScale / Soft / SoftDp / Page / ColorSpring` | 全部 `dampingRatio = 1f` | 按压、尺寸位移、转场、颜色 |
+| `PressedScaleButton / Card` | 0.98 / 0.99 | 按钮与卡片 |
+| `EnterShiftDp` | 6dp | 列表/空态入场位移 |
+
+辅助 API：`animatedPressScale()` / `animatedPressColor()` / `Modifier.lxEnterShift()`。
+
+边界（评审逐条对）：无回弹；交互反馈 ≤100ms、状态 ≤200ms、转场 ≤260ms；不做视差、3D 旋转、逐项 stagger（首页最多 3 档 ×30ms）或常驻装饰动画。骨架 shimmer 保留（加载语义）；`PulseDot` 只在紧急语义下渲染。
+
 ## 3. 数据与状态
 
 designsystem 自身**没有可变状态**——token 是常量 / 单次读取，组件都是无状态 `@Composable`，状态由调用方持有。
 
-唯一的局部状态是六个组件各自内部的 `MutableInteractionSource` + `isPressed`，用于按压态色切换：
+局部状态主要是各组件内部的 `MutableInteractionSource` + pressed 态，用于按压色与缩放：
 
 - `LxCard`（可点击分支）/ `LxButton` 族 / `LxIconButton` / `LxFloatingActionButton` / `LxChoiceChip` / `LxTextButton`
 

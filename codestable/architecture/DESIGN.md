@@ -36,14 +36,14 @@
 
 ### 3.1 core/（跨功能基础设施）
 
-- `network/` — 多域名 Retrofit（**8 个 `@Qualifier`** = 7 Retrofit [Auth / Main / Csh / Checkin / Sports / Labor / **Fif**] + 1 OkHttpClient [**FifOkHttpClient**]）、`AuthInterceptor`、`TokenRefreshInterceptor`、**`FifSessionManager`**（AI 课堂独立 SSO + CookieJar）；详见 [`network-overview.md`](network-overview.md)
+- `network/` — 多域名 Retrofit（**12 个 `@Qualifier`** = 11 Retrofit [Auth / Main / Csh / Checkin / Sports / Labor / Credit / **Leave** / **Repair** / **Fif** / Izuoye] + 1 OkHttpClient [**FifOkHttpClient**]）、`AuthInterceptor`（按 host 六档）、`TokenRefreshInterceptor`、**`FifSessionManager`**（AI 课堂独立 SSO + CookieJar）；详见 [`network-overview.md`](network-overview.md)
 - `auth/` — `RSAUtils`（两组公钥）、`TokenManager`、`SessionManager`、`TokenRefresher`；详见 [`auth-overview.md`](auth-overview.md)
 - `location/` — `LocationProvider`（原生 `LocationManager` 封装）、`CoordinateConverter`（WGS-84 → GCJ-02 → BD-09 全链路，无地图 SDK）；详见 [`location-overview.md`](location-overview.md)
 - `notification/` — `LiveActivityNotifier` + Flyme / Android16 / Normal backend + 课程倒计时调度；详见 [`notification-overview.md`](notification-overview.md)
-- `designsystem/` — `Theme / Color / Type / Shape` + 11 个通用组件文件（`LxCard` / `LxButton` 等）；详见 [`designsystem-overview.md`](designsystem-overview.md)
+- `designsystem/` — `Theme / Color / Type / Shape / LxMotion` + 13 个通用组件文件（`LxCard` / `LxButton` / `LxMenuRow` 等）；详见 [`designsystem-overview.md`](designsystem-overview.md)
 - `settings/` — `DeveloperPrefs`（`lightxin_dev` DataStore 的 `advanced_enabled` 调试开关），由 About 页写入，Profile / Running 等页面读取
 
-### 3.2 feature/（10 个功能包，按 `data / domain / ui` 三层）
+### 3.2 feature/（按 `data / domain / ui` 三层组织）
 
 | 功能包 | 说明 |
 |---|---|
@@ -52,7 +52,9 @@
 | `schedule` | 周课表 + 三态周选择器（当前 / 选中 / 其他）+ 支持第 0 节的动态节次网格 |
 | `checkin` | 查寝签到：任务列表 / 详情 / 照片上传 / 提交；列表页同时承载 fdygl 同源节假日任务入口 |
 | `holiday` | 节假日离返校登记：任务列表状态判断 / 表单回填 / 保存提交，入口挂在首页卡片与查寝列表页；详见 [`holiday-overview.md`](holiday-overview.md) |
-| `running` | 跑步：GPS 真实模式（前台 `RunTrackingService`）+ 模拟模式（`TrajectoryGenerator`）+ **路线模板系统**（录制 / 列表 / 详情 / 质量校验 / 设置页）+ 大一大二智慧运动分流 / 俱乐部 / 锻炼考勤；详见 [`running-overview.md`](running-overview.md) |
+| `running` | 跑步：GPS 真实模式（前台 `RunTrackingService`）+ 模拟模式（`TrajectoryGenerator`）+ **路线模板系统**（录制 / 列表 / 详情 / 导入导出 / 系统模板 / 质量校验 / 设置页）+ 大一大二智慧运动分流 / 俱乐部 / 锻炼考勤；详见 [`running-overview.md`](running-overview.md) |
+| `leave` | 请假：ywlz 工作流 + 后端驱动动态表单 + 提交/暂存 + 我的申请 + 详情 + 撤回/销假；详见 [`leave-overview.md`](leave-overview.md) |
+| `repair` | 报修：bxjlSjd 家族 + 地址/类型级联 + base64 图片上传 + 列表/详情/流程条 + 撤回；不做实况通知；详见 [`repair-overview.md`](repair-overview.md) |
 | `labor` | 劳动教育：工时总览 + 活动记录 + 详情（只读） |
 | `aiclass` | AI 课堂：FIF SSO + 课程列表 + 数字码签到 + **ML Kit** 扫码签到 |
 | `onboarding` | 首启欢迎页（含插画动效） |
@@ -61,16 +63,18 @@
 
 ### 3.3 navigation/
 
-`Routes.kt` 集中声明上述 feature 的所有入口与子页，包含跑步主链、跑步路线模板、跑步俱乐部/锻炼考勤、AI 课堂、查寝、节假日、劳动教育、更多功能、考试成绩、素质学分、关于页等路由。详见 [`navigation-overview.md`](navigation-overview.md)。
+`Routes.kt` 集中声明上述 feature 的所有入口与子页，包含跑步主链、跑步路线模板（含导入）、跑步俱乐部/锻炼考勤、AI 课堂、查寝、节假日、劳动教育、**请假、报修**、更多功能、考试成绩、素质学分、关于页等路由。详见 [`navigation-overview.md`](navigation-overview.md)。
 
 > 模块级专项架构文档持续补齐（2026-05-31 同步 notification / running / schedule 最新现状）。当前已有：
 > - [`network-overview.md`](network-overview.md) — 多域名层 + FIF 独立会话
 > - [`auth-overview.md`](auth-overview.md) — Token DataStore + SessionManager + RSA 双公钥 + TokenRefresher 接口
 > - [`location-overview.md`](location-overview.md) — 原生定位封装 + WGS-84 → GCJ-02 → BD-09 坐标转换
-> - [`running-overview.md`](running-overview.md) — 真实跑步 / 模拟提交 / 路线模板三条主链
+> - [`running-overview.md`](running-overview.md) — 真实跑步 / 模拟提交 / 路线模板三条主链 + 模板导入导出
+> - [`leave-overview.md`](leave-overview.md) — ywlz 动态表单 + 提交/撤回/销假
+> - [`repair-overview.md`](repair-overview.md) — bxjlSjd 报修 + 级联 + 图片 + 撤回
 > - [`notification-overview.md`](notification-overview.md) — 实况通知统一门面 / 三平台 backend / 课程通知 / 权限引导
 > - [`home-overview.md`](home-overview.md) — 启动预加载 + 场景判定 + 副标题与首页骨架
-> - [`designsystem-overview.md`](designsystem-overview.md) — Token 两层结构 + 11 个通用组件 + Compose Dark 与资源层 forceDarkAllowed 的正交关系
+> - [`designsystem-overview.md`](designsystem-overview.md) — Token 两层结构 + LxMotion 动效 token + 通用组件 + Compose Dark 与资源层 forceDarkAllowed 的正交关系
 > - [`login-overview.md`](login-overview.md) — RSA 加密登录 + Token 持久化
 > - [`schedule-overview.md`](schedule-overview.md) — 周课表 + 三态周选择器
 > - [`checkin-overview.md`](checkin-overview.md) — 查寝签到全流程（定位/拍照/提交）+ fdygl 同源任务列表入口
@@ -79,7 +83,7 @@
 > - [`aiclass-overview.md`](aiclass-overview.md) — FIF SSO + 数字码/扫码签到
 > - [`onboarding-overview.md`](onboarding-overview.md) — 首启欢迎页 + Canvas 插画动效
 > - [`about-overview.md`](about-overview.md) — 品牌展示 + 调试开关
-> - [`navigation-overview.md`](navigation-overview.md) — 25 条路由常量 + 起始页决策 + ViewModel 共享
+> - [`navigation-overview.md`](navigation-overview.md) — 32 条路由常量 + 起始页决策 + ViewModel 共享 + 共享元素
 
 ## 4. 关键架构决定
 
