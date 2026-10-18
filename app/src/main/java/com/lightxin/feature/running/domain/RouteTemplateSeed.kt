@@ -2,12 +2,12 @@ package com.lightxin.feature.running.domain
 
 import java.util.UUID
 
-/** 内置模板 → 「系统模板」的纯映射，便于单测；注入策略（标记文件、仅空列表）在 Store 里。 */
+/** 内置模板 → “系统模板”的纯映射，便于单测；注入策略（标记文件、仅空列表）在 Store 里。 */
 object RouteTemplateSeed {
 
     const val SYSTEM_NAME = "系统模板"
 
-    /** 仅在「没有标记文件」且「模板列表为空」时注入。 */
+    /** 仅在“没有标记文件”且“模板列表为空”时注入。 */
     fun shouldInject(markerExists: Boolean, current: List<RouteTemplate>): Boolean =
         !markerExists && current.isEmpty()
 

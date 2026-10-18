@@ -29,7 +29,7 @@ class RunningEncryption @Inject constructor() {
      *
      * 为什么轨迹值是明文：它是唯一的长字段（几 KB → 几十个 RSA 块拼成一个 Base64 串）。
      * 实测服务端解不开这种多块拼接的密文 —— 加密上传时记录能建、里程与速度都对，但官方 App
-     * 画不出轨迹并判「运动轨迹异常，无效」；该字段改明文后同一份数据立刻判有效。短字段
+     * 画不出轨迹并判“运动轨迹异常，无效”；该字段改明文后同一份数据立刻判有效。短字段
      * （mile/speed/time）只占单个 RSA 块，不受影响，所以仅轨迹这一个值例外。
      *
      * 证据与取舍见 `.agents/notes/2026-10-17-decision-running-route-plaintext.md`。
@@ -83,7 +83,7 @@ internal fun plainUploadFields(
 /**
  * 加密边界：键全部加密；值也全部加密，**`runningRoute` 除外**。
  *
- * 纯函数，可 JVM 单测 —— 这是「轨迹明文」这条约束唯一的机械门禁，改错会立刻失败。
+ * 纯函数，可 JVM 单测 —— 这是“轨迹明文”这条约束唯一的机械门禁，改错会立刻失败。
  */
 internal fun encryptUploadFields(
     fields: Map<String, String>,

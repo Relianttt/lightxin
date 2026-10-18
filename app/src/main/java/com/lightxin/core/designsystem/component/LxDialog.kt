@@ -60,7 +60,7 @@ fun LxDialog(
     dismissOnBackPress: Boolean = true,
     content: (@Composable ColumnScope.() -> Unit)? = null,
 ) {
-    // 出场：卡片 0.98→1 + 淡入；关闭时先反向播完再回调，避免「啪」地消失。
+    // 出场：卡片 0.98→1 + 淡入；关闭时先反向播完再回调，避免“啪”地消失。
     var shown by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { shown = true }
     val scope = rememberCoroutineScope()

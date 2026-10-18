@@ -96,7 +96,7 @@ private const val DAILY_TARGET_KM = 3.0
 // 查寝签到条件渲染窗口：开始前 4 小时内才出现在首页
 private const val CHECKIN_VISIBLE_HOURS_BEFORE = 4
 
-// 副标题 / 场景每分钟重算一次，驱动「还有 12 分钟上课」等分钟级文案
+// 副标题 / 场景每分钟重算一次，驱动“还有 12 分钟上课”等分钟级文案
 private const val SUBTITLE_TICK_MS = 60_000L
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -252,7 +252,7 @@ fun HomeDashboard(
     if (showReloginDialog) {
         LxDialog(
             title = "重新登录会挤下线官方 App",
-            message = "校内账号同一时刻只认一个客户端：这里重新登录会把「爱信校园」官方 App 顶下线，" +
+            message = "校内账号同一时刻只认一个客户端：这里重新登录会把“爱信校园”官方 App 顶下线，" +
                 "之后要回官方 App 再登一次。\n\n" +
                 "如果只是想看课表、查寝或跑步，可以先不重新登录 —— 这些不受影响，" +
                 "只有 AI课堂的扫码签到在重新登录前用不了。",
@@ -441,7 +441,7 @@ private fun buildNextClassHeadline(
 
 @Composable
 private fun StaggeredCard(index: Int, content: @Composable () -> Unit) {
-    // 只在首次进入时播；最多 3 档错相（30ms 递增），之后同批到达，避免「逐项表演」。
+    // 只在首次进入时播；最多 3 档错相（30ms 递增），之后同批到达，避免“逐项表演”。
     var visible by remember { mutableStateOf(false) }
     val shiftPx = with(LocalDensity.current) { LxMotion.EnterShiftDp.roundToPx() }
     LaunchedEffect(Unit) {

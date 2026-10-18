@@ -459,6 +459,9 @@ fun LightXinNavHost(
             RouteTemplateListScreen(
                 viewModel = routeVm,
                 onBack = { navController.popBackStack() },
+                onImport = {
+                    navController.navigate(Routes.RUNNING_ROUTE_IMPORT) { launchSingleTop = true }
+                },
                 onOpenDetail = { id ->
                     navController.navigate(Routes.runningRouteDetail(id)) { launchSingleTop = true }
                 },

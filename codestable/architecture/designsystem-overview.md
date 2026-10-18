@@ -2,7 +2,7 @@
 doc_type: architecture
 slug: designsystem-overview
 scope: core/designsystem/ 下的 Token 层（Color / Type / Shape）、LightXinTheme 入口、Light/Dark 切换机制，以及 11 个通用组件文件的形态与使用约束
-summary: token 分"Raw 字面量 + 语义 composable"两层，语义层用 isSystemInDarkTheme() 在 Light/Dark 自动切换；组件绕开 Material3 默认 ripple，按压/颜色/转场参数统一收敛到 LxMotion（临界阻尼、无回弹）；Compose Dark 与资源层 forceDarkAllowed=false 是两层正交机制
+summary: 旧暖色层之外另有 2026-10-18 新增的 Claude 并行 token/组件层（请假/报修/模板已迁移）；旧层 token 分"Raw 字面量 + 语义 composable"两层，语义层用 isSystemInDarkTheme() 在 Light/Dark 自动切换；组件绕开 Material3 默认 ripple，按压/颜色/转场参数统一收敛到 LxMotion（临界阻尼、无回弹）；Compose Dark 与资源层 forceDarkAllowed=false 是两层正交机制
 status: current
 last_reviewed: 2026-10-18
 tags: [designsystem, theme, color, typography, components, dark-mode, motion]
@@ -148,6 +148,24 @@ RPill = 20dp  → 胶囊（Badge / 周选择器 chip）   → shapes.extraLarge
 
 所有可点击组件（Card / Button / IconButton / FAB / ChoiceChip / TextButton / MenuRow）都**绕开 Material3 默认 ripple**，用 `indication = null` + 自管 `MutableInteractionSource` 做按压态。按压反馈统一走 `LxMotion`：颜色用 `ColorSpring`（临界阻尼），缩放为 0.98（按钮）/0.99（卡片与菜单行）。
 
+### 2.7.1 Claude 并行层（2026-10-18）
+
+在旧 `Color.kt / LxCard / LxTopBar / LxChoiceChip…` 之外新增一套并行实现，只有请假 / 报修 / 路线模板三组页面使用：
+
+| 文件 | 内容 | 说明 |
+|---|---|---|
+| `theme/ClaudeTokens.kt` | `LxCanvas / LxSurface / LxTint / LxTintStrong / LxText / LxTextSecondary / LxTextMuted / LxTextFaint / LxHairline / LxAccent / LxAccentText / LxOnAccent / LxStateSuccess / LxStateWarning / LxDanger / LxDangerFill / LxDangerSurface` | 色值来自 claude.ai 应用 CSS（2026-02 归档）；Light / Dark 由 `isSystemInDarkTheme()` 切换 |
+| `component/ClaudeComponents.kt` | `LxNavBar / LxPageHeader / LxSectionLabel / LxStatus / LxFilterTabs / LxPill / LxPanel / LxCallout / LxStepBar / LxFlowStep / LxMetaGrid / LxMetaRow / LxPrimaryButton / LxGhostButton / LxDangerButton / LxField / LxInput / LxSelectRow / LxGroupCard / LxGroupRow / LxEmptyState / LxErrorState / LxSkeleton*` | 无分割线、背景色阶分层、0.5dp 功能性边框；主按钮陶土、危险操作实心 `#B53333` |
+| `component/ClaudeSheets.kt` | `LxBottomSheet / LxConfirmSheet / LxOptionSheet / LxDateTimeSheet / LxTextArea` | 日期时间自绘月历 + 时分 stepper，替换 Material DatePicker/TimePicker |
+
+边界：
+
+- 旧 `LightXinTheme` 的 `ColorScheme` 不改，未迁移页面继续走 `LxParchment / LxInk / LxTerra`，避免 15 个旧组件和未评审页面被一次性改色
+- 新页面 Scaffold 必须显式 `containerColor = LxCanvas`，不能再依赖 `MaterialTheme.colorScheme.background`
+- `LxPageHeader` 不自带水平 padding：列表页显式 `padding(horizontal = 24.dp)`，放在 LazyColumn 内的页面沿用 contentPadding，避免出现 48dp 双缩进
+- 迁移完所有页面后再统一切全局 ColorScheme；当前两套色板并存是已知过渡状态
+- 决策与来源：`.agents/notes/2026-10-18-decision-claude-ui-language.md`；token 表：`prototype/claude-tokens.md`
+
 组件的共同模式：
 
 - `Modifier` 是第一个可选参数（`modifier: Modifier = Modifier`）
@@ -235,9 +253,12 @@ designsystem 自身**没有可变状态**——token 是常量 / 单次读取，
 - 历史设计输入（多数已实现）：`docs/项目规划/UI改造指南.md`（Phase 9A / 9B / 9C 完整决策 + 未决问题 + 组件改造清单）
 - 原型参考：`prototype/anthropic-redesign.html`（色板 CSS 变量与第 1 节 token 一一对应）
 - 使用 designsystem 的代表性模块：
-  - `codestable/architecture/home-overview.md` — 首页叙事骨架消费 `LxCard` / 问候区衬线字等
-  - `codestable/architecture/running-overview.md` — 跑步仪表盘 / 设置页大量使用 `LxButton` / `LxTextField` / `LxChoiceChip`
+  - `codestable/architecture/home-overview.md` — 首页叙事骨架消费旧 `LxCard` / 问候区衬线字
+  - `codestable/architecture/running-overview.md` — 跑步仪表盘 / 设置页使用旧 `LxButton` / `LxTextField` / `LxChoiceChip`
+  - `codestable/architecture/leave-overview.md` / `repair-overview.md` — 请假 / 报修已迁移到 Claude 并行层
+- Claude 层决策：`.agents/notes/2026-10-18-decision-claude-ui-language.md`
 
 ## 变更日志
 
+- 2026-10-18：新增 Claude 并行 token/组件层（`ClaudeTokens.kt` / `ClaudeComponents.kt` / `ClaudeSheets.kt`）；请假 / 报修 / 路线模板三组页面迁移；旧层保留给未迁移页面。
 - 2026-05-03：补充局部状态组件（`LxErrorHint` / `LxEmptyHint` / `LxInlineErrorCard`）和 `forceDarkAllowed` 的 v29 资源分层现状。

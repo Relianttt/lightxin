@@ -33,7 +33,7 @@ class LoginViewModel @Inject constructor(
         restoreRemembered()
     }
 
-    /** 预填上次的学号；勾过「记住密码」且能解密时连密码一起填上。 */
+    /** 预填上次的学号；勾过“记住密码”且能解密时连密码一起填上。 */
     private fun restoreRemembered() {
         viewModelScope.launch {
             val userCode = rememberedLoginStore.loadUserCode()

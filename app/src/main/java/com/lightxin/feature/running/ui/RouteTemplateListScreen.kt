@@ -2,7 +2,7 @@ package com.lightxin.feature.running.ui
 
 import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.SharedTransitionScope
-import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,8 +16,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -25,22 +23,23 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.lightxin.core.designsystem.component.LxCard
-import com.lightxin.core.designsystem.component.LxEmpty
-import com.lightxin.core.designsystem.component.LxTextButton
-import com.lightxin.core.designsystem.component.LxTopBar
-import com.lightxin.core.designsystem.theme.LxInk
-import com.lightxin.core.designsystem.theme.LxInkMuted
-import com.lightxin.core.designsystem.theme.LxSage
-import com.lightxin.core.designsystem.theme.LxTerra
-import com.lightxin.core.designsystem.theme.LxTerraSoft
-import com.lightxin.core.designsystem.theme.LxWarning
+import com.lightxin.core.designsystem.component.LxEmptyState
+import com.lightxin.core.designsystem.component.LxNavBar
+import com.lightxin.core.designsystem.component.LxPageHeader
+import com.lightxin.core.designsystem.component.LxStatus
+import com.lightxin.core.designsystem.component.LxTextAction
+import com.lightxin.core.designsystem.component.LxTone
+import com.lightxin.core.designsystem.theme.LxAccentText
+import com.lightxin.core.designsystem.theme.LxCanvas
+import com.lightxin.core.designsystem.theme.LxText
+import com.lightxin.core.designsystem.theme.LxTextMuted
 import com.lightxin.feature.running.domain.RouteQualityStatus
 import com.lightxin.feature.running.domain.RouteTemplate
 
@@ -48,6 +47,7 @@ import com.lightxin.feature.running.domain.RouteTemplate
 fun RouteTemplateListScreen(
     onBack: () -> Unit,
     onOpenDetail: (String) -> Unit,
+    onImport: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: RouteTemplateViewModel = hiltViewModel(),
     sharedTransitionScope: SharedTransitionScope? = null,
@@ -55,39 +55,60 @@ fun RouteTemplateListScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
+    val systemCount = uiState.templates.count { it.source == com.lightxin.feature.running.domain.RouteTemplateSource.SYSTEM }
 
     Scaffold(
         modifier = modifier,
-        containerColor = MaterialTheme.colorScheme.background,
+        containerColor = LxCanvas,
         topBar = {
-            LxTopBar(title = "模板管理", onBack = onBack) {
+            LxNavBar(onBack = onBack) {
                 if (uiState.templates.isNotEmpty()) {
-                    LxTextButton(
-                        text = "导出全部",
+                    LxTextAction(
+                        text = "导出",
                         onClick = { RouteTemplateExport.shareAll(context, uiState.templates) },
+                        color = LxTextMuted,
                     )
                 }
+                LxTextAction(text = "导入", onClick = onImport)
             }
         },
     ) { padding ->
-        if (uiState.templates.isEmpty()) {
-            LxEmpty(
-                message = "还没有任何模板，去录制一条吧",
-                modifier = Modifier.padding(padding).fillMaxSize(),
+        Column(modifier = Modifier.padding(padding).fillMaxSize()) {
+            LxPageHeader(
+                title = "路线模板",
+                subtitle = buildString {
+                    append("${uiState.templates.size} 个模板")
+                    if (systemCount > 0) append(" · 系统内置 $systemCount 个")
+                    uiState.templates.maxOfOrNull { it.lastUsedAtMillis ?: 0L }?.takeIf { it > 0 }?.let {
+                        append(" · 最近使用 ${formatDate(it)}")
+                    }
+                },
+                modifier = Modifier.padding(horizontal = 24.dp),
             )
-        } else {
-            LazyColumn(
-                modifier = Modifier.padding(padding).fillMaxSize(),
-                contentPadding = PaddingValues(horizontal = 20.dp, vertical = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                items(uiState.templates, key = { it.id }) { template ->
-                    TemplateCard(
-                        template = template,
-                        onClick = { onOpenDetail(template.id) },
-                        sharedTransitionScope = sharedTransitionScope,
-                        animatedVisibilityScope = animatedVisibilityScope,
+            if (uiState.templates.isEmpty()) {
+                Box(
+                    modifier = Modifier.fillMaxSize().padding(24.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    LxEmptyState(
+                        title = "还没有路线模板",
+                        body = "去跑步页录制一条，或从右上角导入导出的 JSON 文件。",
                     )
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(horizontal = 24.dp, vertical = 4.dp),
+                ) {
+                    items(uiState.templates, key = { it.id }) { template ->
+                        TemplateRow(
+                            template = template,
+                            onClick = { onOpenDetail(template.id) },
+                            sharedTransitionScope = sharedTransitionScope,
+                            animatedVisibilityScope = animatedVisibilityScope,
+                        )
+                    }
+                    item { Spacer(Modifier.height(28.dp)) }
                 }
             }
         }
@@ -95,78 +116,71 @@ fun RouteTemplateListScreen(
 }
 
 @Composable
-private fun TemplateCard(
+private fun TemplateRow(
     template: RouteTemplate,
     onClick: () -> Unit,
     sharedTransitionScope: SharedTransitionScope?,
     animatedVisibilityScope: AnimatedVisibilityScope?,
 ) {
-    LxCard(onClick = onClick) {
-        Row(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            TemplateThumb(
-                templateId = template.id,
-                points = template.points,
-                sharedTransitionScope = sharedTransitionScope,
-                animatedVisibilityScope = animatedVisibilityScope,
-            )
-            Spacer(modifier = Modifier.width(12.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = template.name,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = LxInk,
-                        modifier = Modifier.weight(1f),
-                    )
-                    if (template.qualityStatus == RouteQualityStatus.WARNING) {
-                        Badge(text = "警告", color = LxWarning)
-                        Spacer(modifier = Modifier.width(6.dp))
-                    }
-                    if (template.isDefault) {
-                        Badge(text = "默认", color = LxTerra, bg = LxTerraSoft)
-                    }
-                }
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = String.format(
-                        "%.2f km · %d 个点 · %s",
-                        template.totalDistanceMeters / 1000.0,
-                        template.pointCount,
-                        formatDate(template.createdAtMillis),
-                    ),
-                    fontSize = 13.sp,
-                    color = LxInkMuted,
-                )
-                template.lastUsedAtMillis?.let { used ->
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "最近使用 ${formatDate(used)}",
-                        fontSize = 12.sp,
-                        color = LxSage,
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun Badge(
-    text: String,
-    color: androidx.compose.ui.graphics.Color,
-    bg: androidx.compose.ui.graphics.Color = color.copy(alpha = 0.12f),
-) {
-    Box(
+    Row(
         modifier = Modifier
-            .clip(RoundedCornerShape(10.dp))
-            .background(bg)
-            .padding(horizontal = 10.dp, vertical = 4.dp),
-        contentAlignment = Alignment.Center,
+            .fillMaxWidth()
+            .clickable(role = Role.Button, onClick = onClick)
+            .padding(vertical = 13.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(text = text, fontSize = 11.sp, color = color, fontWeight = FontWeight.Medium)
+        TemplateThumb(
+            templateId = template.id,
+            points = template.points,
+            sharedTransitionScope = sharedTransitionScope,
+            animatedVisibilityScope = animatedVisibilityScope,
+        )
+        Column(modifier = Modifier.weight(1f).padding(start = 14.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = template.name,
+                    fontSize = 16.sp,
+                    lineHeight = 22.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = LxText,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false),
+                )
+                if (template.isDefault) {
+                    Text(
+                        text = "默认",
+                        fontSize = 10.5.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = LxAccentText,
+                        modifier = Modifier.padding(start = 6.dp),
+                    )
+                }
+                Box(Modifier.width(0.dp))
+            }
+            Text(
+                text = buildString {
+                    append(String.format("%.2f km", template.totalDistanceMeters / 1000.0))
+                    append(" · ${template.pointCount} 个点")
+                    append(" · ${formatDate(template.createdAtMillis)}")
+                },
+                fontSize = 12.5.sp,
+                lineHeight = 18.sp,
+                color = LxTextMuted,
+                modifier = Modifier.padding(top = 4.dp),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        val (label, tone) = when (template.qualityStatus) {
+            RouteQualityStatus.PASS -> "已校验" to LxTone.Neutral
+            RouteQualityStatus.WARNING -> "待校验" to LxTone.Warning
+            RouteQualityStatus.REJECTED -> "已拒绝" to LxTone.Danger
+        }
+        LxStatus(
+            text = label,
+            tone = tone,
+            modifier = Modifier.padding(start = 12.dp),
+        )
     }
 }

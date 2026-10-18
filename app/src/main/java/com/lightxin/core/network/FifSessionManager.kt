@@ -67,8 +67,8 @@ class FifSessionManager @Inject constructor(
     /**
      * 用户是否用过 AI课堂。
      *
-     * 会话体检的 `Skipped` 不能拿「有没有 FIF token」当判据：被顶号之后 SSO 失败，
-     * token 压根不会落盘，于是「用过但正被顶」会被误判成「从没用过」而永远不提示
+     * 会话体检的 `Skipped` 不能拿“有没有 FIF token”当判据：被顶号之后 SSO 失败，
+     * token 压根不会落盘，于是“用过但正被顶”会被误判成“从没用过”而永远不提示
      * （首页横幅一直不亮，进 AI课堂才发现）。这里单独记一个只增不减的标记。
      */
     suspend fun isFifUsed(): Boolean =

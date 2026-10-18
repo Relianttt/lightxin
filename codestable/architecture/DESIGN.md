@@ -1,7 +1,7 @@
 # 轻小信 (LightXin) 架构总入口
 
-> 状态：持续同步（2026-05-31 同步实况通知、智慧运动年级分流与课表第 0 节边界）
-> 创建日期：2026-04-21（最近更新：2026-05-31）
+> 状态：持续同步（2026-10-18 同步 Claude UI 并行层、请假/报修/模板页面迁移）
+> 创建日期：2026-04-21（最近更新：2026-10-18）
 
 ## 1. 项目简介
 
@@ -18,7 +18,7 @@
 
 | 术语 | 含义 |
 |---|---|
-| `Design System` | `core/designsystem/` 下的 Token + 通用组件。暖色陶土 / 羊皮纸质感 / Newsreader + Outfit + Noto Serif SC 三字族；权威定义与 Phase 9A/9B/9C 的决策沉淀在 `docs/项目规划/UI改造指南.md`（多数已落地） |
+| `Design System` | `core/designsystem/` 下的 Token + 通用组件。旧层是暖色陶土 / 羊皮纸质感 / 三字族；2026-10-18 起另有 Claude 并行层（sans 标题、陶土主按钮、实心 danger、底部弹层），用于请假/报修/模板。见 `designsystem-overview.md` 与 `.agents/notes/2026-10-18-decision-claude-ui-language.md` |
 | `HomeScene` | 首页叙事架构的核心：7 类场景（早晨带书 / 上课前 10–15min / 上课中 / 下课前 5min / 最后一节课后 / 中午换书 / 晚间查寝未完成）+ None 态；见 `feature/home/domain/HomeScene.kt` 与 `feature/home/domain/SubtitleLibrary.kt` |
 | `HomeBootstrap` | 首页进入时的数据预加载协调器（课表 / 查寝等）；见 `feature/home/...` |
 | `WGS-84 / BD-09` | 原生定位坐标（WGS-84）与服务端期望坐标（BD-09）的两套坐标系；上传前经 `core/location/CoordinateConverter.kt` 本地转换（WGS-84 → GCJ-02 → BD-09） |
@@ -40,7 +40,7 @@
 - `auth/` — `RSAUtils`（两组公钥）、`TokenManager`、`SessionManager`、`TokenRefresher`；详见 [`auth-overview.md`](auth-overview.md)
 - `location/` — `LocationProvider`（原生 `LocationManager` 封装）、`CoordinateConverter`（WGS-84 → GCJ-02 → BD-09 全链路，无地图 SDK）；详见 [`location-overview.md`](location-overview.md)
 - `notification/` — `LiveActivityNotifier` + Flyme / Android16 / Normal backend + 课程倒计时调度；详见 [`notification-overview.md`](notification-overview.md)
-- `designsystem/` — `Theme / Color / Type / Shape / LxMotion` + 13 个通用组件文件（`LxCard` / `LxButton` / `LxMenuRow` 等）；详见 [`designsystem-overview.md`](designsystem-overview.md)
+- `designsystem/` — 旧暖色层（`Theme / Color / Type / Shape / LxMotion` + 15 个组件文件）+ 2026-10-18 新增的 Claude 并行层（`ClaudeTokens` / `ClaudeComponents` / `ClaudeSheets`，请假/报修/模板已迁移）；详见 [`designsystem-overview.md`](designsystem-overview.md)
 - `settings/` — `DeveloperPrefs`（`lightxin_dev` DataStore 的 `advanced_enabled` 调试开关），由 About 页写入，Profile / Running 等页面读取
 
 ### 3.2 feature/（按 `data / domain / ui` 三层组织）

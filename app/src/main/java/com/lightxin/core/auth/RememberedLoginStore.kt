@@ -27,12 +27,12 @@ private val Context.rememberedLoginDataStore: DataStore<Preferences> by
     preferencesDataStore(name = "lightxin_login")
 
 /**
- * 「记住密码」的落盘处，只服务登录页预填。
+ * “记住密码”的落盘处，只服务登录页预填。
  *
  * 密码不进 DataStore 明文，先用 AndroidKeyStore 里的 AES/GCM 密钥加密再存 —— 密钥出不了
  * 这台设备，导出 DataStore 文件也解不开。
  *
- * 它仍然只保护「别人捡到解锁状态的手机」这一层：本机任何能跑通屏解锁的进程都能解密。
+ * 它仍然只保护“别人捡到解锁状态的手机”这一层：本机任何能跑通屏解锁的进程都能解密。
  * 别在它上面再叠免密登录之类的东西，也不要把 token 塞进来。
  */
 @Singleton
@@ -43,7 +43,7 @@ class RememberedLoginStore @Inject constructor(
         context.rememberedLoginDataStore.data.first()[KEY_USER_CODE].orEmpty()
     }
 
-    /** 只有勾选过「记住密码」且能解密时才返回密码，否则 null */
+    /** 只有勾选过“记住密码”且能解密时才返回密码，否则 null */
     suspend fun loadPassword(): String? = withContext(Dispatchers.IO) {
         val prefs = context.rememberedLoginDataStore.data.first()
         if (prefs[KEY_REMEMBER] != true) return@withContext null

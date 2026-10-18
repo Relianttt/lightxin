@@ -20,11 +20,11 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.dp
 import com.lightxin.core.designsystem.component.lxSharedBounds
-import com.lightxin.core.designsystem.theme.LxCream
-import com.lightxin.core.designsystem.theme.LxInkMuted
-import com.lightxin.core.designsystem.theme.LxRose
-import com.lightxin.core.designsystem.theme.LxSage
-import com.lightxin.core.designsystem.theme.LxTerra
+import com.lightxin.core.designsystem.theme.LxAccent
+import com.lightxin.core.designsystem.theme.LxDanger
+import com.lightxin.core.designsystem.theme.LxStateSuccess
+import com.lightxin.core.designsystem.theme.LxTextMuted
+import com.lightxin.core.designsystem.theme.LxTint
 import com.lightxin.feature.running.domain.TrackPoint
 
 /** 把轨迹点等比投影到给定画布；列表缩略图与详情大图共用，保证共享元素形态一致。 */
@@ -38,9 +38,9 @@ fun TrackCanvas(points: List<TrackPoint>, modifier: Modifier = Modifier) {
     val latSpan = (maxLat - minLat).coerceAtLeast(1e-6)
     val lngSpan = (maxLng - minLng).coerceAtLeast(1e-6)
 
-    val pathColor = LxTerra
-    val startColor = LxSage
-    val endColor = LxRose
+    val pathColor = LxAccent
+    val startColor = LxStateSuccess
+    val endColor = LxDanger
 
     Canvas(modifier = modifier) {
         val w = size.width
@@ -88,15 +88,15 @@ fun TemplateThumb(
     Box(
         modifier = modifier
             .then(shared)
-            .size(44.dp)
-            .clip(RoundedCornerShape(10.dp))
-            .background(LxCream),
+            .size(46.dp)
+            .clip(RoundedCornerShape(9.dp))
+            .background(LxTint),
         contentAlignment = Alignment.Center,
     ) {
         if (points.size >= 2) {
             TrackCanvas(points = points, modifier = Modifier.fillMaxSize().padding(5.dp))
         } else {
-            Text(text = "·", color = LxInkMuted)
+            Text(text = "·", color = LxTextMuted)
         }
     }
 }

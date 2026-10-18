@@ -52,7 +52,7 @@ class HomeBootstrap @Inject constructor(
         val currentGeneration = loadMutex.withLock {
             if (loaded) return
             // 未登录时不能把 loaded 置位：MainActivity 在 onCreate 就调 load()，那时 token 还没写进来。
-            // 置了位就永久锁死 —— 登录成功后再调也没用，首页会一直停在「正在加载…」，
+            // 置了位就永久锁死 —— 登录成功后再调也没用，首页会一直停在“正在加载…”，
             // 只有下拉刷新（走 HomeViewModel 自己的 loader）才能出数据。
             if (tokenManager.getAccessToken().isNullOrBlank()) {
                 _ready.value = true

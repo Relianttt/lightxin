@@ -2,7 +2,11 @@ package com.lightxin.feature.running.ui
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -11,9 +15,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -23,23 +29,28 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.lightxin.core.designsystem.component.LxButton
-import com.lightxin.core.designsystem.component.LxCard
-import com.lightxin.core.designsystem.component.LxChoiceChip
-import com.lightxin.core.designsystem.component.LxEmpty
-import com.lightxin.core.designsystem.component.LxInlineErrorCard
-import com.lightxin.core.designsystem.component.LxOutlinedButton
-import com.lightxin.core.designsystem.component.LxTopBar
-import com.lightxin.core.designsystem.theme.LxInk
-import com.lightxin.core.designsystem.theme.LxInkMuted
-import com.lightxin.core.designsystem.theme.LxRose
-import com.lightxin.core.designsystem.theme.LxSage
-import com.lightxin.core.designsystem.theme.LxTerra
+import com.lightxin.core.designsystem.component.LxEmptyState
+import com.lightxin.core.designsystem.component.LxGhostButton
+import com.lightxin.core.designsystem.component.LxNavBar
+import com.lightxin.core.designsystem.component.LxPageHeader
+import com.lightxin.core.designsystem.component.LxPrimaryButton
+import com.lightxin.core.designsystem.component.LxSectionLabel
+import com.lightxin.core.designsystem.component.LxTextAction
+import com.lightxin.core.designsystem.component.LxTone
+import com.lightxin.core.designsystem.theme.LxAccent
+import com.lightxin.core.designsystem.theme.LxCanvas
+import com.lightxin.core.designsystem.theme.LxDanger
+import com.lightxin.core.designsystem.theme.LxHairline
+import com.lightxin.core.designsystem.theme.LxText
+import com.lightxin.core.designsystem.theme.LxTextMuted
+import com.lightxin.core.designsystem.theme.LxTint
 import com.lightxin.feature.running.domain.ConflictChoice
 import com.lightxin.feature.running.domain.ImportedTemplate
 import com.lightxin.feature.running.domain.ImportPreview
@@ -57,8 +68,8 @@ fun RouteTemplateImportScreen(
     val importState by viewModel.importState.collectAsState()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val preview = importState.preview
 
-    // 每次进入导入页从干净状态开始，避免上次解析结果残留
     LaunchedEffect(Unit) { viewModel.resetImport() }
 
     val picker = rememberLauncherForActivityResult(
@@ -86,40 +97,68 @@ fun RouteTemplateImportScreen(
         }
     }
 
+    fun pickFile() {
+        picker.launch(arrayOf("application/json", "text/plain", "application/octet-stream"))
+    }
+
     Scaffold(
         modifier = modifier,
-        containerColor = MaterialTheme.colorScheme.background,
-        topBar = { LxTopBar(title = "导入模板", onBack = onBack) },
+        containerColor = LxCanvas,
+        topBar = {
+            LxNavBar(onBack = onBack) {
+                if (preview != null || importState.parseError != null) {
+                    LxTextAction(
+                        text = "重新选择",
+                        onClick = ::pickFile,
+                        color = LxTextMuted,
+                    )
+                }
+            }
+        },
     ) { padding ->
-        val preview = importState.preview
         when {
             importState.parseError != null -> Column(
-                modifier = Modifier.padding(padding).padding(20.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp),
+                modifier = Modifier.padding(padding).fillMaxSize().padding(24.dp),
+                verticalArrangement = Arrangement.Center,
             ) {
-                LxInlineErrorCard(
-                    message = "文件解析失败：${importState.parseError}",
-                    onRetry = { picker.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) },
+                Text(
+                    text = "文件解析失败",
+                    fontSize = 19.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = LxText,
                 )
-                LxOutlinedButton(
+                Text(
+                    text = importState.parseError.orEmpty(),
+                    fontSize = 12.5.sp,
+                    lineHeight = 21.sp,
+                    color = LxTextMuted,
+                    modifier = Modifier.padding(top = 8.dp),
+                )
+                LxPrimaryButton(
                     text = "选择其它文件",
-                    onClick = { picker.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) },
+                    onClick = ::pickFile,
+                    modifier = Modifier.padding(top = 18.dp),
                 )
             }
             preview == null -> ImportIntro(
-                onPick = { picker.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) },
+                onPick = ::pickFile,
                 modifier = Modifier.padding(padding),
             )
-            preview.valid.isEmpty() && preview.rejected.isEmpty() -> LxEmpty(
-                message = "文件里没有模板",
-                modifier = Modifier.padding(padding).fillMaxSize(),
-            )
+            preview.valid.isEmpty() && preview.rejected.isEmpty() -> Box(
+                modifier = Modifier.padding(padding).fillMaxSize().padding(24.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                LxEmptyState(
+                    title = "文件里没有模板",
+                    body = "确认这是本应用导出的 JSON，或换一个文件试试。",
+                )
+            }
             else -> ImportPreviewContent(
                 preview = preview,
                 decisions = importState.decisions,
                 isImporting = importState.isImporting,
                 onChoose = viewModel::setConflictChoice,
-                onPickAnother = { picker.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) },
+                onPickAnother = ::pickFile,
                 onConfirm = viewModel::confirmImport,
                 modifier = Modifier.padding(padding),
             )
@@ -128,38 +167,28 @@ fun RouteTemplateImportScreen(
 }
 
 @Composable
-private fun ImportIntro(
-    onPick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
+private fun ImportIntro(onPick: () -> Unit, modifier: Modifier = Modifier) {
     Column(
-        modifier = modifier.fillMaxSize().padding(20.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+        modifier = modifier.fillMaxSize().padding(horizontal = 24.dp),
     ) {
-        LxCard {
-            Column(modifier = Modifier.padding(20.dp)) {
-                Text(
-                    text = "从 JSON 文件导入",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = LxInk,
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = "支持本应用导出的模板文件，也兼容只包含模板数组的 JSON。" +
-                        "距离与质量会按轨迹点重新计算，不沿用文件里的旧值。" +
-                        "重名或同 ID 的模板会在下一步逐条询问如何处理。",
-                    fontSize = 13.sp,
-                    lineHeight = 19.sp,
-                    color = LxInkMuted,
-                )
-            }
-        }
-        LxOutlinedButton(text = "选择 JSON 文件", onClick = onPick)
+        LxPageHeader(title = "导入模板", subtitle = "从其它设备导出的 JSON，可含多个模板")
+        Text(
+            text = "支持本应用导出的模板文件，也兼容只包含模板数组的 JSON。距离与质量会按轨迹点重新计算，不沿用文件里的旧值；重名或同 ID 的模板会在下一步逐条询问。",
+            fontSize = 13.sp,
+            lineHeight = 23.sp,
+            color = LxTextMuted,
+            modifier = Modifier.padding(top = 24.dp),
+        )
+        LxGhostButton(
+            text = "选择 JSON 文件",
+            onClick = onPick,
+            modifier = Modifier.padding(top = 24.dp),
+        )
         Text(
             text = "文件只在本地解析，不会上传。",
-            fontSize = 12.sp,
-            color = LxInkMuted,
+            fontSize = 11.5.sp,
+            color = LxTextMuted,
+            modifier = Modifier.padding(top = 12.dp),
         )
     }
 }
@@ -176,128 +205,198 @@ private fun ImportPreviewContent(
 ) {
     LazyColumn(
         modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        contentPadding = PaddingValues(horizontal = 24.dp, vertical = 2.dp),
     ) {
         item {
-            LxCard {
-                Column(modifier = Modifier.padding(20.dp)) {
-                    Text(
-                        text = "共 ${preview.totalCount} 条 · 可导入 ${preview.importableCount} 条" +
-                            if (preview.rejected.isNotEmpty()) " · 无效 ${preview.rejected.size} 条" else "",
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = LxInk,
-                    )
-                    if (preview.conflicts.isNotEmpty()) {
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Text(
-                            text = "${preview.conflicts.size} 条与现有模板重名或同 ID，请在下方逐条选择。",
-                            fontSize = 12.sp,
-                            color = LxTerra,
-                        )
-                    }
-                }
+            LxPageHeader(title = "导入模板")
+            Spacer(Modifier.height(24.dp))
+        }
+
+        item {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(LxTint)
+                    .padding(horizontal = 14.dp, vertical = 12.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(text = "已选择文件", fontSize = 13.sp, color = LxTextMuted)
+                Text(
+                    text = "可导入 ${preview.importableCount} 个",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = LxText,
+                )
             }
+            Spacer(Modifier.height(24.dp))
+        }
+
+        item {
+            LxSectionLabel("解析结果")
+            Text(
+                text = "读到 ${preview.totalCount} 个模板，其中 ${preview.conflicts.size} 个与现有模板重名。",
+                fontSize = 14.sp,
+                lineHeight = 22.sp,
+                color = LxText,
+                modifier = Modifier.padding(top = 10.dp),
+            )
+            Spacer(Modifier.height(26.dp))
         }
 
         items(preview.valid, key = { it.fileId }) { item ->
-            ImportedItemCard(
+            ImportedItem(
                 item = item,
                 conflict = preview.isConflict(item),
                 decision = decisions[item.fileId] ?: ConflictChoice.KEEP_COPY,
                 onChoose = { onChoose(item.fileId, it) },
             )
+            Spacer(Modifier.height(18.dp))
         }
 
         if (preview.rejected.isNotEmpty()) {
             item {
-                Text(
-                    text = "不可导入",
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = LxRose,
-                    modifier = Modifier.padding(top = 4.dp),
-                )
-            }
-            items(preview.rejected.size) { index ->
-                val rejected = preview.rejected[index]
-                LxCard {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Text(text = rejected.name, fontSize = 14.sp, color = LxInk)
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(text = rejected.reason, fontSize = 12.sp, color = LxRose)
-                    }
+                LxSectionLabel("未通过校验")
+                Spacer(Modifier.height(8.dp))
+                preview.rejected.forEach { rejected ->
+                    Text(
+                        text = "“${rejected.name}” ${rejected.reason}",
+                        fontSize = 12.5.sp,
+                        lineHeight = 21.sp,
+                        color = LxDanger,
+                        modifier = Modifier.padding(bottom = 6.dp),
+                    )
                 }
+                Spacer(Modifier.height(18.dp))
             }
         }
 
         item {
-            LxButton(
-                text = if (isImporting) "正在导入…" else "导入 ${preview.importableCount} 项",
+            LxPrimaryButton(
+                text = if (isImporting) "正在导入…" else "导入 ${preview.importableCount} 个模板",
                 onClick = onConfirm,
                 enabled = preview.importableCount > 0 && !isImporting,
             )
-            Spacer(modifier = Modifier.height(6.dp))
-            LxOutlinedButton(text = "重新选择文件", onClick = onPickAnother, enabled = !isImporting)
+            LxGhostButton(
+                text = "重新选择文件",
+                onClick = onPickAnother,
+                enabled = !isImporting,
+                modifier = Modifier.padding(top = 10.dp),
+            )
+            Spacer(Modifier.height(28.dp))
         }
     }
 }
 
 @Composable
-private fun ImportedItemCard(
+private fun ImportedItem(
     item: ImportedTemplate,
     conflict: Boolean,
     decision: ConflictChoice,
     onChoose: (ConflictChoice) -> Unit,
 ) {
-    LxCard {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = item.name,
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = LxInk,
-                    modifier = Modifier.weight(1f),
-                )
-                Text(
-                    text = if (conflict) "有冲突" else "可导入",
-                    fontSize = 11.sp,
-                    color = if (conflict) LxTerra else LxSage,
-                )
-            }
-            Spacer(modifier = Modifier.height(6.dp))
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
-                text = String.format(
-                    "%.2f km · %d 个点 · %s",
-                    item.totalDistanceMeters / 1000.0,
-                    item.points.size,
-                    item.qualityStatus.displayName(),
-                ),
-                fontSize = 12.sp,
-                color = LxInkMuted,
+                text = item.name,
+                fontSize = 15.5.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = LxText,
+                modifier = Modifier.weight(1f),
             )
-            if (conflict) {
-                Spacer(modifier = Modifier.height(10.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    LxChoiceChip(
-                        text = "覆盖",
-                        selected = decision == ConflictChoice.OVERWRITE,
-                        onClick = { onChoose(ConflictChoice.OVERWRITE) },
-                    )
-                    LxChoiceChip(
-                        text = "保留副本",
-                        selected = decision == ConflictChoice.KEEP_COPY,
-                        onClick = { onChoose(ConflictChoice.KEEP_COPY) },
-                    )
-                    LxChoiceChip(
-                        text = "跳过",
-                        selected = decision == ConflictChoice.SKIP,
-                        onClick = { onChoose(ConflictChoice.SKIP) },
-                    )
-                }
+            Text(
+                text = if (conflict) "有冲突" else "可导入",
+                fontSize = 11.5.sp,
+                fontWeight = FontWeight.Medium,
+                color = if (conflict) LxAccent else LxTextMuted,
+            )
+        }
+        Text(
+            text = String.format(
+                "%.2f km · %d 个点 · %s",
+                item.totalDistanceMeters / 1000.0,
+                item.points.size,
+                item.qualityStatus.displayName(),
+            ),
+            fontSize = 12.5.sp,
+            color = LxTextMuted,
+            modifier = Modifier.padding(top = 4.dp),
+        )
+        if (conflict) {
+            Spacer(Modifier.height(10.dp))
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                ConflictChoiceRow(
+                    title = "保留两者",
+                    description = "新模板自动加后缀“(1)”，两份都留下",
+                    selected = decision == ConflictChoice.KEEP_COPY,
+                    onClick = { onChoose(ConflictChoice.KEEP_COPY) },
+                )
+                ConflictChoiceRow(
+                    title = "覆盖现有",
+                    description = "用文件里的版本替换本地同名模板",
+                    selected = decision == ConflictChoice.OVERWRITE,
+                    onClick = { onChoose(ConflictChoice.OVERWRITE) },
+                )
+                ConflictChoiceRow(
+                    title = "跳过这一个",
+                    description = "只导入其余模板，本地不变",
+                    selected = decision == ConflictChoice.SKIP,
+                    onClick = { onChoose(ConflictChoice.SKIP) },
+                )
             }
+        }
+    }
+}
+
+@Composable
+private fun ConflictChoiceRow(
+    title: String,
+    description: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(10.dp))
+            .background(if (selected) LxTint else androidx.compose.ui.graphics.Color.Transparent)
+            .clickable(role = Role.RadioButton, onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.Top,
+    ) {
+        Box(
+            modifier = Modifier
+                .padding(top = 2.dp)
+                .size(16.dp)
+                .clip(CircleShape)
+                .then(
+                    if (selected) {
+                        Modifier.background(LxAccent)
+                    } else {
+                        Modifier.border(1.dp, LxTextMuted.copy(alpha = 0.55f), CircleShape)
+                    },
+                ),
+            contentAlignment = Alignment.Center,
+        ) {
+            if (selected) {
+                Box(Modifier.size(6.dp).clip(CircleShape).background(LxCanvas))
+            }
+        }
+        Column(modifier = Modifier.padding(start = 12.dp)) {
+            Text(
+                text = title,
+                fontSize = 13.5.sp,
+                fontWeight = FontWeight.Medium,
+                color = LxText,
+            )
+            Text(
+                text = description,
+                fontSize = 11.5.sp,
+                lineHeight = 18.sp,
+                color = LxTextMuted,
+                modifier = Modifier.padding(top = 2.dp),
+            )
         }
     }
 }

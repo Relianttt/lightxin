@@ -6,7 +6,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * 「轨迹值明文、其余键值全加密」这条约束的机械门禁。
+ * “轨迹值明文、其余键值全加密”这条约束的机械门禁。
  *
  * 门禁只覆盖加密边界与明文形态：这是唯一允许 `runningRoute` 值不加密的地方，
  * 有人把它改回 `RSAUtils.encryptSportData(value)` 或在加字段时漏掉，这里立刻失败。

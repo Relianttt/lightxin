@@ -122,15 +122,15 @@ class LaborRepository @Inject constructor(
 }
 
 /**
- * `ldjy` 用 200 + `{"flag":false,"result":"非法访问"}` 表达「token 无效」。
- * 不转成登录失效，界面就会把它原样显示成「非法访问」—— 用户看不懂，也没法据此重登。
+ * `ldjy` 用 200 + `{"flag":false,"result":"非法访问"}` 表达“token 无效”。
+ * 不转成登录失效，界面就会把它原样显示成“非法访问”—— 用户看不懂，也没法据此重登。
  *
  * 注意：查寝 `fdygl` 的 `-100 非法访问` 是另一回事（7 个身份字段没带全），不要在那边套这个判定。
  */
 internal fun isLaborAuthRejection(flag: Boolean?, result: String?): Boolean =
     flag == false && result?.contains("非法访问") == true
 
-/** 把拒绝包装成带结构化详情的登录失效异常，供界面出「服务不可用」卡片。 */
+/** 把拒绝包装成带结构化详情的登录失效异常，供界面出“服务不可用”卡片。 */
 internal fun laborAuthRejected(action: String, flag: Boolean?, result: String?): AuthExpiredException =
     AuthExpiredException(
         technicalDetail = buildString {

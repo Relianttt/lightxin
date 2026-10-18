@@ -161,7 +161,12 @@ depends_on: [network-overview]
 - **系统模板**：`RouteTemplateStore.seedIfNeeded()` 只在首次启动且列表为空时读 `assets/route_templates_seed.json`，映射为「系统模板」(`source = SYSTEM`、首条默认)；注入尝试后必写 `filesDir/route_templates_seeded`，删除后不复活。
 - `RouteTemplateSource` 增加 `IMPORTED / SYSTEM`，详情页「来源」直接显示。
 
-锚点：`feature/running/domain/RouteTemplateCodec.kt` / `feature/running/domain/RouteTemplateSeed.kt` / `feature/running/data/RouteTemplateStore.kt` / `feature/running/ui/RouteTemplateImportScreen.kt` / `feature/running/ui/RouteTemplateExport.kt`。
+模板管理的两个入口：
+
+- 模板列表右上角提供「导出 / 导入」，`onImport` 直接导航到 `RUNNING_ROUTE_IMPORT`；列表行 = 轨迹缩略图 + 名称 + 距离/点数/录制时间 + 质量状态
+- 模板详情 = 轨迹 hero 卡（预览 + 距离/点数/录制时长）+ 来源/录制时间/最近使用/质量 + 导出/重命名/删除 + 「设为默认」；导出只保留详情里的一个入口
+
+锚点：`feature/running/domain/RouteTemplateCodec.kt` / `feature/running/domain/RouteTemplateSeed.kt` / `feature/running/data/RouteTemplateStore.kt` / `feature/running/ui/RouteTemplateImportScreen.kt` / `feature/running/ui/RouteTemplateExport.kt` / `feature/running/ui/RouteTemplateListScreen.kt` / `feature/running/ui/RouteTemplateDetailScreen.kt`。
 
 ### 2.7 路由上分成两条子链，并各自共享 ViewModel
 

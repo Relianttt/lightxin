@@ -7,8 +7,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * 劳动教育把「token 无效」塞进 200 响应体（`{"flag":false,"result":"非法访问"}`），
- * 不识别就会在界面上原样显示成「非法访问」。这里钉住识别条件，避免它被改回成普通失败。
+ * 劳动教育把“token 无效”塞进 200 响应体（`{"flag":false,"result":"非法访问"}`），
+ * 不识别就会在界面上原样显示成“非法访问”。这里钉住识别条件，避免它被改回成普通失败。
  */
 class LaborAuthRejectionTest {
 

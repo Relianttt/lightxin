@@ -343,7 +343,7 @@ class HomeViewModel @Inject constructor(
 
     private suspend fun loadLabor(): Pair<HoursSummary?, String?> {
         val result = laborRepository.getHoursSummary()
-        // 劳动教育的 token 失效是 200 + "非法访问"，不是 401；识别出来后归到「校内登录失效」
+        // 劳动教育的 token 失效是 200 + "非法访问"，不是 401；识别出来后归到“校内登录失效”
         if (result.exceptionOrNull()?.isAuthExpired() == true) {
             applySessionAlert(SessionAlert.LoginExpired)
         }

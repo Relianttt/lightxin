@@ -8,7 +8,7 @@ import org.junit.Test
  * 查寝把鉴权失败塞进 200：`{"code":"0","flag":false,"msg":"非法访问"}`。
  *
  * 现场实测 code 是 `"0"`（文档里记的是 `-100`），所以**不能靠 code 判断**：
- * 之前 `code == "0"` 被当成成功，rows/data 都是 null，界面渲染成「暂无签到任务」——
+ * 之前 `code == "0"` 被当成成功，rows/data 都是 null，界面渲染成“暂无签到任务”——
  * 用户以为没有查寝安排，实际是请求被拒。
  */
 class CheckinRejectionTest {

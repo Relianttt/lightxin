@@ -16,6 +16,14 @@
 
     <uses-feature android:name="android.hardware.camera" android:required="false" />
 
+    <!-- targetSdk >= 30：不声明 queries 时，隐式 ACTION_IMAGE_CAPTURE 会被包可见性过滤掉，
+         相机应用存在也会抛 ActivityNotFoundException。 -->
+    <queries>
+        <intent>
+            <action android:name="android.media.action.IMAGE_CAPTURE" />
+        </intent>
+    </queries>
+
     <application
         android:name=".LightXinApp"
         android:allowBackup="false"

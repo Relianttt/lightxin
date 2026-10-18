@@ -123,9 +123,9 @@ fun RunningSimScreen(
                             Spacer(modifier = Modifier.height(2.dp))
                             Text(
                                 text = if (uiState.templateCount > 0)
-                                    "未设置默认模板，前往「我的 / 路线模拟」选一条"
+                                    "未设置默认模板，前往“我的 / 路线模拟”选一条"
                                 else
-                                    "尚无模板，前往「我的 / 路线模拟」录制一条",
+                                    "尚无模板，前往“我的 / 路线模拟”录制一条",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )

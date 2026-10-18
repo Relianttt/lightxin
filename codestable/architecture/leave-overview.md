@@ -68,9 +68,9 @@ depends_on: [network-overview, navigation-overview]
 
 ### 2.4 UI 流程
 
-- `LeaveListScreen`：状态 chip（3 进行中 / 1 全部）、下拉刷新、触底加载、FAB 发起
-- `LeaveCreateScreen`：按字段类型渲染；日期区间用 DatePicker + TimePicker 两段；附件支持文件/相册/拍照；底部暂存 + 提交
-- `LeaveDetailScreen`：状态卡 + 只读字段 + 撤回 + 销假
+- `LeaveListScreen`：进行中 / 全部切换、下拉刷新、触底加载；行首日期块 + 标题 + 状态点，右上「发起」，无 FAB。标题从 `flowTitle` 提取已知请假类型（病假/事假等）显示为「病假申请」，取不到时回落「学生请假申请」；列表接口没有起止时间，日期范围只在详情展示
+- `LeaveCreateScreen`：按字段类型渲染；日期区间用自绘 `LxDateTimeSheet`（月历 + 时分 stepper）；附件支持文件/相册/拍照；顶部暂存 + 底部提交
+- `LeaveDetailScreen`：状态块 + 三步进度 + 时间块 + 字段网格 + 销假；撤回走底部确认弹层
 - 提交成功 `popBackStack()`，列表通过 `savedStateHandle["leave_refresh"]` 刷新
 
 真机校准（2026-10-18）：
@@ -81,6 +81,8 @@ depends_on: [network-overview, navigation-overview]
 - `getXjxx.do` 返回展示信息而非可回写表单，只在含 `QJRQ/dataJson/flowTitle` 时显示提交按钮
 
 `ADDRESS` 只做纯文本输入 —— 遵守项目「无地图 SDK」硬约束，不做地点选择器。
+
+拍照入口对 `ActivityNotFoundException` 做兜底（提示从相册选择）；本机 Pixel 4 / Android 13 仍无法拉起系统相机，属已知问题，见 `.agents/notes/2026-10-18-learning-camera-intent-not-found.md`。
 
 ## 3. 数据与状态
 

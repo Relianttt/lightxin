@@ -22,7 +22,7 @@ import androidx.compose.ui.unit.dp
 /**
  * 全项目统一的动效 token。
  *
- * 基调：借「连续性」而不借「弹」——所有 spring 走临界阻尼（dampingRatio = 1f），
+ * 基调：借“连续性”而不借“弹”——所有 spring 走临界阻尼（dampingRatio = 1f），
  * 交互反馈 ≤ 100ms、状态过渡 ≤ 200ms、页面转场 ≤ 260ms；不做回弹、视差、无限装饰动画。
  * 参数只在这里改，组件与页面不各自写数字。
  */

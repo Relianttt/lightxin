@@ -57,7 +57,7 @@ class RouteTemplateStore @Inject constructor(
     }
 
     /**
-     * 一次性注入「系统模板」：
+     * 一次性注入“系统模板”：
      * - 标记文件存在即跳过，因此删除后重启不会复活；
      * - 仅当模板列表为空时读 assets，已有用户模板时只写标记、不打扰。
      */

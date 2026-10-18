@@ -14,7 +14,7 @@ private const val PROBE_LOG_TAG = "AiClassProbe"
 /**
  * 会话体检结论。**只有 [Blocked] 与 [LoginExpired] 该在首页提示**，其余三种都必须沉默：
  * [Skipped] 是没用过 AI课堂，[Inconclusive] 是断网 / 超时 / 服务端异常 —— 把断网说成
- * 「你被人顶号了」，用户会去做一次毫无意义的重新登录，还要把官方 App 顶下线。
+ * “你被人顶号了”，用户会去做一次毫无意义的重新登录，还要把官方 App 顶下线。
  */
 enum class AiClassSessionCheck { Skipped, Healthy, Blocked, LoginExpired, Inconclusive }
 
@@ -35,8 +35,8 @@ class AiClassSessionGuard @Inject constructor(
 ) {
     suspend fun checkOnLaunch(): AiClassSessionCheck {
         val outcome = withTimeoutOrNull(CHECK_TIMEOUT_MS) {
-            // 判据是「用过 AI课堂」，不是「有 FIF token」：被顶号时 SSO 失败、token 不会落盘，
-            // 用 token 当判据会把「用过但正被顶」误判成「从没用过」，横幅永远不会亮。
+            // 判据是“用过 AI课堂”，不是“有 FIF token”：被顶号时 SSO 失败、token 不会落盘，
+            // 用 token 当判据会把“用过但正被顶”误判成“从没用过”，横幅永远不会亮。
             if (!fifSession.isFifUsed()) {
                 return@withTimeoutOrNull AiClassSessionCheck.Skipped to null
             }
@@ -74,7 +74,7 @@ class AiClassSessionGuard @Inject constructor(
 }
 
 /**
- * 失败归因。只有「服务端明确不认这个身份」才算被顶号：
+ * 失败归因。只有“服务端明确不认这个身份”才算被顶号：
  *
  * - `ACCOUNT_INFO`：映射接口返回了结构但没有用户标识 —— 服务端已经把这个账号重新映射走了；
  * - 全新 token 收到 401 / 403：同样是服务端拒绝这个身份。

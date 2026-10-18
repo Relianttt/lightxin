@@ -148,15 +148,14 @@ class RepairCreateViewModel @Inject constructor(
             val campus = defaultCampus?.first?.takeIf { it.isNotBlank() }
                 ?.let { xqdm -> nodes.firstOrNull { it.value == xqdm } }
                 ?: RepairCascade.roots(nodes).firstOrNull()
-            val building = campus?.let { RepairCascade.childrenOf(nodes, it.value).firstOrNull() }
             _uiState.update {
                 it.copy(
                     isLoading = false,
                     addressNodes = nodes,
                     typeNodes = types.getOrDefault(emptyList()),
                     xqdm = campus?.value.orEmpty(),
-                    lyId = building?.value.orEmpty(),
-                    qyfjh = RepairCascade.childrenOf(nodes, building?.value.orEmpty()).firstOrNull()?.value.orEmpty(),
+                    lyId = "",
+                    qyfjh = "",
                     sjh = contact?.second.orEmpty(),
                     xm = contact?.first.orEmpty(),
                 )
@@ -165,24 +164,21 @@ class RepairCreateViewModel @Inject constructor(
     }
 
     fun selectCampus(value: String) {
-        val building = RepairCascade.childrenOf(_uiState.value.addressNodes, value).firstOrNull()
-        val room = RepairCascade.childrenOf(_uiState.value.addressNodes, building?.value.orEmpty()).firstOrNull()
         _uiState.update {
             it.copy(
                 xqdm = value,
-                lyId = building?.value.orEmpty(),
-                qyfjh = room?.value.orEmpty(),
+                lyId = "",
+                qyfjh = "",
                 errors = it.errors - "location",
             )
         }
     }
 
     fun selectBuilding(value: String) {
-        val room = RepairCascade.childrenOf(_uiState.value.addressNodes, value).firstOrNull()
         _uiState.update {
             it.copy(
                 lyId = value,
-                qyfjh = room?.value.orEmpty(),
+                qyfjh = "",
                 errors = it.errors - "location",
             )
         }

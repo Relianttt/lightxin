@@ -53,7 +53,7 @@ fun LxButton(
     }
 }
 
-/** 次按钮：sand 填充 + ink-muted 字（原型欢迎页「暂不进入」样式） */
+/** 次按钮：sand 填充 + ink-muted 字（原型欢迎页“暂不进入”样式） */
 @Composable
 fun LxSecondaryButton(
     text: String,

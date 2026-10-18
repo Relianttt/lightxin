@@ -6,7 +6,6 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -20,17 +19,11 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.ArrowDropDown
+import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Close
-import androidx.compose.material.icons.outlined.HomeRepairService
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -54,22 +47,31 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.FileProvider
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil3.compose.AsyncImage
-import com.lightxin.core.designsystem.component.LxButton
-import com.lightxin.core.designsystem.component.LxCard
-import com.lightxin.core.designsystem.component.LxChoiceChip
-import com.lightxin.core.designsystem.component.LxLoading
-import com.lightxin.core.designsystem.component.LxOutlinedButton
-import com.lightxin.core.designsystem.component.LxTextField
-import com.lightxin.core.designsystem.component.LxTopBar
-import com.lightxin.core.designsystem.theme.LxCream
-import com.lightxin.core.designsystem.theme.LxError
-import com.lightxin.core.designsystem.theme.LxInk
-import com.lightxin.core.designsystem.theme.LxInkMuted
-import com.lightxin.core.designsystem.theme.LxSandDeep
-import com.lightxin.core.designsystem.theme.LxTerra
+import com.lightxin.core.designsystem.component.LxErrorState
+import com.lightxin.core.designsystem.component.LxField
+import com.lightxin.core.designsystem.component.LxGroupCard
+import com.lightxin.core.designsystem.component.LxGroupRow
+import com.lightxin.core.designsystem.component.LxInput
+import com.lightxin.core.designsystem.component.LxNavBar
+import com.lightxin.core.designsystem.component.LxOptionSheet
+import com.lightxin.core.designsystem.component.LxPageHeader
+import com.lightxin.core.designsystem.component.LxPill
+import com.lightxin.core.designsystem.component.LxPrimaryButton
+import com.lightxin.core.designsystem.component.LxSectionLabel
+import com.lightxin.core.designsystem.component.LxSkeletonList
+import com.lightxin.core.designsystem.component.LxTextAction
+import com.lightxin.core.designsystem.component.LxTextArea
+import com.lightxin.core.designsystem.theme.LxAccent
+import com.lightxin.core.designsystem.theme.LxCanvas
+import com.lightxin.core.designsystem.theme.LxDanger
+import com.lightxin.core.designsystem.theme.LxText
+import com.lightxin.core.designsystem.theme.LxTextMuted
+import com.lightxin.core.designsystem.theme.LxTint
 import com.lightxin.feature.repair.domain.RepairNode
 import kotlinx.coroutines.launch
 import java.io.File
+
+private enum class AddressPicker { Building, Room }
 
 @Composable
 fun RepairCreateScreen(
@@ -82,6 +84,7 @@ fun RepairCreateScreen(
     val context = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+    var addressPicker by remember { mutableStateOf<AddressPicker?>(null) }
 
     var pendingCameraUri by remember { mutableStateOf<Uri?>(null) }
     var pendingCameraFile by remember { mutableStateOf<File?>(null) }
@@ -106,7 +109,9 @@ fun RepairCreateScreen(
     ) { granted ->
         val uri = pendingCameraUri
         if (granted && uri != null) {
-            cameraLauncher.launch(uri)
+            runCatching { cameraLauncher.launch(uri) }.onFailure {
+                scope.launch { snackbarHostState.showSnackbar("没有可用的相机应用，请从相册选择") }
+            }
         } else {
             scope.launch { snackbarHostState.showSnackbar("需要相机权限才能拍照") }
         }
@@ -124,164 +129,156 @@ fun RepairCreateScreen(
             viewModel.clearMessage()
         }
     }
+    // 当前只有一个校区：自动选中，界面不再暴露“校区”这一层。
+    LaunchedEffect(uiState.campusNodes) {
+        if (uiState.xqdm.isBlank() && uiState.campusNodes.size == 1) {
+            viewModel.selectCampus(uiState.campusNodes.first().value)
+        }
+    }
 
     Scaffold(
         modifier = modifier,
-        containerColor = MaterialTheme.colorScheme.background,
-        topBar = { LxTopBar(title = "新建报修", onBack = onBack) },
+        containerColor = LxCanvas,
+        topBar = { LxNavBar(onBack = onBack) },
         snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { padding ->
-        if (uiState.isLoading) {
-            LxLoading(modifier = Modifier.padding(padding))
-            return@Scaffold
-        }
-        if (uiState.loadError != null) {
-            Column(
-                modifier = Modifier.padding(padding).padding(20.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
+        when {
+            uiState.isLoading -> LxSkeletonList(count = 5, modifier = Modifier.padding(padding))
+            uiState.loadError != null -> Box(
+                modifier = Modifier.padding(padding).fillMaxSize().padding(24.dp),
+                contentAlignment = Alignment.Center,
             ) {
-                Text(text = uiState.loadError.orEmpty(), color = LxError, fontSize = 14.sp)
-                LxOutlinedButton(text = "重新加载", onClick = viewModel::load)
+                LxErrorState(message = uiState.loadError.orEmpty(), onRetry = viewModel::load)
             }
-            return@Scaffold
-        }
+            else -> LazyColumn(
+                modifier = Modifier.padding(padding).fillMaxSize(),
+                contentPadding = PaddingValues(horizontal = 24.dp, vertical = 2.dp),
+            ) {
+                item {
+                    LxPageHeader(title = "新建报修", subtitle = "后勤受理后会电话联系你")
+                    Spacer(Modifier.height(4.dp))
+                }
 
-        LazyColumn(
-            modifier = Modifier.padding(padding).fillMaxSize(),
-            contentPadding = PaddingValues(horizontal = 20.dp, vertical = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
-        ) {
-            item {
-                LxCard {
-                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Text(
-                            text = "报修地点",
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = LxInk,
-                        )
-                        RepairDropdown(
-                            label = "校区",
-                            value = uiState.campusName,
-                            nodes = uiState.campusNodes,
-                            onSelect = viewModel::selectCampus,
-                        )
-                        RepairDropdown(
-                            label = "楼栋",
-                            value = uiState.buildingName,
-                            nodes = uiState.buildingNodes,
-                            onSelect = viewModel::selectBuilding,
-                        )
-                        RepairDropdown(
-                            label = "房间",
-                            value = uiState.roomName,
-                            nodes = uiState.roomNodes,
-                            onSelect = viewModel::selectRoom,
-                        )
-                        uiState.errors["location"]?.let {
-                            Text(text = it, color = LxError, fontSize = 12.sp)
+                item {
+                    LxField(label = "报修地点", required = true) {
+                        LxGroupCard {
+                            LxGroupRow(
+                                label = "楼栋",
+                                value = uiState.buildingName,
+                                placeholder = "请选择",
+                                enabled = uiState.buildingNodes.isNotEmpty(),
+                                onClick = { addressPicker = AddressPicker.Building },
+                            )
+                            LxGroupRow(
+                                label = "房间",
+                                value = uiState.roomName,
+                                placeholder = "请选择",
+                                enabled = uiState.roomNodes.isNotEmpty(),
+                                onClick = { addressPicker = AddressPicker.Room },
+                            )
                         }
-                        LxTextField(
+                        uiState.errors["location"]?.let {
+                            Text(
+                                text = it,
+                                fontSize = 12.sp,
+                                color = LxDanger,
+                                modifier = Modifier.padding(top = 6.dp),
+                            )
+                        }
+                    }
+                    LxField(label = "详细地址", required = true, error = uiState.errors["xxdz"]) {
+                        LxInput(
                             value = uiState.xxdz,
                             onValueChange = viewModel::setXxdz,
-                            label = "详细地址（如 A36M214）*",
+                            placeholder = "如 A36M214",
                         )
-                        uiState.errors["xxdz"]?.let { Text(text = it, color = LxError, fontSize = 12.sp) }
                     }
                 }
-            }
 
-            item {
-                LxCard {
-                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Text(
-                            text = "报修类型",
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = LxInk,
-                        )
-                        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            items(uiState.typeRoots, key = { it.value }) { node ->
-                                LxChoiceChip(
-                                    text = node.name,
-                                    selected = uiState.typeRoot == node.value,
-                                    onClick = { viewModel.selectTypeRoot(node.value) },
+                item {
+                    LxField(
+                        label = "报修类型",
+                        required = true,
+                        error = uiState.errors["bxlx"],
+                    ) {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            TypePills(
+                                nodes = uiState.typeRoots,
+                                selected = uiState.typeRoot,
+                                onSelect = viewModel::selectTypeRoot,
+                            )
+                            if (uiState.typeChildren.isNotEmpty()) {
+                                TypePills(
+                                    nodes = uiState.typeChildren,
+                                    selected = uiState.bxlx,
+                                    onSelect = viewModel::selectType,
                                 )
                             }
                         }
-                        if (uiState.typeChildren.isNotEmpty()) {
-                            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                items(uiState.typeChildren, key = { it.value }) { node ->
-                                    LxChoiceChip(
-                                        text = node.name,
-                                        selected = uiState.bxlx == node.value,
-                                        onClick = { viewModel.selectType(node.value) },
-                                    )
-                                }
+                    }
+                }
+
+                item {
+                    LxField(label = "联系电话", required = true, error = uiState.errors["sjh"]) {
+                        if (uiState.xm.isNotBlank()) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                            ) {
+                                Text(text = "报修人", fontSize = 13.sp, color = LxTextMuted)
+                                Text(
+                                    text = uiState.xm,
+                                    fontSize = 13.5.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = LxText,
+                                )
                             }
                         }
-                        uiState.errors["bxlx"]?.let { Text(text = it, color = LxError, fontSize = 12.sp) }
-                    }
-                }
-            }
-
-            item {
-                LxCard {
-                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Text(
-                            text = "联系方式",
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = LxInk,
-                        )
-                        if (uiState.xm.isNotBlank()) {
-                            Text(text = "报修人 ${uiState.xm}", fontSize = 12.sp, color = LxInkMuted)
-                        }
-                        LxTextField(
+                        LxInput(
                             value = uiState.sjh,
                             onValueChange = viewModel::setPhone,
-                            label = "手机号 *",
+                            placeholder = "11 位手机号",
                         )
-                        uiState.errors["sjh"]?.let { Text(text = it, color = LxError, fontSize = 12.sp) }
-                        LxTextField(
-                            value = uiState.gzms,
-                            onValueChange = viewModel::setGzms,
-                            label = "故障描述 *",
-                            singleLine = false,
-                        )
-                        uiState.errors["gzms"]?.let { Text(text = it, color = LxError, fontSize = 12.sp) }
                     }
                 }
-            }
 
-            item {
-                LxCard {
-                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Text(
-                            text = "现场图片（最多 3 张）",
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = LxInk,
+                item {
+                    LxField(label = "故障描述", required = true, error = uiState.errors["gzms"]) {
+                        LxTextArea(
+                            value = uiState.gzms,
+                            onValueChange = viewModel::setGzms,
+                            placeholder = "型号、现象、什么时候开始的",
                         )
-                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    }
+                }
+
+                item {
+                    LxField(label = "现场图片") {
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
                             uiState.images.forEach { file ->
                                 Box(
-                                    modifier = Modifier.size(76.dp).clip(RoundedCornerShape(10.dp)),
+                                    modifier = Modifier
+                                        .size(76.dp)
+                                        .clip(RoundedCornerShape(9.dp))
+                                        .background(LxTint),
                                 ) {
                                     AsyncImage(
                                         model = file,
                                         contentDescription = null,
                                         contentScale = ContentScale.Crop,
-                                        modifier = Modifier.fillMaxSize().background(LxCream),
+                                        modifier = Modifier.fillMaxSize(),
                                     )
                                     Icon(
-                                        Icons.Outlined.Close,
+                                        imageVector = Icons.Outlined.Close,
                                         contentDescription = "移除",
-                                        tint = LxInk,
+                                        tint = LxText,
                                         modifier = Modifier
                                             .align(Alignment.TopEnd)
-                                            .padding(4.dp)
-                                            .size(18.dp)
+                                            .padding(5.dp)
+                                            .size(16.dp)
                                             .clickable { viewModel.removeImage(file) },
                                     )
                                 }
@@ -290,33 +287,33 @@ fun RepairCreateScreen(
                                 Box(
                                     modifier = Modifier
                                         .size(76.dp)
-                                        .clip(RoundedCornerShape(10.dp))
-                                        .background(LxCream)
-                                        .border(1.dp, LxSandDeep, RoundedCornerShape(10.dp)),
+                                        .clip(RoundedCornerShape(9.dp))
+                                        .background(LxTint)
+                                        .clickable {
+                                            albumLauncher.launch(
+                                                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
+                                            )
+                                        },
                                     contentAlignment = Alignment.Center,
                                 ) {
                                     Icon(
-                                        Icons.Outlined.HomeRepairService,
-                                        contentDescription = null,
-                                        tint = LxInkMuted,
+                                        imageVector = Icons.Outlined.Add,
+                                        contentDescription = "添加图片",
+                                        tint = LxTextMuted,
                                     )
                                 }
                             }
                         }
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            LxOutlinedButton(
-                                text = "从相册选择",
-                                onClick = {
-                                    if (uiState.images.size < 3) {
-                                        albumLauncher.launch(
-                                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
-                                        )
-                                    }
-                                },
-                                modifier = Modifier.weight(1f),
-                                enabled = uiState.images.size < 3,
+                        Row(
+                            modifier = Modifier.padding(top = 2.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                text = "最多 3 张，点方块从相册选择",
+                                fontSize = 11.sp,
+                                color = LxTextMuted,
                             )
-                            LxOutlinedButton(
+                            LxTextAction(
                                 text = "拍照",
                                 onClick = {
                                     if (uiState.images.size < 3) {
@@ -328,72 +325,70 @@ fun RepairCreateScreen(
                                             "${context.packageName}.fileprovider",
                                             file,
                                         )
-                                        cameraPermission.launch(Manifest.permission.CAMERA)
+                                        runCatching { cameraPermission.launch(Manifest.permission.CAMERA) }.onFailure {
+                                            scope.launch { snackbarHostState.showSnackbar("没有可用的相机应用，请从相册选择") }
+                                        }
                                     }
                                 },
-                                modifier = Modifier.weight(1f),
                                 enabled = uiState.images.size < 3,
+                                color = LxAccent,
                             )
                         }
                     }
                 }
-            }
 
-            item {
-                LxButton(
-                    text = if (uiState.isSubmitting) "提交中…" else "提交报修",
-                    onClick = viewModel::submit,
-                    enabled = !uiState.isSubmitting,
-                )
-                Spacer(modifier = Modifier.height(20.dp))
+                item {
+                    LxPrimaryButton(
+                        text = if (uiState.isSubmitting) "提交中…" else "提交报修",
+                        onClick = viewModel::submit,
+                        enabled = !uiState.isSubmitting,
+                        modifier = Modifier.padding(top = 10.dp),
+                    )
+                    Spacer(Modifier.height(28.dp))
+                }
             }
         }
+    }
+
+    val nodes: List<RepairNode> = when (addressPicker) {
+        AddressPicker.Building -> uiState.buildingNodes
+        AddressPicker.Room -> uiState.roomNodes
+        null -> emptyList()
+    }
+    if (addressPicker != null) {
+        LxOptionSheet(
+            title = if (addressPicker == AddressPicker.Building) "选择楼栋" else "选择房间",
+            options = nodes.map { it.name to it.value },
+            selectedValue = if (addressPicker == AddressPicker.Building) uiState.lyId else uiState.qyfjh,
+            onSelect = { _, value ->
+                if (addressPicker == AddressPicker.Building) viewModel.selectBuilding(value)
+                else viewModel.selectRoom(value)
+            },
+            onDismiss = { addressPicker = null },
+        )
     }
 }
 
 @Composable
-private fun RepairDropdown(
-    label: String,
-    value: String,
+private fun TypePills(
     nodes: List<RepairNode>,
+    selected: String,
     onSelect: (String) -> Unit,
 ) {
-    var expanded by remember { mutableStateOf(false) }
-    Box {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(50.dp)
-                .clip(MaterialTheme.shapes.small)
-                .background(LxCream)
-                .border(1.dp, LxSandDeep, MaterialTheme.shapes.small)
-                .clickable(enabled = nodes.isNotEmpty()) { expanded = true }
-                .padding(horizontal = 14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = label,
-                fontSize = 12.sp,
-                color = LxInkMuted,
-                modifier = Modifier.padding(end = 12.dp),
-            )
-            Text(
-                text = value.ifBlank { if (nodes.isEmpty()) "暂无可选项" else "请选择" },
-                fontSize = 14.sp,
-                color = if (value.isBlank()) LxInkMuted else LxInk,
-                modifier = Modifier.weight(1f),
-            )
-            Icon(Icons.Outlined.ArrowDropDown, contentDescription = null, tint = LxInkMuted)
-        }
-        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            nodes.forEach { node ->
-                DropdownMenuItem(
-                    text = { Text(node.name) },
-                    onClick = {
-                        expanded = false
-                        onSelect(node.value)
-                    },
-                )
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        nodes.chunked(3).forEach { row ->
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                row.forEach { node ->
+                    LxPill(
+                        text = node.name,
+                        selected = selected == node.value,
+                        onClick = { onSelect(node.value) },
+                        modifier = Modifier.weight(1f),
+                        height = 44.dp,
+                        maxLines = 2,
+                    )
+                }
+                repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
             }
         }
     }

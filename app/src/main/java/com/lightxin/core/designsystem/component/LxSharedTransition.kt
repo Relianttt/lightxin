@@ -10,7 +10,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Rect
 
 /**
- * 共享元素只做「位置 + 尺寸」的连续性，使用临界阻尼，不做缩放文字/圆角 morph。
+ * 共享元素只做“位置 + 尺寸”的连续性，使用临界阻尼，不做缩放文字/圆角 morph。
  * 若导航层未提供 scope（或系统关闭动画），直接返回原 Modifier，等价位移动画。
  */
 @OptIn(ExperimentalSharedTransitionApi::class)
