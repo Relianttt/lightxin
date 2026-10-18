@@ -150,7 +150,7 @@ RPill = 20dp  → 胶囊（Badge / 周选择器 chip）   → shapes.extraLarge
 
 ### 2.7.1 Claude 并行层（2026-10-18）
 
-在旧 `Color.kt / LxCard / LxTopBar / LxChoiceChip…` 之外新增一套并行实现，只有请假 / 报修 / 路线模板三组页面使用：
+在旧 `Color.kt / LxCard / LxTopBar / LxChoiceChip…` 之外新增一套并行实现，请假 / 报修 / 路线模板 / 学工在线（查寝列表）使用：
 
 | 文件 | 内容 | 说明 |
 |---|---|---|

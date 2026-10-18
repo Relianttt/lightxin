@@ -23,7 +23,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Apps
-import androidx.compose.material.icons.outlined.Bed
+import androidx.compose.material.icons.outlined.Groups
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Route
 import androidx.compose.material.icons.outlined.School
@@ -141,8 +141,8 @@ fun ProfileScreen(
         LxCard {
             Column {
                 ProfileMenuRow(
-                    icon = Icons.Outlined.Bed,
-                    title = "查寝签到",
+                    icon = Icons.Outlined.Groups,
+                    title = "学工在线",
                     onClick = onNavigateCheckin,
                 )
                 MenuDivider()

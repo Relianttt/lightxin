@@ -1,15 +1,15 @@
 ---
 doc_type: architecture
 slug: checkin-overview
-scope: feature/checkin/ 的查寝签到全流程（任务列表 / 详情 / 拍照 / 定位 / 提交），并作为 fdygl 域同源任务的寄生入口（当前承载节假日离返校登记，未来可扩返校登记等同源任务）
-summary: checkin 以分页列表 + 详情两页式交互，详情页集成了原生定位（WGS-84 → BD-09 坐标转换）、照片上传、与多字段鉴权提交；独立 FileUploadApi 处理图片上传。列表页同时双 section 承载同 fdygl 域的节假日任务（feature/holiday/），数据各自独立加载、错误彼此隔离、UI 共用一屏
+scope: 学工在线（feature/checkin/）的查寝签到全流程（任务列表 / 详情 / 拍照 / 定位 / 提交），并作为 fdygl 域同源任务的合并入口（当前承载离校登记，未来可扩返校登记）
+summary: 学工在线的列表页用两个 tab 承载查寝与离校登记（左查寝右离校登记，可左右滑动）；checkin 以分页列表 + 详情两页式交互，详情页集成了原生定位（WGS-84 → BD-09 坐标转换）、照片上传、与多字段鉴权提交；离校登记数据来自 feature/holiday/，与查寝各自加载、错误隔离
 status: current
-last_reviewed: 2026-05-03
+last_reviewed: 2026-10-18
 tags: [checkin, sign-in, location, photo-upload, pagination, holiday]
 depends_on: [network-overview]
 ---
 
-# 查寝模块总览
+# 学工在线（查寝 / 离校登记）模块总览
 
 ## 0. 术语
 
@@ -100,26 +100,28 @@ CheckinDetailScreen  → CheckinDetailViewModel → CheckinRepository → Checki
 
 这是对后端不一致响应结构的防御性处理。
 
-### 2.6 列表页同时承载 fdygl 域同源任务（节假日 / 未来返校登记）
+### 2.6 学工在线：查寝 + 离校登记两个 tab
 
-`CheckinListScreen` 不是纯查寝列表，而是 fdygl 域（`fdygl.aiit.edu.cn`）同源任务的统一入口：
+`CheckinListScreen` 的产品名是「学工在线」，承载 fdygl 域（`fdygl.aiit.edu.cn`）同源任务：
 
-- 查寝任务（`tasks: List<CheckinTask>`）— 主流程，§2.1–2.5 覆盖
-- 节假日离返校登记任务（`holidayTasks: List<HolidayTask>` + `holidayError: String?`）— 寄生 section，数据来自 `feature/holiday/data/HolidayRepository`
+- 左 tab「查寝」（`tasks: List<CheckinTask>`）— 主流程，§2.1–2.5 覆盖
+- 右 tab「离校登记」（`holidayTasks: List<HolidayTask>` + `holidayError: String?`）— 数据来自 `feature/holiday/data/HolidayRepository`
 
-两组数据由 `CheckinViewModel` 在 `init` 中并发触发（`loadInitial()` + `loadHolidays()`）但状态彼此隔离——查寝主流程的 `error` / `isLoading` 不被节假日加载影响；节假日加载失败只在 section 顶部显示错误行，可独立重试（`retryHoliday()`）不触发主流程刷新。`CheckinListScreen` 用两个 LazyColumn section 渲染，分别走 `TaskCard` / `HolidayTaskCard`，section header 区分。
+两组数据由 `CheckinViewModel` 在 `init` 中并发触发（`loadInitial()` + `loadHolidays()`）但状态彼此隔离——查寝主流程的 `error` / `isLoading` 不被离校登记加载影响；离校登记失败只在右 tab 显示错误，可独立重试（`retryHoliday()`）不触发主流程刷新。
 
-节假日除"列表页入口"外完全独立——独立 Api / Repository / 路由 / ViewModel / 表单页。复用查寝模块的只有：
+`CheckinListScreen` 使用 `LxPageHeader` + `LxFilterTabs`（分段 tab，左「查寝」右「离校登记」），默认停在查寝；两个 tab 共用页头与导航栏，支持 `Modifier.lxHorizontalSwipe()` 左右滑动切换。查寝被 `非法访问` 拒绝时，恢复卡片只占查寝 tab，离校登记仍可使用。列表行统一为「标题 + 状态行」（未签到/已签到、待登记/已登记 + 时间范围）。
+
+离校登记除"列表页入口"外完全独立——独立 Api / Repository / 路由 / ViewModel / 表单页。复用查寝模块的只有：
 
 - `@CheckinRetrofit`（同 fdygl 域，没必要新建实例）
-- `AuthInterceptor` 的 fdygl 档（多 header 鉴权对节假日同样有效）
-- 列表页本身（作为入口寄生）
+- `AuthInterceptor` 的 fdygl 档（多 header 鉴权对离校登记同样有效）
+- 学工在线列表页本身（作为入口）
 
-`HolidayApi` 由 `HolidayModule` 通过 `@CheckinRetrofit` 提供，`HolidayRepository` 直接注入 API，不在构造函数内自行 `retrofit.create()`。这样节假日和查寝同源接口共用同一个 fdygl 网络栈，同时保持 Repository 只依赖业务 API。
+`HolidayApi` 由 `HolidayModule` 通过 `@CheckinRetrofit` 提供，`HolidayRepository` 直接注入 API，不在构造函数内自行 `retrofit.create()`。这样离校登记和查寝同源接口共用同一个 fdygl 网络栈，同时保持 Repository 只依赖业务 API。
 
-这种"主任务 + 同域寄生 section"模式有意为后续同 fdygl 域扩展（如返校登记、其他学工在线任务）预留——新增同类任务时沿用 `holidayTasks` / `holidayError` / `retryHoliday` 这套字段命名与并发加载风格，不必单独建一级导航或独立 tab。
+这种"学工在线 + 同域任务 tab"模式有意为后续同 fdygl 域扩展（如返校登记）预留——新增同类任务时沿用 `holidayTasks` / `holidayError` / `retryHoliday` 这套字段命名与并发加载风格，再加一个 tab，不必单独建一级导航。
 
-锚点：`feature/checkin/ui/CheckinViewModel.kt:14-26,38-42,66-87,113-115` / `feature/checkin/ui/CheckinListScreen.kt:140-157` / `feature/holiday/data/HolidayRepository.kt:22-25,204-209` / `codestable/features/2026-04-28-holiday-leave-register/holiday-leave-register-design.md`。
+锚点：`feature/checkin/ui/CheckinViewModel.kt` / `feature/checkin/ui/CheckinListScreen.kt` / `feature/holiday/data/HolidayRepository.kt` / `codestable/features/2026-04-28-holiday-leave-register/holiday-leave-register-design.md`。
 
 ## 3. 数据与状态
 
@@ -146,7 +148,7 @@ CheckinDetailScreen  → CheckinDetailViewModel → CheckinRepository → Checki
 - **坐标转换在客户端完成** —— 原生定位得到 WGS-84，上传前转为 BD-09，不依赖地图 SDK。来源：`CheckinDetailViewModel.kt:103-111`、`core/location/CoordinateConverter.kt`。
 - **多 header 鉴权** —— 查寝接口需要 accessToken / access_token / userCode / xh / userType / X-Requested-With / Origin / Referer 共 8 个字段同时携带。来源：`compound/2026-04-22-decision-checkin-multi-header-auth.md`。
 - **照片上传结果启发式解析** —— 后端返回结构不固定，不做严格类型匹配。来源：`CheckinRepository.kt:156-180`。
-- **查寝列表页作为 fdygl 域同源任务的寄生入口** —— 节假日不另开一级导航或独立 tab，CheckinListScreen 双 section 同时渲染查寝与节假日；两套数据加载、错误、重试各自独立。同模式预留给未来同源任务（如返校登记）。来源：`feature/checkin/ui/CheckinViewModel.kt:38-42` / `codestable/features/2026-04-28-holiday-leave-register/holiday-leave-register-design.md` §1。
+- **学工在线 = 查寝 + 离校登记两个 tab** —— 模块入口与会话标题都叫「学工在线」，左「查寝」右「离校登记」，默认查寝、可左右滑动；两套数据加载、错误、重试各自独立，查寝鉴权失败不拖累离校登记。同模式预留给未来同源任务（如返校登记）。来源：`feature/checkin/ui/CheckinListScreen.kt` / `feature/checkin/ui/CheckinViewModel.kt` / `.agents/notes/2026-10-18-decision-mobile-first-ui-revision.md`。
 
 ## 5. 代码锚点
 
@@ -156,7 +158,8 @@ CheckinDetailScreen  → CheckinDetailViewModel → CheckinRepository → Checki
 - `feature/checkin/data/CheckinRepository.kt:97-180` — 照片上传 + 启发式 URL 提取
 - `feature/checkin/data/CheckinRepository.kt:114-138` — 签到提交
 - `feature/checkin/domain/CheckinModels.kt:6-30` — CheckinTask / TaskDetail
-- `feature/checkin/ui/CheckinViewModel.kt:24-92` — 列表分页状态管理
+- `feature/checkin/ui/CheckinViewModel.kt` — 列表分页 + 离校登记状态管理
+- `feature/checkin/ui/CheckinListScreen.kt` — 学工在线两个 tab（查寝 / 离校登记）
 - `feature/checkin/ui/CheckinDetailViewModel.kt:42-164` — 详情 + 定位 + 提交
 - `core/location/CoordinateConverter.kt` — WGS-84 → BD-09 转换
 
@@ -167,7 +170,7 @@ CheckinDetailScreen  → CheckinDetailViewModel → CheckinRepository → Checki
 - **定位超时处理不明确** —— `locationUpdates()` 没有超时机制，若无法定位会持续阻塞。当前依赖用户在 UI 层的交互触发。
 - **照片上传后没有预览确认** —— 选择照片后直接上传，没有让用户确认的中间步骤。
 - **分页使用 `type=1`、`taskMajorType=3` 硬编码** —— 若后端调整类型值需要同步修改。
-- **fdygl 域同源任务寄生时不跟查寝主流程互相影响** —— 节假日（以及未来同模式扩展）的加载、错误、重试各自走独立字段（`holidayTasks` / `holidayError` / `retryHoliday`）。新增同源任务时沿用这套命名，不要塞进查寝主 `error` / `tasks` 通道，否则一处失败会污染另一处的可用性。
+- **fdygl 域同源任务不跟查寝主流程互相影响** —— 离校登记（以及未来同模式扩展）的加载、错误、重试各自走独立字段（`holidayTasks` / `holidayError` / `retryHoliday`）。新增同源任务时沿用这套命名，不要塞进查寝主 `error` / `tasks` 通道，否则一处失败会污染另一处的可用性。
 
 ## 7. 相关文档
 

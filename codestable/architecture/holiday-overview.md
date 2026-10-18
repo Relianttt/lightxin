@@ -2,7 +2,7 @@
 doc_type: architecture
 slug: holiday-overview
 scope: feature/holiday/ 的节假日离返校登记任务、登记表单、与首页/查寝列表页的集成关系
-summary: holiday 是 fdygl 域下的离返校登记功能，独立维护 HolidayApi / HolidayRepository / HolidayRegisterScreen，但入口寄生在首页卡片与查寝列表页双 section 中；网络层复用 @CheckinRetrofit 和 fdygl 多 header 鉴权。
+summary: holiday 是 fdygl 域下的离返校登记功能，独立维护 HolidayApi / HolidayRepository / HolidayRegisterScreen，入口在首页卡片与「学工在线」的「离校登记」tab；网络层复用 @CheckinRetrofit 和 fdygl 多 header 鉴权。
 status: current
 last_reviewed: 2026-05-05
 tags: [holiday, checkin, home, register, fdygl, date-picker]
@@ -25,7 +25,7 @@ depends_on: [checkin-overview, network-overview, home-overview]
 
 - 节假日离返校登记任务列表查询、未登记状态判断、详情配置读取、已有登记回填、保存提交。
 - 节假日登记表单页，以及自定义日期时间选择器。
-- 与 `feature/home/` 首页卡片、`feature/checkin/` 查寝列表页双 section 的集成边界。
+- 与 `feature/home/` 首页卡片、`feature/checkin/` 学工在线「离校登记」tab 的集成边界。
 
 不覆盖：
 
@@ -110,16 +110,16 @@ TokenManager.getUserCode() 作为 studentId
 
 holiday 没进 `HomeBootstrap` 冷启动预加载；它属于首页附加数据，加载失败不应阻塞首页主路径。该边界来自已完成的 feature 方案与验收：`codestable/features/2026-04-28-holiday-leave-register/holiday-leave-register-design.md:36-38` / `codestable/features/2026-04-28-holiday-leave-register/holiday-leave-register-acceptance.md:52-58`。
 
-### 2.6 查寝列表页入口：fdygl 同源任务双 section
+### 2.6 学工在线入口：离校登记 tab
 
-holiday 的列表入口寄生在 `CheckinListScreen`，而不是单独开一级导航或独立列表页：
+holiday 的列表入口是 `CheckinListScreen`（学工在线）的右 tab，而不是单独开一级导航或独立列表页：
 
 - `CheckinViewModel` 持有 `holidayTasks / isLoadingHoliday / holidayError`，与查寝主任务状态隔离。锚点：`app/src/main/java/com/lightxin/feature/checkin/ui/CheckinViewModel.kt:16-26`。
 - `CheckinViewModel` 在初始化时并发触发查寝列表和节假日列表加载。锚点：`app/src/main/java/com/lightxin/feature/checkin/ui/CheckinViewModel.kt:38-42`。
-- holiday 加载失败只影响 holiday section，可独立重试。锚点：`app/src/main/java/com/lightxin/feature/checkin/ui/CheckinViewModel.kt:66-87` / `app/src/main/java/com/lightxin/feature/checkin/ui/CheckinViewModel.kt:122-124`。
-- `CheckinListScreen` 通过 `onHolidayClick(holidayId)` 进入表单页。锚点：`app/src/main/java/com/lightxin/feature/checkin/ui/CheckinListScreen.kt:140-157`。
+- 离校登记加载失败只影响「离校登记」tab，可独立重试。锚点：`app/src/main/java/com/lightxin/feature/checkin/ui/CheckinViewModel.kt`。
+- `CheckinListScreen` 通过 `onHolidayClick(holidayId)` 进入表单页；tab 默认查寝，可左右滑动切换。锚点：`app/src/main/java/com/lightxin/feature/checkin/ui/CheckinListScreen.kt`。
 
-这个入口设计让用户仍从“查寝/学工在线任务”场景进入 fdygl 同源任务，同时保持 holiday 自己的数据层和表单页独立。
+这个入口设计让用户从「学工在线」统一进入 fdygl 同源任务，同时保持 holiday 自己的数据层和表单页独立。
 
 ### 2.7 表单页：并发加载配置、已有记录、字典
 
