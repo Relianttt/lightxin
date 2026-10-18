@@ -9,6 +9,8 @@ import android.os.Build
 import android.widget.Toast
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -45,10 +47,17 @@ import com.lightxin.feature.exam.ui.ExamScreen
 import com.lightxin.feature.holiday.ui.HolidayRegisterScreen
 import com.lightxin.feature.home.ui.HomeScreen
 import com.lightxin.feature.labor.ui.LaborSummaryScreen
+import com.lightxin.feature.leave.ui.LeaveCreateScreen
+import com.lightxin.feature.leave.ui.LeaveDetailScreen
+import com.lightxin.feature.leave.ui.LeaveListScreen
+import com.lightxin.feature.repair.ui.RepairCreateScreen
+import com.lightxin.feature.repair.ui.RepairDetailScreen
+import com.lightxin.feature.repair.ui.RepairListScreen
 import com.lightxin.feature.login.ui.LoginScreen
 import com.lightxin.feature.more.ui.MoreFeaturesScreen
 import com.lightxin.feature.onboarding.ui.OnboardingScreen
 import com.lightxin.feature.running.ui.RouteSimulationSettingsScreen
+import com.lightxin.feature.running.ui.RouteTemplateImportScreen
 import com.lightxin.feature.running.ui.RouteTemplateDetailScreen
 import com.lightxin.feature.running.ui.RouteTemplateListScreen
 import com.lightxin.feature.running.ui.RouteTemplateRecordScreen
@@ -60,10 +69,12 @@ import com.lightxin.feature.running.exercise.ui.ExerciseCheckScreen
 import com.lightxin.feature.running.ui.RunningResultScreen
 import com.lightxin.feature.running.ui.RunningSimScreen
 import com.lightxin.feature.running.ui.RunningViewModel
+import com.lightxin.core.designsystem.theme.LxMotion
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 
+@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 fun LightXinNavHost(
     sessionManager: SessionManager,
@@ -185,30 +196,40 @@ fun LightXinNavHost(
         currentOnShortcutConsumed()
     }
 
+    SharedTransitionLayout {
     NavHost(
         navController = navController,
         startDestination = resolvedStartRoute,
         enterTransition = {
             if (suppressTransitions) EnterTransition.None
-            else fadeIn(tween(300)) + slideInHorizontally(tween(300)) { it / 4 }
+            else fadeIn(tween(LxMotion.PageMs, easing = LxMotion.EaseOut)) +
+                slideInHorizontally(tween(LxMotion.PageMs, easing = LxMotion.EaseOut)) {
+                    (it * LxMotion.PageShiftFraction).toInt()
+                }
         },
         exitTransition = {
             if (suppressTransitions) ExitTransition.None
-            else fadeOut(tween(200))
+            else fadeOut(tween(LxMotion.StateMs, easing = LxMotion.EaseOut))
         },
         popEnterTransition = {
             if (suppressTransitions) EnterTransition.None
-            else fadeIn(tween(300)) + slideInHorizontally(tween(300)) { -it / 4 }
+            else fadeIn(tween(LxMotion.StateMs + 40, easing = LxMotion.EaseOut)) +
+                slideInHorizontally(tween(LxMotion.PageMs, easing = LxMotion.EaseOut)) {
+                    (-it * LxMotion.PagePopShiftFraction).toInt()
+                }
         },
         popExitTransition = {
             if (suppressTransitions) ExitTransition.None
-            else fadeOut(tween(200)) + slideOutHorizontally(tween(200)) { it / 4 }
+            else fadeOut(tween(LxMotion.PagePopExitMs, easing = LxMotion.EaseOut)) +
+                slideOutHorizontally(tween(LxMotion.PagePopExitMs, easing = LxMotion.EaseOut)) {
+                    (it * LxMotion.PagePopShiftFraction).toInt()
+                }
         },
     ) {
         composable(
             Routes.ONBOARDING,
-            enterTransition = { fadeIn(tween(400)) },
-            exitTransition = { fadeOut(tween(300)) },
+            enterTransition = { fadeIn(tween(LxMotion.PageMs, easing = LxMotion.EaseOut)) },
+            exitTransition = { fadeOut(tween(LxMotion.StateMs, easing = LxMotion.EaseOut)) },
         ) {
             val context = LocalContext.current
             OnboardingScreen(
@@ -234,8 +255,8 @@ fun LightXinNavHost(
 
         composable(
             Routes.LOGIN,
-            enterTransition = { fadeIn(tween(400)) },
-            exitTransition = { fadeOut(tween(300)) },
+            enterTransition = { fadeIn(tween(LxMotion.PageMs, easing = LxMotion.EaseOut)) },
+            exitTransition = { fadeOut(tween(LxMotion.StateMs, easing = LxMotion.EaseOut)) },
         ) {
             LoginScreen(
                 onLoginSuccess = {
@@ -249,8 +270,8 @@ fun LightXinNavHost(
 
         composable(
             Routes.HOME,
-            enterTransition = { fadeIn(tween(400)) },
-            exitTransition = { fadeOut(tween(200)) },
+            enterTransition = { fadeIn(tween(LxMotion.PageMs, easing = LxMotion.EaseOut)) },
+            exitTransition = { fadeOut(tween(LxMotion.StateMs, easing = LxMotion.EaseOut)) },
         ) {
             HomeScreen(navController = navController, onRelogin = onFifRelogin)
         }
@@ -415,6 +436,9 @@ fun LightXinNavHost(
                 onOpenList = {
                     navController.navigate(Routes.RUNNING_ROUTE_LIST) { launchSingleTop = true }
                 },
+                onOpenImport = {
+                    navController.navigate(Routes.RUNNING_ROUTE_IMPORT) { launchSingleTop = true }
+                },
             )
         }
         composable(Routes.RUNNING_ROUTE_RECORD) { backStackEntry ->
@@ -438,6 +462,8 @@ fun LightXinNavHost(
                 onOpenDetail = { id ->
                     navController.navigate(Routes.runningRouteDetail(id)) { launchSingleTop = true }
                 },
+                sharedTransitionScope = this@SharedTransitionLayout,
+                animatedVisibilityScope = this,
             )
         }
         composable(
@@ -452,6 +478,19 @@ fun LightXinNavHost(
                 viewModel = routeVm,
                 templateId = backStackEntry.arguments?.getString("templateId") ?: "",
                 onBack = { navController.popBackStack() },
+                sharedTransitionScope = this@SharedTransitionLayout,
+                animatedVisibilityScope = this,
+            )
+        }
+        composable(Routes.RUNNING_ROUTE_IMPORT) { backStackEntry ->
+            val settingsEntry = remember(backStackEntry) {
+                navController.getBackStackEntry(Routes.RUNNING_ROUTE_SETTINGS)
+            }
+            val routeVm: RouteTemplateViewModel = hiltViewModel(settingsEntry)
+            RouteTemplateImportScreen(
+                viewModel = routeVm,
+                onBack = { navController.popBackStack() },
+                onImported = { navController.popBackStack() },
             )
         }
 
@@ -551,6 +590,106 @@ fun LightXinNavHost(
                 onNavigateCredit = {
                     navController.navigate(Routes.CREDIT_OVERVIEW) { launchSingleTop = true }
                 },
+                onNavigateLeave = {
+                    navController.navigate(Routes.LEAVE_LIST) { launchSingleTop = true }
+                },
+                onNavigateRepair = {
+                    navController.navigate(Routes.REPAIR_LIST) { launchSingleTop = true }
+                },
+            )
+        }
+
+        // Leave
+        composable(Routes.LEAVE_LIST) { backStackEntry ->
+            val shouldRefresh by backStackEntry.savedStateHandle
+                .getStateFlow("leave_refresh", false)
+                .collectAsState()
+            LeaveListScreen(
+                onBack = { navController.popBackStack() },
+                onCreate = {
+                    navController.navigate(Routes.LEAVE_CREATE) { launchSingleTop = true }
+                },
+                onOpenDetail = { id ->
+                    navController.navigate(Routes.leaveDetail(id)) { launchSingleTop = true }
+                },
+                shouldRefresh = shouldRefresh,
+                onRefreshConsumed = {
+                    backStackEntry.savedStateHandle["leave_refresh"] = false
+                },
+            )
+        }
+        composable(Routes.LEAVE_CREATE) {
+            LeaveCreateScreen(
+                onBack = { navController.popBackStack() },
+                onSubmitted = {
+                    navController.previousBackStackEntry
+                        ?.savedStateHandle
+                        ?.set("leave_refresh", true)
+                    navController.popBackStack()
+                },
+            )
+        }
+        composable(
+            route = Routes.LEAVE_DETAIL,
+            arguments = listOf(navArgument("executionId") { type = NavType.StringType }),
+        ) { backStackEntry ->
+            LeaveDetailScreen(
+                executionId = Uri.decode(backStackEntry.arguments?.getString("executionId").orEmpty()),
+                onBack = { navController.popBackStack() },
+                onChanged = {
+                    navController.previousBackStackEntry
+                        ?.savedStateHandle
+                        ?.set("leave_refresh", true)
+                },
+            )
+        }
+
+        // Repair
+        composable(Routes.REPAIR_LIST) { backStackEntry ->
+            val shouldRefresh by backStackEntry.savedStateHandle
+                .getStateFlow("repair_refresh", false)
+                .collectAsState()
+            RepairListScreen(
+                onBack = { navController.popBackStack() },
+                onCreate = {
+                    navController.navigate(Routes.REPAIR_CREATE) { launchSingleTop = true }
+                },
+                onOpenDetail = { bxdh ->
+                    navController.navigate(Routes.repairDetail(bxdh)) { launchSingleTop = true }
+                },
+                shouldRefresh = shouldRefresh,
+                onRefreshConsumed = {
+                    backStackEntry.savedStateHandle["repair_refresh"] = false
+                },
+                sharedTransitionScope = this@SharedTransitionLayout,
+                animatedVisibilityScope = this,
+            )
+        }
+        composable(Routes.REPAIR_CREATE) {
+            RepairCreateScreen(
+                onBack = { navController.popBackStack() },
+                onSubmitted = {
+                    navController.previousBackStackEntry
+                        ?.savedStateHandle
+                        ?.set("repair_refresh", true)
+                    navController.popBackStack()
+                },
+            )
+        }
+        composable(
+            route = Routes.REPAIR_DETAIL,
+            arguments = listOf(navArgument("bxdh") { type = NavType.StringType }),
+        ) { backStackEntry ->
+            RepairDetailScreen(
+                bxdh = Uri.decode(backStackEntry.arguments?.getString("bxdh").orEmpty()),
+                onBack = { navController.popBackStack() },
+                onChanged = {
+                    navController.previousBackStackEntry
+                        ?.savedStateHandle
+                        ?.set("repair_refresh", true)
+                },
+                sharedTransitionScope = this@SharedTransitionLayout,
+                animatedVisibilityScope = this,
             )
         }
 
@@ -568,6 +707,7 @@ fun LightXinNavHost(
         composable(Routes.ABOUT) {
             AboutScreen(onBack = { navController.popBackStack() })
         }
+    }
     }
 }
 

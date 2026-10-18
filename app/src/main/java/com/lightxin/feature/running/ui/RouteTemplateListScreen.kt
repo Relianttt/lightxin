@@ -1,5 +1,7 @@
 package com.lightxin.feature.running.ui
 
+import androidx.compose.animation.AnimatedVisibilityScope
+import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -24,12 +26,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.lightxin.core.designsystem.component.LxCard
 import com.lightxin.core.designsystem.component.LxEmpty
+import com.lightxin.core.designsystem.component.LxTextButton
 import com.lightxin.core.designsystem.component.LxTopBar
 import com.lightxin.core.designsystem.theme.LxInk
 import com.lightxin.core.designsystem.theme.LxInkMuted
@@ -46,13 +50,25 @@ fun RouteTemplateListScreen(
     onOpenDetail: (String) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: RouteTemplateViewModel = hiltViewModel(),
+    sharedTransitionScope: SharedTransitionScope? = null,
+    animatedVisibilityScope: AnimatedVisibilityScope? = null,
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val context = LocalContext.current
 
     Scaffold(
         modifier = modifier,
         containerColor = MaterialTheme.colorScheme.background,
-        topBar = { LxTopBar(title = "模板管理", onBack = onBack) },
+        topBar = {
+            LxTopBar(title = "模板管理", onBack = onBack) {
+                if (uiState.templates.isNotEmpty()) {
+                    LxTextButton(
+                        text = "导出全部",
+                        onClick = { RouteTemplateExport.shareAll(context, uiState.templates) },
+                    )
+                }
+            }
+        },
     ) { padding ->
         if (uiState.templates.isEmpty()) {
             LxEmpty(
@@ -69,6 +85,8 @@ fun RouteTemplateListScreen(
                     TemplateCard(
                         template = template,
                         onClick = { onOpenDetail(template.id) },
+                        sharedTransitionScope = sharedTransitionScope,
+                        animatedVisibilityScope = animatedVisibilityScope,
                     )
                 }
             }
@@ -80,43 +98,57 @@ fun RouteTemplateListScreen(
 private fun TemplateCard(
     template: RouteTemplate,
     onClick: () -> Unit,
+    sharedTransitionScope: SharedTransitionScope?,
+    animatedVisibilityScope: AnimatedVisibilityScope?,
 ) {
     LxCard(onClick = onClick) {
-        Column(modifier = Modifier.padding(horizontal = 18.dp, vertical = 16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = template.name,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = LxInk,
-                    modifier = Modifier.weight(1f),
-                )
-                if (template.qualityStatus == RouteQualityStatus.WARNING) {
-                    Badge(text = "警告", color = LxWarning)
-                    Spacer(modifier = Modifier.width(6.dp))
-                }
-                if (template.isDefault) {
-                    Badge(text = "默认", color = LxTerra, bg = LxTerraSoft)
-                }
-            }
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = String.format(
-                    "%.2f km · %d 个点 · %s",
-                    template.totalDistanceMeters / 1000.0,
-                    template.pointCount,
-                    formatDate(template.createdAtMillis),
-                ),
-                fontSize = 13.sp,
-                color = LxInkMuted,
+        Row(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            TemplateThumb(
+                templateId = template.id,
+                points = template.points,
+                sharedTransitionScope = sharedTransitionScope,
+                animatedVisibilityScope = animatedVisibilityScope,
             )
-            template.lastUsedAtMillis?.let { used ->
-                Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = template.name,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = LxInk,
+                        modifier = Modifier.weight(1f),
+                    )
+                    if (template.qualityStatus == RouteQualityStatus.WARNING) {
+                        Badge(text = "警告", color = LxWarning)
+                        Spacer(modifier = Modifier.width(6.dp))
+                    }
+                    if (template.isDefault) {
+                        Badge(text = "默认", color = LxTerra, bg = LxTerraSoft)
+                    }
+                }
+                Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = "最近使用 ${formatDate(used)}",
-                    fontSize = 12.sp,
-                    color = LxSage,
+                    text = String.format(
+                        "%.2f km · %d 个点 · %s",
+                        template.totalDistanceMeters / 1000.0,
+                        template.pointCount,
+                        formatDate(template.createdAtMillis),
+                    ),
+                    fontSize = 13.sp,
+                    color = LxInkMuted,
                 )
+                template.lastUsedAtMillis?.let { used ->
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "最近使用 ${formatDate(used)}",
+                        fontSize = 12.sp,
+                        color = LxSage,
+                    )
+                }
             }
         }
     }

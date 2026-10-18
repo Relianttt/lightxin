@@ -38,6 +38,8 @@ import androidx.navigation.NavHostController
 import com.lightxin.core.designsystem.component.LxDialog
 import com.lightxin.core.designsystem.component.LxDialogConfirmTone
 import com.lightxin.core.designsystem.theme.LxInkFaint
+import com.lightxin.core.designsystem.theme.LxMotion
+import com.lightxin.core.designsystem.theme.LxSand
 import com.lightxin.core.designsystem.theme.LxInkMuted
 import com.lightxin.core.designsystem.theme.LxParchment
 import com.lightxin.core.designsystem.theme.LxTerra
@@ -93,7 +95,7 @@ fun HomeScreen(
                             selectedTextColor = MaterialTheme.colorScheme.primary,
                             unselectedIconColor = LxInkFaint,
                             unselectedTextColor = LxInkFaint,
-                            indicatorColor = Color.Transparent,
+                            indicatorColor = LxSand,
                         ),
                     )
                 }
@@ -103,12 +105,17 @@ fun HomeScreen(
         AnimatedContent(
             targetState = selectedTab,
             transitionSpec = {
+                val fadeSpec = tween<Float>(LxMotion.StateMs + 40, easing = LxMotion.EaseOut)
+                val slideSpec = tween<androidx.compose.ui.unit.IntOffset>(
+                    LxMotion.StateMs + 40,
+                    easing = LxMotion.EaseOut,
+                )
                 if (targetState > initialState) {
-                    (slideInHorizontally(tween(300)) { it / 4 } + fadeIn(tween(300)))
-                        .togetherWith(slideOutHorizontally(tween(250)) { -it / 4 } + fadeOut(tween(250)))
+                    (slideInHorizontally(slideSpec) { (it * LxMotion.TabShiftFraction).toInt() } + fadeIn(fadeSpec))
+                        .togetherWith(fadeOut(fadeSpec))
                 } else {
-                    (slideInHorizontally(tween(300)) { -it / 4 } + fadeIn(tween(300)))
-                        .togetherWith(slideOutHorizontally(tween(250)) { it / 4 } + fadeOut(tween(250)))
+                    (slideInHorizontally(slideSpec) { (-it * LxMotion.TabShiftFraction).toInt() } + fadeIn(fadeSpec))
+                        .togetherWith(fadeOut(fadeSpec))
                 }
             },
             label = "tab_content",

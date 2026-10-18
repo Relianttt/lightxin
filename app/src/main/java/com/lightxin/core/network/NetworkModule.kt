@@ -19,6 +19,8 @@ import javax.inject.Singleton
 @Qualifier @Retention(AnnotationRetention.BINARY) annotation class CheckinRetrofit
 @Qualifier @Retention(AnnotationRetention.BINARY) annotation class SportsRetrofit
 @Qualifier @Retention(AnnotationRetention.BINARY) annotation class LaborRetrofit
+@Qualifier @Retention(AnnotationRetention.BINARY) annotation class LeaveRetrofit
+@Qualifier @Retention(AnnotationRetention.BINARY) annotation class RepairRetrofit
 @Qualifier @Retention(AnnotationRetention.BINARY) annotation class CreditRetrofit
 @Qualifier @Retention(AnnotationRetention.BINARY) annotation class FifRetrofit
 @Qualifier @Retention(AnnotationRetention.BINARY) annotation class FifOkHttpClient
@@ -79,6 +81,14 @@ object NetworkModule {
     @Provides @Singleton @LaborRetrofit
     fun provideLaborRetrofit(client: OkHttpClient): Retrofit =
         buildRetrofit(client, ApiConstants.BASE_LABOR + "/")
+
+    @Provides @Singleton @LeaveRetrofit
+    fun provideLeaveRetrofit(client: OkHttpClient): Retrofit =
+        buildRetrofit(client, ApiConstants.BASE_LEAVE + "/")
+
+    @Provides @Singleton @RepairRetrofit
+    fun provideRepairRetrofit(client: OkHttpClient): Retrofit =
+        buildRetrofit(client, ApiConstants.BASE_REPAIR + "/")
 
     // 素质学分：复用主 OkHttpClient，AuthInterceptor 默认分支会向 FormBody 注入
     // access_token/_userCode/userId 等通用字段，cqc.aiit.edu.cn 服务端忽略多余参数。

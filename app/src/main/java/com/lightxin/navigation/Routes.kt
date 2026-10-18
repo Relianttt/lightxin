@@ -25,6 +25,7 @@ object Routes {
     const val RUNNING_ROUTE_SETTINGS = "running/route/settings"
     const val RUNNING_ROUTE_RECORD = "running/route/record"
     const val RUNNING_ROUTE_LIST = "running/route/list"
+    const val RUNNING_ROUTE_IMPORT = "running/route/import"
     const val RUNNING_ROUTE_DETAIL = "running/route/detail/{templateId}"
     fun runningRouteDetail(templateId: String) = "running/route/detail/$templateId"
 
@@ -56,6 +57,18 @@ object Routes {
     const val AICLASS_HOMEWORK_DETAIL = "aiclass/homework/{cwId}/{teachClassId}"
     fun aiClassHomeworkDetail(cwId: String, teachClassId: String) =
         "aiclass/homework/${Uri.encode(cwId)}/${Uri.encode(teachClassId)}"
+
+    // Leave (请假)
+    const val LEAVE_LIST = "leave/list"
+    const val LEAVE_CREATE = "leave/create"
+    const val LEAVE_DETAIL = "leave/detail/{executionId}"
+    fun leaveDetail(executionId: String) = "leave/detail/${Uri.encode(executionId)}"
+
+    // Repair (报修)
+    const val REPAIR_LIST = "repair/list"
+    const val REPAIR_CREATE = "repair/create"
+    const val REPAIR_DETAIL = "repair/detail/{bxdh}"
+    fun repairDetail(bxdh: String) = "repair/detail/${Uri.encode(bxdh)}"
 
     // About
     const val ABOUT = "about"

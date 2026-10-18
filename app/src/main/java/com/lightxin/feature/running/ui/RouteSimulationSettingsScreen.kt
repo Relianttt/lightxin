@@ -19,11 +19,15 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.FiberManualRecord
 import androidx.compose.material.icons.outlined.FormatListBulleted
+import androidx.compose.material.icons.outlined.UploadFile
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -36,6 +40,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.lightxin.core.designsystem.component.LxCard
+import com.lightxin.core.designsystem.component.LxMenuDivider
+import com.lightxin.core.designsystem.component.LxMenuRow
 import com.lightxin.core.designsystem.component.LxTopBar
 import com.lightxin.core.designsystem.theme.LxCream
 import com.lightxin.core.designsystem.theme.LxInk
@@ -53,15 +59,25 @@ fun RouteSimulationSettingsScreen(
     onBack: () -> Unit,
     onOpenRecord: () -> Unit,
     onOpenList: () -> Unit,
+    onOpenImport: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: RouteTemplateViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(uiState.pendingSaveMessage) {
+        uiState.pendingSaveMessage?.let {
+            snackbarHostState.showSnackbar(it)
+            viewModel.clearError()
+        }
+    }
 
     Scaffold(
         modifier = modifier,
         containerColor = MaterialTheme.colorScheme.background,
         topBar = { LxTopBar(title = "路线模拟", onBack = onBack) },
+        snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { padding ->
         LazyColumn(
             modifier = Modifier.padding(padding).fillMaxSize(),
@@ -99,6 +115,12 @@ fun RouteSimulationSettingsScreen(
                         )
                         MenuDivider()
                         RouteMenuRow(
+                            icon = Icons.Outlined.UploadFile,
+                            title = "导入模板",
+                            onClick = onOpenImport,
+                        )
+                        MenuDivider()
+                        RouteMenuRow(
                             icon = Icons.Outlined.FormatListBulleted,
                             title = "管理模板",
                             hint = if (uiState.templates.isEmpty()) "暂无" else "${uiState.templates.size} 个",
@@ -129,37 +151,18 @@ internal fun RouteMenuRow(
     hint: String? = null,
     onClick: () -> Unit,
 ) {
-    val interactionSource = remember { MutableInteractionSource() }
-    val isPressed by interactionSource.collectIsPressedAsState()
-    val bg = if (isPressed) LxCream else Color.Transparent
-
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(bg)
-            .clickable(interactionSource = interactionSource, indication = null, onClick = onClick)
-            .padding(horizontal = 18.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(14.dp),
-    ) {
-        Icon(imageVector = icon, contentDescription = null, tint = LxInkSoft, modifier = Modifier.size(22.dp))
-        Text(text = title, fontSize = 15.sp, color = LxInk, modifier = Modifier.weight(1f))
-        if (hint != null) {
-            Text(text = hint, fontSize = 13.sp, color = LxInkMuted)
-        }
-        Text(text = "›", fontSize = 18.sp, fontWeight = FontWeight.Light, color = LxInkGhost)
-    }
+    LxMenuRow(
+        icon = icon,
+        title = title,
+        hint = hint,
+        hintColor = LxInkMuted,
+        onClick = onClick,
+    )
 }
 
 @Composable
 internal fun MenuDivider() {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(start = 54.dp, end = 18.dp)
-            .height(1.dp)
-            .background(LxSand),
-    )
+    LxMenuDivider()
 }
 
 internal fun formatDate(millis: Long): String =

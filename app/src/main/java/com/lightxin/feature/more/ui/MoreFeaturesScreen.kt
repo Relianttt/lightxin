@@ -24,7 +24,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Alarm
 import androidx.compose.material.icons.outlined.BatterySaver
 import androidx.compose.material.icons.outlined.EmojiEvents
+import androidx.compose.material.icons.outlined.EventNote
 import androidx.compose.material.icons.outlined.Grading
+import androidx.compose.material.icons.outlined.HomeRepairService
 import androidx.compose.material.icons.outlined.NotificationsActive
 import androidx.compose.material.icons.outlined.WorkHistory
 import androidx.compose.material3.Icon
@@ -51,6 +53,8 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.lightxin.core.designsystem.component.LxCard
+import com.lightxin.core.designsystem.component.LxMenuDivider
+import com.lightxin.core.designsystem.component.LxMenuRow
 import com.lightxin.core.designsystem.component.LxTopBar
 import com.lightxin.core.designsystem.theme.LxCream
 import com.lightxin.core.designsystem.theme.LxInk
@@ -64,6 +68,8 @@ fun MoreFeaturesScreen(
     onNavigateLabor: () -> Unit,
     onNavigateExam: () -> Unit,
     onNavigateCredit: () -> Unit,
+    onNavigateLeave: () -> Unit,
+    onNavigateRepair: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -111,6 +117,18 @@ fun MoreFeaturesScreen(
                         icon = Icons.Outlined.EmojiEvents,
                         title = "素质学分",
                         onClick = onNavigateCredit,
+                    )
+                    MoreMenuDivider()
+                    MoreMenuRow(
+                        icon = Icons.Outlined.EventNote,
+                        title = "请假",
+                        onClick = onNavigateLeave,
+                    )
+                    MoreMenuDivider()
+                    MoreMenuRow(
+                        icon = Icons.Outlined.HomeRepairService,
+                        title = "报修",
+                        onClick = onNavigateRepair,
                     )
                 }
             }
@@ -201,60 +219,18 @@ private fun MoreMenuRow(
     trailing: String? = null,
     trailingColor: Color = LxInkGhost,
 ) {
-    val interactionSource = remember { MutableInteractionSource() }
-    val isPressed by interactionSource.collectIsPressedAsState()
-    val bg = if (isPressed) LxCream else Color.Transparent
-
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(bg)
-            .clickable(
-                interactionSource = interactionSource,
-                indication = null,
-                onClick = onClick,
-            )
-            .padding(horizontal = 18.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(14.dp),
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = LxInkSoft,
-            modifier = Modifier.size(22.dp),
-        )
-        Text(
-            text = title,
-            fontSize = 15.sp,
-            color = LxInk,
-            modifier = Modifier.weight(1f),
-        )
-        if (trailing != null) {
-            Text(
-                text = trailing,
-                fontSize = 13.sp,
-                color = trailingColor,
-            )
-        }
-        Text(
-            text = "›",
-            fontSize = 18.sp,
-            fontWeight = FontWeight.Light,
-            color = LxInkGhost,
-        )
-    }
+    LxMenuRow(
+        icon = icon,
+        title = title,
+        hint = trailing,
+        hintColor = trailingColor,
+        onClick = onClick,
+    )
 }
 
 @Composable
 private fun MoreMenuDivider() {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(start = 54.dp, end = 18.dp)
-            .height(1.dp)
-            .background(LxSand),
-    )
+    LxMenuDivider()
 }
 
 private const val MORE_PREFS_NAME = "app_prefs"

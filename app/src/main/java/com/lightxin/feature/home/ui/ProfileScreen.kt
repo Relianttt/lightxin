@@ -49,6 +49,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.lightxin.core.designsystem.component.LxCard
 import com.lightxin.core.designsystem.component.LxDialog
 import com.lightxin.core.designsystem.component.LxDialogConfirmTone
+import com.lightxin.core.designsystem.component.LxMenuDivider
+import com.lightxin.core.designsystem.component.LxMenuRow
 import com.lightxin.core.designsystem.theme.LxCream
 import com.lightxin.core.designsystem.theme.LxInk
 import com.lightxin.core.designsystem.theme.LxInkGhost
@@ -235,62 +237,19 @@ private fun ProfileMenuRow(
     hintHighlight: Boolean = false,
     onClick: () -> Unit,
 ) {
-    val interactionSource = remember { MutableInteractionSource() }
-    val isPressed by interactionSource.collectIsPressedAsState()
-    val bg = if (isPressed) LxCream else Color.Transparent
-
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(bg)
-            .clickable(
-                interactionSource = interactionSource,
-                indication = null,
-                onClick = onClick,
-            )
-            .padding(horizontal = 18.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(14.dp),
-    ) {
-        // 22×22 墨灰线性图标 — 取消分类底色，仅卡头"分类"语义由课表块色承担
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = LxInkSoft,
-            modifier = Modifier.size(22.dp),
-        )
-        Text(
-            text = title,
-            fontSize = 15.sp,
-            color = LxInk,
-            modifier = Modifier.weight(1f),
-        )
-        if (hint != null) {
-            Text(
-                text = hint,
-                fontSize = 13.sp,
-                color = if (hintHighlight) LxTerra else LxInkMuted,
-            )
-        }
-        Text(
-            text = "›",
-            fontSize = 18.sp,
-            fontWeight = FontWeight.Light,
-            color = LxInkGhost,
-        )
-    }
+    LxMenuRow(
+        icon = icon,
+        title = title,
+        hint = hint,
+        hintColor = if (hintHighlight) LxTerra else LxInkMuted,
+        hintHighlight = hintHighlight,
+        onClick = onClick,
+    )
 }
 
 @Composable
 private fun MenuDivider() {
-    // 左 54dp（与图标+间距对齐）起至右 18dp 止
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(start = 54.dp, end = 18.dp)
-            .height(1.dp)
-            .background(LxSand),
-    )
+    LxMenuDivider()
 }
 
 @Composable

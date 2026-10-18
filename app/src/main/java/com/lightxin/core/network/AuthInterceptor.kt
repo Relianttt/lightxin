@@ -70,6 +70,57 @@ class AuthInterceptor @Inject constructor(
                     .build()
             }
 
+            // 请假工作流 (ywlz): 只带 accessToken/userCode/xh/_userCode/_userType
+            host.contains("ywlz.aiit.edu.cn") -> {
+                val credentials = runBlocking { tokenManager.snapshot() }
+                val token = credentials.accessToken.orEmpty()
+                val userCode = credentials.userCode.orEmpty()
+                val userType = credentials.userType ?: "1"
+                val body = original.body
+                val builder = original.newBuilder()
+                    .header("X-Requested-With", "XMLHttpRequest")
+                    .header("Origin", "https://ywlz.aiit.edu.cn")
+                    .header("Referer", "https://ywlz.aiit.edu.cn/mobile/")
+                if (body is FormBody) {
+                    val rebuilt = FormBody.Builder().apply {
+                        for (i in 0 until body.size) add(body.name(i), body.value(i))
+                        add("accessToken", token)
+                        add("userCode", userCode)
+                        add("xh", userCode)
+                        add("_userCode", userCode)
+                        add("_userType", userType)
+                    }.build()
+                    builder.post(rebuilt)
+                }
+                builder.build()
+            }
+
+            // 报修手机端 (repair): Form表单追加身份字段，不加 appId/access_token
+            host.contains("repair.aiit.edu.cn") -> {
+                val credentials = runBlocking { tokenManager.snapshot() }
+                val token = credentials.accessToken.orEmpty()
+                val userCode = credentials.userCode.orEmpty()
+                val userName = credentials.userName.orEmpty()
+                val userType = credentials.userType ?: "1"
+                val body = original.body
+                val builder = original.newBuilder()
+                    .header("X-Requested-With", "XMLHttpRequest")
+                    .header("Origin", "http://repair.aiit.edu.cn:8081")
+                    .header("Referer", "http://repair.aiit.edu.cn:8081/dist-app/")
+                if (body is FormBody) {
+                    val rebuilt = FormBody.Builder().apply {
+                        for (i in 0 until body.size) add(body.name(i), body.value(i))
+                        add("userCode", userCode)
+                        add("xh", userCode)
+                        add("userType", userType)
+                        add("userName", userName)
+                        add("accessToken", token)
+                    }.build()
+                    builder.post(rebuilt)
+                }
+                builder.build()
+            }
+
             // 主站 & 劳动教育: Form表单追加通用参数
             else -> {
                 val credentials = runBlocking { tokenManager.snapshot() }

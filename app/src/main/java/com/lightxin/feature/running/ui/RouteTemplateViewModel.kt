@@ -3,9 +3,14 @@ package com.lightxin.feature.running.ui
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.lightxin.feature.running.data.RouteTemplateStore
+import com.lightxin.feature.running.domain.ConflictChoice
+import com.lightxin.feature.running.domain.ImportPreview
+import com.lightxin.feature.running.domain.ImportReport
 import com.lightxin.feature.running.domain.RouteQualityChecker
 import com.lightxin.feature.running.domain.RouteTemplate
+import com.lightxin.feature.running.domain.RouteTemplateCodec
 import com.lightxin.feature.running.domain.RouteTemplateRules
+import com.lightxin.feature.running.domain.TemplateImportResolver
 import com.lightxin.feature.running.domain.RunningTrackerState
 import com.lightxin.feature.running.service.RunningTracker
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -16,6 +21,15 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+
+data class RouteTemplateImportUiState(
+    val isParsing: Boolean = false,
+    val preview: ImportPreview? = null,
+    val parseError: String? = null,
+    val decisions: Map<String, ConflictChoice> = emptyMap(),
+    val isImporting: Boolean = false,
+    val report: ImportReport? = null,
+)
 
 data class RouteTemplateUiState(
     val templates: List<RouteTemplate> = emptyList(),
@@ -37,6 +51,9 @@ class RouteTemplateViewModel @Inject constructor(
 
     private val _uiState = MutableStateFlow(RouteTemplateUiState())
     val uiState: StateFlow<RouteTemplateUiState> = _uiState.asStateFlow()
+
+    private val _importState = MutableStateFlow(RouteTemplateImportUiState())
+    val importState: StateFlow<RouteTemplateImportUiState> = _importState.asStateFlow()
 
     init {
         viewModelScope.launch {
@@ -109,6 +126,69 @@ class RouteTemplateViewModel @Inject constructor(
         tracker.cancelSession()
         _uiState.update { it.copy(pendingSaveMessage = "模板已保存") }
         return true
+    }
+
+    // ── 导入 ──
+
+    fun parseImport(raw: String) {
+        _importState.value = RouteTemplateImportUiState(isParsing = true)
+        viewModelScope.launch {
+            val result = runCatching { RouteTemplateCodec.parse(raw) }
+            result.fold(
+                onSuccess = { parsed ->
+                    val preview = TemplateImportResolver.preview(parsed, _uiState.value.templates)
+                    val defaults = preview.valid
+                        .filter { preview.isConflict(it) }
+                        .associate { it.fileId to ConflictChoice.KEEP_COPY }
+                    _importState.value = RouteTemplateImportUiState(
+                        preview = preview,
+                        decisions = defaults,
+                    )
+                },
+                onFailure = { error ->
+                    _importState.value = RouteTemplateImportUiState(
+                        parseError = error.message ?: "文件解析失败",
+                    )
+                },
+            )
+        }
+    }
+
+    fun resetImport() {
+        _importState.value = RouteTemplateImportUiState()
+    }
+
+    fun setImportError(message: String) {
+        _importState.value = RouteTemplateImportUiState(parseError = message)
+    }
+
+    fun setConflictChoice(fileId: String, choice: ConflictChoice) {
+        _importState.update { state ->
+            state.copy(decisions = state.decisions + (fileId to choice))
+        }
+    }
+
+    fun confirmImport() {
+        val preview = _importState.value.preview ?: return
+        if (_importState.value.isImporting) return
+        _importState.update { it.copy(isImporting = true) }
+        viewModelScope.launch {
+            val report = store.importTemplates(preview, _importState.value.decisions)
+            _importState.update { it.copy(isImporting = false, report = report) }
+            _uiState.update {
+                it.copy(
+                    pendingSaveMessage = if (report.total > 0) {
+                        "已导入 ${report.total} 条模板"
+                    } else {
+                        "未导入任何模板"
+                    },
+                )
+            }
+        }
+    }
+
+    fun consumeImportReport() {
+        _importState.update { it.copy(report = null) }
     }
 
     fun templateById(id: String): RouteTemplate? =

@@ -105,6 +105,7 @@ dependencies {
 
     // Image
     implementation(libs.coil.compose)
+    implementation(libs.coil.network.okhttp)
 
     // CameraX + ML Kit (AI课堂扫码)
     implementation(libs.camerax.camera2)

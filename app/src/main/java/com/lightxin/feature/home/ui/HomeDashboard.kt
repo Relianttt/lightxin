@@ -53,6 +53,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -70,6 +71,7 @@ import com.lightxin.core.designsystem.theme.LxAmberSoft
 import com.lightxin.core.designsystem.theme.LxCategoryColors
 import com.lightxin.core.designsystem.theme.LxInk
 import com.lightxin.core.designsystem.theme.LxInkMuted
+import com.lightxin.core.designsystem.theme.LxMotion
 import com.lightxin.core.designsystem.theme.LxSage
 import com.lightxin.core.designsystem.theme.LxSand
 import com.lightxin.core.designsystem.theme.LxTerra
@@ -439,14 +441,17 @@ private fun buildNextClassHeadline(
 
 @Composable
 private fun StaggeredCard(index: Int, content: @Composable () -> Unit) {
+    // 只在首次进入时播；最多 3 档错相（30ms 递增），之后同批到达，避免「逐项表演」。
     var visible by remember { mutableStateOf(false) }
+    val shiftPx = with(LocalDensity.current) { LxMotion.EnterShiftDp.roundToPx() }
     LaunchedEffect(Unit) {
-        delay(index * 60L)
+        delay(index.coerceIn(0, 2) * 30L)
         visible = true
     }
     AnimatedVisibility(
         visible = visible,
-        enter = fadeIn(tween(350)) + slideInVertically(tween(350)) { it / 3 },
+        enter = fadeIn(tween(LxMotion.StateMs + 20, easing = LxMotion.EaseOut)) +
+            slideInVertically(tween(LxMotion.StateMs + 20, easing = LxMotion.EaseOut)) { shiftPx },
     ) { content() }
 }
 
@@ -549,7 +554,13 @@ private fun CheckinCard(task: CheckinTask, onClick: () -> Unit) {
         onClick = onClick,
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            PulseDot(color = LxTerra)
+            // 待签到卡片不需要常驻脉冲：保留一个静态圆点作为状态锚点。
+            Box(
+                modifier = Modifier
+                    .size(8.dp)
+                    .clip(CircleShape)
+                    .background(LxTerra),
+            )
             Spacer(modifier = Modifier.width(10.dp))
             Column {
                 Text(
@@ -575,9 +586,9 @@ private fun CheckinCard(task: CheckinTask, onClick: () -> Unit) {
 private fun PulseDot(color: Color) {
     val trans = rememberInfiniteTransition(label = "pulse")
     val a by trans.animateFloat(
-        initialValue = 1f,
-        targetValue = 0.35f,
-        animationSpec = infiniteRepeatable(tween(2_500), RepeatMode.Reverse),
+        initialValue = 0.80f,
+        targetValue = 0.50f,
+        animationSpec = infiniteRepeatable(tween(2_600), RepeatMode.Reverse),
         label = "pulseA",
     )
     Box(
@@ -620,8 +631,10 @@ private fun HolidayCard(task: HolidayTask, onClick: () -> Unit) {
         onClick = onClick,
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            PulseDot(color = if (isUrgent) LxTerra else LxSage)
-            Spacer(modifier = Modifier.width(10.dp))
+            if (isUrgent) {
+                PulseDot(color = LxTerra)
+                Spacer(modifier = Modifier.width(10.dp))
+            }
             Column {
                 Text(
                     text = task.name.ifBlank { "节假日登记" },

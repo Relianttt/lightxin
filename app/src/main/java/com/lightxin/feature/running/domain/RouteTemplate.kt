@@ -18,10 +18,14 @@ data class RouteTemplate(
 }
 
 enum class RouteTemplateSource {
-    TEMPLATE_RECORDING;
+    TEMPLATE_RECORDING,
+    IMPORTED,
+    SYSTEM;
 
     fun displayName(): String = when (this) {
         TEMPLATE_RECORDING -> "手动录制"
+        IMPORTED -> "导入"
+        SYSTEM -> "系统内置"
     }
 }
 

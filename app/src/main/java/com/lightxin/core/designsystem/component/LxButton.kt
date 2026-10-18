@@ -1,5 +1,7 @@
 package com.lightxin.core.designsystem.component
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -17,11 +19,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import com.lightxin.core.designsystem.theme.LxCream
 import com.lightxin.core.designsystem.theme.LxInk
 import com.lightxin.core.designsystem.theme.LxInkMuted
+import com.lightxin.core.designsystem.theme.LxMotion
 import com.lightxin.core.designsystem.theme.LxSand
 import com.lightxin.core.designsystem.theme.LxSandDeep
 import com.lightxin.core.designsystem.theme.LxTerra
@@ -102,10 +106,21 @@ fun LxTextButton(
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
+    val bg by animateColorAsState(
+        targetValue = if (isPressed) LxTerraSoft else Color.Transparent,
+        animationSpec = LxMotion.ColorSpring,
+        label = "lxTextButtonBg",
+    )
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) LxMotion.PressedScaleButton else 1f,
+        animationSpec = LxMotion.PressScale,
+        label = "lxTextButtonScale",
+    )
     Box(
         modifier = modifier
+            .graphicsLayer { scaleX = scale; scaleY = scale }
             .clip(MaterialTheme.shapes.small)
-            .background(if (isPressed) LxTerraSoft else Color.Transparent)
+            .background(bg)
             .clickable(
                 interactionSource = interactionSource,
                 indication = null,
@@ -139,11 +154,21 @@ private fun LxButtonFrame(
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
     val shape = MaterialTheme.shapes.medium
-    val background = when {
+    val targetBackground = when {
         !enabled -> disabledContainerColor
         isPressed -> pressedContainerColor
         else -> containerColor
     }
+    val background by animateColorAsState(
+        targetValue = targetBackground,
+        animationSpec = LxMotion.ColorSpring,
+        label = "lxButtonBg",
+    )
+    val scale by animateFloatAsState(
+        targetValue = if (enabled && isPressed) LxMotion.PressedScaleButton else 1f,
+        animationSpec = LxMotion.PressScale,
+        label = "lxButtonScale",
+    )
     val resolvedBorder = if (enabled) borderColor else disabledBorderColor
     val resolvedContent = if (enabled) contentColor else disabledContentColor
 
@@ -151,6 +176,7 @@ private fun LxButtonFrame(
         modifier = modifier
             .fillMaxWidth()
             .height(52.dp)
+            .graphicsLayer { scaleX = scale; scaleY = scale }
             .clip(shape)
             .background(background)
             .then(

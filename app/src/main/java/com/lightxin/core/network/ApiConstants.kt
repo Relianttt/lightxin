@@ -9,6 +9,12 @@ object ApiConstants {
     const val BASE_SPORTS = "http://sports.aiit.edu.cn:8082"
     const val BASE_LABOR = "https://ldjy.aiit.edu.cn"
 
+    // 请假工作流（ywlz）
+    const val BASE_LEAVE = "https://ywlz.aiit.edu.cn/zhxy-bfc"
+
+    // 报修（手机端 bxjlSjd 家族；抓包确认走 8081）
+    const val BASE_REPAIR = "http://repair.aiit.edu.cn:8081"
+
     // 素质学分
     const val BASE_CREDIT = "https://cqc.aiit.edu.cn"
 

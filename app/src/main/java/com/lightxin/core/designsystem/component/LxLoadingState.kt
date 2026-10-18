@@ -39,12 +39,14 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.lightxin.core.designsystem.theme.LxInkMuted
 import com.lightxin.core.designsystem.theme.LxInkSoft
+import com.lightxin.core.designsystem.theme.LxMotion
 import com.lightxin.core.designsystem.theme.LxTerra
 
 @Composable
@@ -75,9 +77,11 @@ fun LxEmpty(
     modifier: Modifier = Modifier,
     icon: ImageVector = Icons.Outlined.Inbox,
 ) {
+    val enterShiftPx = with(LocalDensity.current) { LxMotion.EnterShiftDp.roundToPx() }
     AnimatedVisibility(
         visible = true,
-        enter = fadeIn(tween(400)) + slideInVertically(tween(400)) { it / 4 },
+        enter = fadeIn(tween(LxMotion.StateMs, easing = LxMotion.EaseOut)) +
+            slideInVertically(tween(LxMotion.StateMs, easing = LxMotion.EaseOut)) { enterShiftPx },
         modifier = modifier.fillMaxSize(),
     ) {
         Column(

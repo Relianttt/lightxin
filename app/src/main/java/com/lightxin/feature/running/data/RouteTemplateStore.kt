@@ -2,8 +2,13 @@ package com.lightxin.feature.running.data
 
 import android.content.Context
 import com.google.gson.Gson
+import com.lightxin.feature.running.domain.ConflictChoice
+import com.lightxin.feature.running.domain.ImportPreview
+import com.lightxin.feature.running.domain.ImportReport
 import com.lightxin.feature.running.domain.RouteTemplate
+import com.lightxin.feature.running.domain.RouteTemplateCodec
 import com.lightxin.feature.running.domain.RouteTemplateSource
+import com.lightxin.feature.running.domain.TemplateImportResolver
 import com.lightxin.feature.running.domain.TrackPoint
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
@@ -46,8 +51,59 @@ class RouteTemplateStore @Inject constructor(
 
     private suspend fun load() = mutex.withLock {
         val list = withContext(Dispatchers.IO) { readFile() }
-        _templates.value = list
+        val seeded = withContext(Dispatchers.IO) { seedIfNeeded(list) }
+        _templates.value = seeded
         _isLoaded.value = true
+    }
+
+    /**
+     * 一次性注入「系统模板」：
+     * - 标记文件存在即跳过，因此删除后重启不会复活；
+     * - 仅当模板列表为空时读 assets，已有用户模板时只写标记、不打扰。
+     */
+    private fun seedIfNeeded(current: List<RouteTemplate>): List<RouteTemplate> {
+        val marker = File(context.filesDir, SEED_MARKER)
+        if (!com.lightxin.feature.running.domain.RouteTemplateSeed.shouldInject(marker.exists(), current)) {
+            return current
+        }
+        var result = current
+        if (current.isEmpty()) {
+            val seeded = runCatching { readSeedTemplates() }.getOrDefault(emptyList())
+            if (seeded.isNotEmpty()) {
+                result = seeded
+                writeFile(seeded)
+            }
+        }
+        runCatching { marker.writeText("1") }
+        return result
+    }
+
+    private fun readSeedTemplates(): List<RouteTemplate> {
+        val raw = context.assets.open(SEED_ASSET).bufferedReader().use { it.readText() }
+        val parsed = RouteTemplateCodec.parse(raw)
+        return com.lightxin.feature.running.domain.RouteTemplateSeed.map(
+            parsed = parsed,
+            nowMillis = System.currentTimeMillis(),
+        )
+    }
+
+    /**
+     * 导入预览里的条目：冲突条目按用户逐条选择处理，无冲突直接追加。
+     * 一次 persist，沿用 tmp + rename 原子写。
+     */
+    suspend fun importTemplates(
+        preview: ImportPreview,
+        decisions: Map<String, ConflictChoice>,
+    ): ImportReport = mutex.withLock {
+        val resolution = TemplateImportResolver.resolve(
+            preview = preview,
+            decisions = decisions,
+            existing = _templates.value,
+        )
+        if (resolution.report.added + resolution.report.overwritten > 0) {
+            persist(resolution.templates)
+        }
+        resolution.report
     }
 
     suspend fun save(
@@ -134,5 +190,7 @@ class RouteTemplateStore @Inject constructor(
 
     companion object {
         private const val FILE_NAME = "route_templates.json"
+        private const val SEED_ASSET = "route_templates_seed.json"
+        private const val SEED_MARKER = "route_templates_seeded"
     }
 }
