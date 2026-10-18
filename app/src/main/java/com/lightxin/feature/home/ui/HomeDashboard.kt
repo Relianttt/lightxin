@@ -52,9 +52,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.text.font.FontStyle
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
@@ -314,11 +314,11 @@ private fun GreetingSection(
         AnimatedContent(
             targetState = subtitle,
             transitionSpec = {
-                (fadeIn(tween(200, delayMillis = 200)) +
-                    slideInVertically(tween(200, delayMillis = 200)) { it / 2 })
+                (fadeIn(tween(LxMotion.BannerMs, delayMillis = LxMotion.BannerDelayMs)) +
+                    slideInVertically(tween(LxMotion.BannerMs, delayMillis = LxMotion.BannerDelayMs)) { it / 2 })
                     .togetherWith(
-                        fadeOut(tween(200)) +
-                            slideOutVertically(tween(200)) { -it / 2 },
+                        fadeOut(tween(LxMotion.BannerMs)) +
+                            slideOutVertically(tween(LxMotion.BannerMs)) { -it / 2 },
                     )
             },
             label = "subtitle-switch",
@@ -417,17 +417,18 @@ private fun buildNextClassHeadline(
 
 @Composable
 private fun StaggeredCard(index: Int, content: @Composable () -> Unit) {
-    // 只在首次进入时播；最多 3 档错相（30ms 递增），之后同批到达，避免“逐项表演”。
+    // 只在首次进入时播；7 月手感：350ms 上移 1/3 卡高，每档 60ms 错峰。
     var visible by remember { mutableStateOf(false) }
-    val shiftPx = with(LocalDensity.current) { LxMotion.EnterShiftDp.roundToPx() }
     LaunchedEffect(Unit) {
-        delay(index.coerceIn(0, 2) * 30L)
+        delay(index * LxMotion.CardStaggerMs.toLong())
         visible = true
     }
+    val fadeSpec = tween<Float>(LxMotion.CardEnterMs, easing = LxMotion.EaseOut)
+    val slideSpec = tween<IntOffset>(LxMotion.CardEnterMs, easing = LxMotion.EaseOut)
     AnimatedVisibility(
         visible = visible,
-        enter = fadeIn(tween(LxMotion.StateMs + 20, easing = LxMotion.EaseOut)) +
-            slideInVertically(tween(LxMotion.StateMs + 20, easing = LxMotion.EaseOut)) { shiftPx },
+        enter = fadeIn(fadeSpec) +
+            slideInVertically(slideSpec) { (it * LxMotion.CardShiftFraction).toInt() },
     ) { content() }
 }
 
@@ -564,7 +565,7 @@ private fun PulseDot(color: Color) {
     val a by trans.animateFloat(
         initialValue = 0.80f,
         targetValue = 0.50f,
-        animationSpec = infiniteRepeatable(tween(2_600), RepeatMode.Reverse),
+        animationSpec = infiniteRepeatable(tween(LxMotion.PulseMs), RepeatMode.Reverse),
         label = "pulseA",
     )
     Box(

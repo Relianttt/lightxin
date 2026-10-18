@@ -81,3 +81,7 @@ tags: [designsystem, ui, mobile, leave, repair, template, 真机]
 - 报修鉴权与协议：`.agents/notes/2026-10-18-decision-repair-mobile-family-auth.md`
 - 架构：`codestable/architecture/repair-overview.md`、`codestable/architecture/leave-overview.md`
 - 接口分析：`docs/接口分析/报修系统接口分析报告.md`、`docs/接口分析/请假系统接口分析报告.md`
+
+## 后续动效修订
+
+第 4 / 14 条中的 56dp 松手后切换由 [舒缓分页动效](2026-10-18-decision-gentle-tab-paging.md) 取代：使用跟手分页，保留独立列表位置；默认 tab、空页不跳转、错误隔离等规则继续有效。

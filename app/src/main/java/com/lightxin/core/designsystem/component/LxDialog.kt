@@ -1,6 +1,6 @@
 package com.lightxin.core.designsystem.component
 
-import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -37,7 +37,6 @@ import com.lightxin.core.designsystem.theme.LxInkMuted
 import com.lightxin.core.designsystem.theme.LxMotion
 import com.lightxin.core.designsystem.theme.LxRose
 import com.lightxin.core.designsystem.theme.LxTerra
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 enum class LxDialogConfirmTone {
@@ -61,26 +60,23 @@ fun LxDialog(
     content: (@Composable ColumnScope.() -> Unit)? = null,
 ) {
     // 出场：卡片 0.98→1 + 淡入；关闭时先反向播完再回调，避免“啪”地消失。
-    var shown by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) { shown = true }
+    // 用 Animatable 而不是 delay()：系统关闭动画时 animateTo 立即返回，不会白等固定时长。
+    val progress = remember { Animatable(0f) }
+    var closing by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        progress.animateTo(1f, tween(durationMillis = LxMotion.StateMs, easing = LxMotion.EaseOut))
+    }
     val scope = rememberCoroutineScope()
-    val cardScale by animateFloatAsState(
-        targetValue = if (shown) 1f else LxMotion.PressedScaleButton,
-        animationSpec = LxMotion.Soft,
-        label = "lxDialogScale",
-    )
-    val cardAlpha by animateFloatAsState(
-        targetValue = if (shown) 1f else 0f,
-        animationSpec = tween(durationMillis = LxMotion.StateMs, easing = LxMotion.EaseOut),
-        label = "lxDialogAlpha",
-    )
     fun animateOutThen(action: () -> Unit) {
-        shown = false
+        if (closing) return
+        closing = true
         scope.launch {
-            delay(LxMotion.PressOutMs.toLong())
+            progress.animateTo(0f, LxMotion.dialogExit())
             action()
         }
     }
+    val cardScale = LxMotion.PressedScaleButton +
+        (1f - LxMotion.PressedScaleButton) * progress.value
 
     Dialog(
         onDismissRequest = { animateOutThen(onDismissRequest) },
@@ -94,7 +90,7 @@ fun LxDialog(
             modifier = modifier
                 .fillMaxWidth()
                 .graphicsLayer { scaleX = cardScale; scaleY = cardScale }
-                .alpha(cardAlpha)
+                .alpha(progress.value)
                 .padding(horizontal = 24.dp),
         ) {
             LxCard {

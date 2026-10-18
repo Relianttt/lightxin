@@ -9,7 +9,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -30,6 +30,8 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -42,7 +44,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -55,8 +56,8 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.SpanStyle
@@ -75,6 +76,7 @@ import com.lightxin.core.designsystem.theme.LxCanvas
 import com.lightxin.core.designsystem.theme.LxDanger
 import com.lightxin.core.designsystem.theme.LxDangerFill
 import com.lightxin.core.designsystem.theme.LxHairline
+import com.lightxin.core.designsystem.theme.LxMotion
 import com.lightxin.core.designsystem.theme.LxOnAccent
 import com.lightxin.core.designsystem.theme.LxRadiusLg
 import com.lightxin.core.designsystem.theme.LxRadiusMd
@@ -88,6 +90,7 @@ import com.lightxin.core.designsystem.theme.LxTextSecondary
 import com.lightxin.core.designsystem.theme.LxTint
 import com.lightxin.core.designsystem.theme.LxTintStrong
 import com.lightxin.core.designsystem.theme.LxStateWarning
+import kotlin.math.abs
 
 enum class LxTone { Neutral, Accent, Success, Warning, Danger }
 
@@ -114,12 +117,12 @@ fun LxNavBar(
 ) {
     val titleAlpha by animateFloatAsState(
         targetValue = if (collapsed && !title.isNullOrBlank()) 1f else 0f,
-        animationSpec = tween(160),
+        animationSpec = tween(LxMotion.QuickFadeMs),
         label = "lxNavTitle",
     )
     val dividerAlpha by animateFloatAsState(
         targetValue = if (collapsed) 1f else 0f,
-        animationSpec = tween(160),
+        animationSpec = tween(LxMotion.QuickFadeMs),
         label = "lxNavDivider",
     )
     Column(modifier = modifier.fillMaxWidth().background(LxCanvas)) {
@@ -169,36 +172,6 @@ fun LxNavBar(
                 .height(0.5.dp)
                 .alpha(dividerAlpha)
                 .background(LxHairline),
-        )
-    }
-}
-
-/**
- * 水平滑动切 tab：超过阈值才触发，垂直滚动不受影响。
- * 回调用 rememberUpdatedState 兜住，避免每次重组都重启手势检测。
- */
-@Composable
-fun Modifier.lxHorizontalSwipe(
-    onSwipeLeft: () -> Unit,
-    onSwipeRight: () -> Unit,
-    threshold: Dp = 56.dp,
-): Modifier {
-    val currentLeft by rememberUpdatedState(onSwipeLeft)
-    val currentRight by rememberUpdatedState(onSwipeRight)
-    val thresholdPx = with(LocalDensity.current) { threshold.toPx() }
-    return pointerInput(thresholdPx) {
-        var total = 0f
-        detectHorizontalDragGestures(
-            onDragStart = { total = 0f },
-            onDragCancel = { total = 0f },
-            onDragEnd = {
-                if (total <= -thresholdPx) currentLeft() else if (total >= thresholdPx) currentRight()
-                total = 0f
-            },
-            onHorizontalDrag = { change, dragAmount ->
-                total += dragAmount
-                change.consume()
-            },
         )
     }
 }
@@ -344,24 +317,38 @@ fun LxFilterTabs(
     selectedIndex: Int,
     onSelect: (Int) -> Unit,
     modifier: Modifier = Modifier,
+    indicatorFraction: Float? = null,
 ) {
+    val position = indicatorFraction ?: selectedIndex.toFloat()
     Row(
         modifier = modifier
             .clip(RoundedCornerShape(10.dp))
             .background(LxTintStrong)
-            .padding(3.dp),
+            .padding(3.dp)
+            .selectableGroup(),
         horizontalArrangement = Arrangement.spacedBy(2.dp),
     ) {
         items.forEachIndexed { index, item ->
-            val selected = index == selectedIndex
+            val weight = tabSelectionWeight(index, position)
+            val selected = weight >= 0.5f
             val shape = RoundedCornerShape(LxRadiusSm)
+            val interaction = remember { MutableInteractionSource() }
             Row(
                 modifier = Modifier
                     .height(34.dp)
-                    .then(if (selected) Modifier.shadow(1.dp, shape) else Modifier)
                     .clip(shape)
-                    .background(if (selected) LxSurface else Color.Transparent)
-                    .clickable(role = Role.Tab) { onSelect(index) }
+                    // 颜色直接由拖动比例插值，不再叠一层时间动画：手势跟手，
+                    // 点选时由 pager 吸附带着走，避免“指示器瞬切 + 内容慢动”。
+                    .background(LxSurface.copy(alpha = weight))
+                    // 分段控件不再用默认 ripple：主题未提供 contentColor 时它是黑色，
+                    // 拖动经过 tab 行会闪出一团黑；选中块本身就是反馈，不加阴影/描边。
+                    .selectable(
+                        selected = selected,
+                        interactionSource = interaction,
+                        indication = null,
+                        role = Role.Tab,
+                        onClick = { onSelect(index) },
+                    )
                     .padding(horizontal = 16.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -370,19 +357,26 @@ fun LxFilterTabs(
                     text = item.text,
                     fontSize = 13.5.sp,
                     fontWeight = if (selected) FontWeight.Medium else FontWeight.Normal,
-                    color = if (selected) LxText else LxTextMuted,
+                    color = lerp(LxTextMuted, LxText, weight),
                 )
                 if (item.count != null) {
                     Text(
                         text = item.count.toString(),
                         fontSize = 12.sp,
-                        color = if (selected) LxTextMuted else LxTextFaint,
+                        color = lerp(LxTextFaint, LxTextMuted, weight),
                     )
                 }
             }
         }
     }
 }
+
+/**
+ * 指示器权重：位置落在某 tab 上时为 1，距离越远越低，到相邻 tab 时降为 0。
+ * [position] 取 `currentPage + currentPageOffsetFraction`，让选中态跟着手指走。
+ */
+internal fun tabSelectionWeight(index: Int, position: Float): Float =
+    (1f - abs(index - position)).coerceIn(0f, 1f)
 
 /**
  * 单选组：两三个短选项时等宽平铺；选项多或文字长时按内容宽度换行，
@@ -1126,7 +1120,7 @@ fun LxSkeletonBlock(
     val alpha by transition.animateFloat(
         initialValue = 0.55f,
         targetValue = 1f,
-        animationSpec = infiniteRepeatable(tween(1800), RepeatMode.Reverse),
+        animationSpec = infiniteRepeatable(tween(LxMotion.SkeletonMs), RepeatMode.Reverse),
         label = "lxSkeletonAlpha",
     )
     Box(

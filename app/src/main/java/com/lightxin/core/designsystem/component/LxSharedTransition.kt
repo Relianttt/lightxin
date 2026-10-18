@@ -8,6 +8,7 @@ import androidx.compose.animation.core.spring
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Rect
+import com.lightxin.core.designsystem.theme.LxMotion
 
 /**
  * 共享元素只做“位置 + 尺寸”的连续性，使用临界阻尼，不做缩放文字/圆角 morph。
@@ -15,7 +16,7 @@ import androidx.compose.ui.geometry.Rect
  */
 @OptIn(ExperimentalSharedTransitionApi::class)
 val LxSharedBoundsTransform: BoundsTransform = BoundsTransform { _, _ ->
-    spring<Rect>(dampingRatio = 1f, stiffness = 380f)
+    spring<Rect>(dampingRatio = 1f, stiffness = LxMotion.SharedBoundsStiffness)
 }
 
 @OptIn(ExperimentalSharedTransitionApi::class)

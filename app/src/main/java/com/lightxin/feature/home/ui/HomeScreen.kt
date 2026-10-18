@@ -105,9 +105,9 @@ fun HomeScreen(
         AnimatedContent(
             targetState = selectedTab,
             transitionSpec = {
-                val fadeSpec = tween<Float>(LxMotion.StateMs + 40, easing = LxMotion.EaseOut)
+                val fadeSpec = tween<Float>(LxMotion.TabMs, easing = LxMotion.EaseOut)
                 val slideSpec = tween<androidx.compose.ui.unit.IntOffset>(
-                    LxMotion.StateMs + 40,
+                    LxMotion.TabMs,
                     easing = LxMotion.EaseOut,
                 )
                 if (targetState > initialState) {

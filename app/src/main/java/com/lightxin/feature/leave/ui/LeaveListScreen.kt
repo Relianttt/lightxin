@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
@@ -21,8 +20,10 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
@@ -42,8 +43,9 @@ import com.lightxin.core.designsystem.component.LxSkeletonList
 import com.lightxin.core.designsystem.component.LxStatusLine
 import com.lightxin.core.designsystem.component.LxTabItem
 import com.lightxin.core.designsystem.component.LxTone
-import com.lightxin.core.designsystem.component.lxHeaderCollapsed
-import com.lightxin.core.designsystem.component.lxHorizontalSwipe
+import com.lightxin.core.designsystem.component.rememberLxTabPagerSelection
+import com.lightxin.core.designsystem.component.LxTabPager
+import com.lightxin.core.designsystem.component.rememberLxTabPagerState
 import com.lightxin.core.designsystem.theme.LxCanvas
 import com.lightxin.core.designsystem.theme.LxText
 import com.lightxin.core.designsystem.theme.LxTextFaint
@@ -63,12 +65,11 @@ fun LeaveListScreen(
     modifier: Modifier = Modifier,
     viewModel: LeaveListViewModel = hiltViewModel(),
 ) {
-    val uiState by viewModel.uiState.collectAsState()
-    val listState = rememberLazyListState()
-    val collapsed = listState.lxHeaderCollapsed()
-
-    // 每次进入列表都从“进行中”开始，不记忆上次停留的 tab。
-    LaunchedEffect(Unit) { viewModel.setStatus("1") }
+    val lists by viewModel.uiState.collectAsState()
+    val pagerState = rememberLxTabPagerState()
+    val selectTab = rememberLxTabPagerSelection(pagerState)
+    val activeListState = rememberLazyListState()
+    val allListState = rememberLazyListState()
 
     LaunchedEffect(shouldRefresh) {
         if (shouldRefresh) {
@@ -80,105 +81,119 @@ fun LeaveListScreen(
     Scaffold(
         modifier = modifier,
         containerColor = LxCanvas,
-        topBar = { LxNavBar(onBack = onBack, title = "请假", collapsed = collapsed) },
+        topBar = {
+            // 标题与 tab 行固定在 pager 外：切页时只有列表内容横向移动，
+            // 避免标题跟着一起被带走、也避免两页各画一条 tab 行。
+            Column(modifier = Modifier.background(LxCanvas)) {
+                LxNavBar(onBack = onBack)
+                LxPageHeader(title = "请假", modifier = Modifier.padding(horizontal = 24.dp))
+                LxFilterTabs(
+                    items = listOf(
+                        LxTabItem("进行中", lists.active.total),
+                        LxTabItem("全部", lists.all.total),
+                    ),
+                    selectedIndex = pagerState.currentPage,
+                    indicatorFraction = pagerState.currentPage + pagerState.currentPageOffsetFraction,
+                    onSelect = selectTab,
+                    modifier = Modifier
+                        .padding(horizontal = 24.dp, vertical = 12.dp)
+                        .wrapContentWidth(Alignment.Start),
+                )
+            }
+        },
         floatingActionButton = {
             LxFloatingAction(text = "发起请假", icon = Icons.Outlined.Add, onClick = onCreate)
         },
     ) { padding ->
-        PullToRefreshBox(
-            isRefreshing = uiState.isRefreshing,
-            onRefresh = viewModel::refresh,
+        LxTabPager(
+            state = pagerState,
             modifier = Modifier.padding(padding).fillMaxSize(),
-        ) {
-            LazyColumn(
-                state = listState,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .lxHorizontalSwipe(
-                        onSwipeLeft = { if (uiState.status == "1") viewModel.setStatus("3") },
-                        onSwipeRight = { if (uiState.status == "3") viewModel.setStatus("1") },
-                    ),
-                contentPadding = PaddingValues(bottom = 112.dp),
+        ) { pageIndex ->
+            val status = if (pageIndex == 0) "1" else "3"
+            val uiState = lists.forStatus(status)
+            val listState = if (pageIndex == 0) activeListState else allListState
+            val shouldLoadMore by remember(uiState, listState) {
+                derivedStateOf {
+                    val layout = listState.layoutInfo
+                    val last = layout.visibleItemsInfo.lastOrNull()?.index ?: -1
+                    last >= layout.totalItemsCount - 3 && uiState.hasMore &&
+                        !uiState.isLoading && !uiState.isRefreshing && !uiState.isLoadingMore && uiState.error == null
+                }
+            }
+            LaunchedEffect(shouldLoadMore, pagerState.settledPage) {
+                if (shouldLoadMore && pagerState.settledPage == pageIndex) viewModel.loadMore(status)
+            }
+            PullToRefreshBox(
+                isRefreshing = uiState.isRefreshing,
+                onRefresh = viewModel::refresh,
+                modifier = Modifier.fillMaxSize(),
             ) {
-                item(key = "header") {
-                    LxPageHeader(title = "请假", modifier = Modifier.padding(horizontal = 24.dp))
-                }
-                stickyHeader(key = "tabs") {
-                    LxFilterTabs(
-                        items = listOf(
-                            LxTabItem("进行中", uiState.activeTotal),
-                            LxTabItem("全部", uiState.allTotal),
-                        ),
-                        selectedIndex = if (uiState.status == "1") 0 else 1,
-                        onSelect = { index -> viewModel.setStatus(if (index == 0) "1" else "3") },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(LxCanvas)
-                            .padding(horizontal = 24.dp, vertical = 12.dp)
-                            .wrapContentWidth(Alignment.Start),
-                    )
-                }
-
-                when {
-                    uiState.isLoading -> item(key = "loading") {
-                        LxSkeletonList(count = 6)
-                    }
-                    uiState.error != null && uiState.items.isEmpty() -> item(key = "error") {
-                        Box(
-                            modifier = Modifier.fillParentMaxHeight(0.6f).fillMaxWidth().padding(24.dp),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            LxErrorState(message = uiState.error.orEmpty(), onRetry = viewModel::retry)
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(bottom = 112.dp),
+                ) {
+                    when {
+                        uiState.isLoading -> item(key = "loading") {
+                            LxSkeletonList(count = 6)
+                        }
+                        uiState.error != null && uiState.items.isEmpty() -> item(key = "error") {
+                            Box(
+                                modifier = Modifier.fillParentMaxHeight(0.6f).fillMaxWidth().padding(24.dp),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                LxErrorState(message = uiState.error.orEmpty(), onRetry = { viewModel.retry(status) })
+                            }
+                        }
+                        uiState.items.isEmpty() -> item(key = "empty") {
+                            Box(
+                                modifier = Modifier.fillParentMaxHeight(0.6f).fillMaxWidth(),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                LxEmptyState(
+                                    title = if (status == "1") "没有进行中的请假" else "还没有请假记录",
+                                    body = if (status == "1") {
+                                        "已结束的申请都在“全部”里。"
+                                    } else {
+                                        "提交后会出现在这里，通过后记得按时销假。"
+                                    },
+                                )
+                            }
+                        }
+                        else -> {
+                            var lastMonth: YearMonth? = null
+                            uiState.items.forEach { item ->
+                                val month = parseLeaveTime(item.receiveTime)?.let { YearMonth.from(it) }
+                                if (month != null && month != lastMonth) {
+                                    item(key = "month-${month}") { MonthHeader(month) }
+                                    lastMonth = month
+                                }
+                                item(key = item.executionId) {
+                                    LeaveRow(item = item, onClick = { onOpenDetail(item.executionId) })
+                                }
+                            }
                         }
                     }
-                    uiState.items.isEmpty() -> item(key = "empty") {
-                        Box(
-                            modifier = Modifier.fillParentMaxHeight(0.6f).fillMaxWidth(),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            LxEmptyState(
-                                title = if (uiState.status == "1") "没有进行中的请假" else "还没有请假记录",
-                                body = if (uiState.status == "1") {
-                                    "已结束的申请都在“全部”里。"
-                                } else {
-                                    "提交后会出现在这里，通过后记得按时销假。"
-                                },
+
+                    if (uiState.isLoadingMore) {
+                        item(key = "more") {
+                            Box(
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Text(text = "正在加载…", fontSize = 12.sp, color = LxTextMuted)
+                            }
+                        }
+                    } else if (!uiState.hasMore && uiState.items.size >= 4) {
+                        item(key = "end") {
+                            Text(
+                                text = "没有更多了",
+                                fontSize = 11.5.sp,
+                                color = LxTextFaint,
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp),
+                                textAlign = TextAlign.Center,
                             )
                         }
-                    }
-                    else -> {
-                        var lastMonth: YearMonth? = null
-                        uiState.items.forEach { item ->
-                            val month = parseLeaveTime(item.receiveTime)?.let { YearMonth.from(it) }
-                            if (month != null && month != lastMonth) {
-                                item(key = "month-${month}") { MonthHeader(month) }
-                                lastMonth = month
-                            }
-                            item(key = item.executionId) {
-                                LeaveRow(item = item, onClick = { onOpenDetail(item.executionId) })
-                            }
-                        }
-                    }
-                }
-
-                if (uiState.isLoadingMore) {
-                    item(key = "more") {
-                        Box(
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Text(text = "正在加载…", fontSize = 12.sp, color = LxTextMuted)
-                        }
-                    }
-                } else if (!uiState.hasMore && uiState.items.size >= 4) {
-                    item(key = "end") {
-                        Text(
-                            text = "没有更多了",
-                            fontSize = 11.5.sp,
-                            color = LxTextFaint,
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp),
-                            textAlign = TextAlign.Center,
-                        )
                     }
                 }
             }

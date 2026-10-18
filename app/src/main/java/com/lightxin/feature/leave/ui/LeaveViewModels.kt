@@ -28,130 +28,22 @@ import javax.inject.Inject
 
 // ═══════════════ 列表 ═══════════════
 
-data class LeaveListUiState(
-    val items: List<LeaveSummary> = emptyList(),
-    val status: String = "1",
-    val activeTotal: Int? = null,
-    val allTotal: Int? = null,
-    val isLoading: Boolean = true,
-    val isRefreshing: Boolean = false,
-    val isLoadingMore: Boolean = false,
-    val hasMore: Boolean = true,
-    val error: String? = null,
-)
-
 @HiltViewModel
 class LeaveListViewModel @Inject constructor(
-    private val repository: LeaveRepository,
+    repository: LeaveRepository,
 ) : ViewModel() {
-
-    private val _uiState = MutableStateFlow(LeaveListUiState())
-    val uiState: StateFlow<LeaveListUiState> = _uiState.asStateFlow()
-    private var page = 1
+    private val store = LeaveListStore(viewModelScope) { page, status ->
+        repository.myExecutions(page = page, status = status)
+    }
+    val uiState = store.uiState
 
     init {
-        load(reset = true)
+        store.refresh()
     }
 
-    fun setStatus(status: String) {
-        if (_uiState.value.status == status) return
-        _uiState.update { it.copy(status = status, items = emptyList(), isLoading = true) }
-        load(reset = true)
-    }
-
-    fun refresh() = load(reset = true)
-
-    fun retry() = load(reset = true)
-
-    fun loadMore() {
-        val state = _uiState.value
-        if (state.isLoading || state.isRefreshing || state.isLoadingMore || !state.hasMore) return
-        load(reset = false)
-    }
-
-    private fun load(reset: Boolean) {
-        val status = _uiState.value.status
-        viewModelScope.launch {
-            if (reset) {
-                page = 1
-                _uiState.update {
-                    it.copy(
-                        isLoading = it.items.isEmpty() && !it.isRefreshing,
-                        isRefreshing = it.items.isNotEmpty(),
-                        error = null,
-                    )
-                }
-            } else {
-                _uiState.update { it.copy(isLoadingMore = true) }
-            }
-            repository.myExecutions(page = page, status = status).fold(
-                onSuccess = { result ->
-                    // 快速切 tab 时旧请求可能晚到，丢掉与当前 tab 不匹配的响应。
-                    if (_uiState.value.status != status) return@fold
-                    // 服务端的 status=1 是“未完成”，含已撤回；对用户来说撤回已经结束，从进行中列表里剔掉。
-                    val raw = (if (reset) result.items else _uiState.value.items + result.items)
-                        .distinctBy { it.executionId }
-                    val loadedAll = result.total != null && raw.size >= result.total
-                    val activeVisible = if (loadedAll) {
-                        result.total!!.minus(raw.count { isWithdrawn(it.statusTxt) }).coerceAtLeast(0)
-                    } else {
-                        null
-                    }
-                    val merged = (if (status == "1") raw.filterNot { isWithdrawn(it.statusTxt) } else raw)
-                        .sortedWith(compareByDescending { parseLeaveTime(it.receiveTime) })
-                    _uiState.update {
-                        it.copy(
-                            items = merged,
-                            activeTotal = if (status == "1") activeVisible else it.activeTotal,
-                            allTotal = if (status == "3") result.total else it.allTotal,
-                            isLoading = false,
-                            isRefreshing = false,
-                            isLoadingMore = false,
-                            hasMore = result.total?.let { raw.size < it }
-                                ?: (result.items.size >= PAGE_SIZE),
-                            error = null,
-                        )
-                    }
-                    if (result.items.size >= PAGE_SIZE) page++
-                    if (reset) refreshOtherTotal(status)
-                },
-                onFailure = { error ->
-                    if (_uiState.value.status != status) return@fold
-                    _uiState.update {
-                        it.copy(
-                            isLoading = false,
-                            isRefreshing = false,
-                            isLoadingMore = false,
-                            error = error.message ?: "获取请假列表失败",
-                        )
-                    }
-                },
-            )
-        }
-    }
-
-    /** 另一个 tab 的计数：服务端 total，跨 tab 不再靠数已加载页。 */
-    private fun refreshOtherTotal(current: String) {
-        viewModelScope.launch {
-            if (current == "1") {
-                val total = repository.count("3") ?: return@launch
-                _uiState.update { it.copy(allTotal = total) }
-            } else {
-                // 进行中要扣掉已撤回，必须把整页拿回来数；没拿全就宁可不上计数。
-                val page = repository.myExecutions(page = 1, pageSize = 50, status = "1").getOrNull()
-                    ?: return@launch
-                val total = page.total?.takeIf { page.items.size >= it }
-                    ?.minus(page.items.count { isWithdrawn(it.statusTxt) })
-                    ?.coerceAtLeast(0)
-                    ?: return@launch
-                _uiState.update { it.copy(activeTotal = total) }
-            }
-        }
-    }
-
-    private companion object {
-        const val PAGE_SIZE = 20
-    }
+    fun refresh() = store.refresh()
+    fun retry(status: String) = store.retry(status)
+    fun loadMore(status: String) = store.loadMore(status)
 }
 
 /** 服务端把已撤回也归在“未完成”里，界面上它已经结束。 */

@@ -35,9 +35,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -60,8 +57,9 @@ import com.lightxin.core.designsystem.component.LxSkeletonList
 import com.lightxin.core.designsystem.component.LxStatusLine
 import com.lightxin.core.designsystem.component.LxTabItem
 import com.lightxin.core.designsystem.component.LxTone
-import com.lightxin.core.designsystem.component.lxHeaderCollapsed
-import com.lightxin.core.designsystem.component.lxHorizontalSwipe
+import com.lightxin.core.designsystem.component.rememberLxTabPagerSelection
+import com.lightxin.core.designsystem.component.LxTabPager
+import com.lightxin.core.designsystem.component.rememberLxTabPagerState
 import com.lightxin.core.designsystem.component.lxSharedBounds
 import com.lightxin.core.designsystem.theme.LxCanvas
 import com.lightxin.core.designsystem.theme.LxText
@@ -83,10 +81,10 @@ fun RepairListScreen(
     animatedVisibilityScope: AnimatedVisibilityScope? = null,
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    // 默认停在“进行中”；0 条也保留，不自动跳“全部”。每次进入都从 0 开始。
-    var filter by remember { mutableIntStateOf(0) }
-    val listState = rememberLazyListState()
-    val collapsed = listState.lxHeaderCollapsed()
+    val pagerState = rememberLxTabPagerState()
+    val selectTab = rememberLxTabPagerSelection(pagerState)
+    val activeListState = rememberLazyListState()
+    val allListState = rememberLazyListState()
 
     LaunchedEffect(shouldRefresh) {
         if (shouldRefresh) {
@@ -96,79 +94,79 @@ fun RepairListScreen(
     }
 
     val active = uiState.items.filter { isRepairActive(it.dqzt) }
-    val shown = if (filter == 0) active else uiState.items
 
     Scaffold(
         modifier = modifier,
         containerColor = LxCanvas,
-        topBar = { LxNavBar(onBack = onBack, title = "报修", collapsed = collapsed) },
+        topBar = {
+            // 标题与 tab 行固定在 pager 外，切页时只有列表内容横向移动。
+            Column(modifier = Modifier.background(LxCanvas)) {
+                LxNavBar(onBack = onBack)
+                LxPageHeader(title = "报修", modifier = Modifier.padding(horizontal = 24.dp))
+                LxFilterTabs(
+                    items = listOf(
+                        LxTabItem("进行中", active.size),
+                        LxTabItem("全部", uiState.items.size),
+                    ),
+                    selectedIndex = pagerState.currentPage,
+                    indicatorFraction = pagerState.currentPage + pagerState.currentPageOffsetFraction,
+                    onSelect = selectTab,
+                    modifier = Modifier
+                        .padding(horizontal = 24.dp, vertical = 12.dp)
+                        .wrapContentWidth(Alignment.Start),
+                )
+            }
+        },
         floatingActionButton = {
             LxFloatingAction(text = "新建报修", icon = Icons.Outlined.Add, onClick = onCreate)
         },
     ) { padding ->
-        PullToRefreshBox(
-            isRefreshing = uiState.isRefreshing,
-            onRefresh = viewModel::refresh,
+        LxTabPager(
+            state = pagerState,
             modifier = Modifier.padding(padding).fillMaxSize(),
-        ) {
-            LazyColumn(
-                state = listState,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .lxHorizontalSwipe(
-                        onSwipeLeft = { if (filter == 0) filter = 1 },
-                        onSwipeRight = { if (filter == 1) filter = 0 },
-                    ),
-                contentPadding = PaddingValues(bottom = 112.dp),
+        ) { pageIndex ->
+            val shown = if (pageIndex == 0) active else uiState.items
+            PullToRefreshBox(
+                isRefreshing = uiState.isRefreshing,
+                onRefresh = viewModel::refresh,
+                modifier = Modifier.fillMaxSize(),
             ) {
-                item(key = "header") {
-                    LxPageHeader(title = "报修", modifier = Modifier.padding(horizontal = 24.dp))
-                }
-                stickyHeader(key = "tabs") {
-                    LxFilterTabs(
-                        items = listOf(
-                            LxTabItem("进行中", active.size),
-                            LxTabItem("全部", uiState.items.size),
-                        ),
-                        selectedIndex = filter,
-                        onSelect = { filter = it },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(LxCanvas)
-                            .padding(horizontal = 24.dp, vertical = 12.dp)
-                            .wrapContentWidth(Alignment.Start),
-                    )
-                }
-                when {
-                    uiState.isLoading -> item(key = "loading") { LxSkeletonList(count = 6) }
-                    uiState.error != null && uiState.items.isEmpty() -> item(key = "error") {
-                        Box(
-                            modifier = Modifier.fillParentMaxHeight(0.6f).fillMaxWidth().padding(24.dp),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            LxErrorState(message = uiState.error.orEmpty(), onRetry = viewModel::retry)
+                LazyColumn(
+                    state = if (pageIndex == 0) activeListState else allListState,
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(bottom = 112.dp),
+                ) {
+                    when {
+                        uiState.isLoading -> item(key = "loading") { LxSkeletonList(count = 6) }
+                        uiState.error != null && uiState.items.isEmpty() -> item(key = "error") {
+                            Box(
+                                modifier = Modifier.fillParentMaxHeight(0.6f).fillMaxWidth().padding(24.dp),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                LxErrorState(message = uiState.error.orEmpty(), onRetry = viewModel::retry)
+                            }
                         }
-                    }
-                    shown.isEmpty() -> item(key = "empty") {
-                        Box(
-                            modifier = Modifier.fillParentMaxHeight(0.6f).fillMaxWidth(),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            LxEmptyState(
-                                title = if (filter == 0) "没有正在处理的报修" else "还没有报修记录",
-                                body = "提交后会出现在这里，后勤受理后会电话联系。",
+                        shown.isEmpty() -> item(key = "empty") {
+                            Box(
+                                modifier = Modifier.fillParentMaxHeight(0.6f).fillMaxWidth(),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                LxEmptyState(
+                                    title = if (pageIndex == 0) "没有正在处理的报修" else "还没有报修记录",
+                                    body = "提交后会出现在这里，后勤受理后会电话联系。",
+                                )
+                            }
+                        }
+                        else -> items(shown, key = { it.bxdh }) { item ->
+                            RepairRow(
+                                item = item,
+                                sharedTransitionScope = sharedTransitionScope.takeIf { pagerState.currentPage == pageIndex },
+                                animatedVisibilityScope = animatedVisibilityScope,
+                                onClick = {
+                                    viewModel.openDetail(item.id, item.bxdh) { onOpenDetail(item.bxdh) }
+                                },
                             )
                         }
-                    }
-                    else -> items(shown, key = { it.bxdh }) { item ->
-                        RepairRow(
-                            item = item,
-                            sharedTransitionScope = sharedTransitionScope,
-                            animatedVisibilityScope = animatedVisibilityScope,
-                            onClick = {
-                                viewModel.openDetail(item.id, item.bxdh) { onOpenDetail(item.bxdh) }
-                            },
-                        )
                     }
                 }
             }

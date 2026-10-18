@@ -24,9 +24,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
@@ -45,15 +43,15 @@ import com.lightxin.core.designsystem.component.LxStatusLine
 import com.lightxin.core.designsystem.component.LxTabItem
 import com.lightxin.core.designsystem.component.LxTone
 import com.lightxin.core.designsystem.component.ServiceErrorCard
-import com.lightxin.core.designsystem.component.lxHeaderCollapsed
-import com.lightxin.core.designsystem.component.lxHorizontalSwipe
+import com.lightxin.core.designsystem.component.rememberLxTabPagerSelection
+import com.lightxin.core.designsystem.component.LxTabPager
+import com.lightxin.core.designsystem.component.rememberLxTabPagerState
 import com.lightxin.core.designsystem.theme.LxCanvas
 import com.lightxin.core.designsystem.theme.LxText
 import com.lightxin.feature.checkin.domain.CheckinTask
 import com.lightxin.feature.holiday.domain.HolidayTask
 
 private const val TAB_CHECKIN = 0
-private const val TAB_HOLIDAY = 1
 
 /**
  * 学工在线：查寝 / 离校登记 两个 tab。
@@ -72,13 +70,10 @@ fun CheckinListScreen(
     viewModel: CheckinViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    var tab by remember { mutableIntStateOf(TAB_CHECKIN) }
+    val pagerState = rememberLxTabPagerState()
+    val selectTab = rememberLxTabPagerSelection(pagerState)
     val checkinListState = rememberLazyListState()
     val holidayListState = rememberLazyListState()
-    val checkinCollapsed = checkinListState.lxHeaderCollapsed()
-    val holidayCollapsed = holidayListState.lxHeaderCollapsed()
-    val collapsed = if (tab == TAB_CHECKIN) checkinCollapsed else holidayCollapsed
-    val listState = if (tab == TAB_CHECKIN) checkinListState else holidayListState
 
     LaunchedEffect(shouldRefresh) {
         if (shouldRefresh) {
@@ -87,9 +82,9 @@ fun CheckinListScreen(
         }
     }
 
-    val shouldLoadMore by remember {
+    val shouldLoadMore by remember(uiState) {
         derivedStateOf {
-            if (tab != TAB_CHECKIN) return@derivedStateOf false
+            if (pagerState.settledPage != TAB_CHECKIN) return@derivedStateOf false
             val lastVisible = checkinListState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
             val totalItems = checkinListState.layoutInfo.totalItemsCount
             lastVisible >= totalItems - 3 && uiState.hasMore && !uiState.isLoadingMore && !uiState.isLoading
@@ -102,47 +97,45 @@ fun CheckinListScreen(
     Scaffold(
         modifier = modifier,
         containerColor = LxCanvas,
-        topBar = { LxNavBar(onBack = onBack, title = "学工在线", collapsed = collapsed) },
-    ) { padding ->
-        LazyColumn(
-            state = listState,
-            modifier = Modifier
-                .padding(padding)
-                .fillMaxSize()
-                .lxHorizontalSwipe(
-                    onSwipeLeft = { if (tab == TAB_CHECKIN) tab = TAB_HOLIDAY },
-                    onSwipeRight = { if (tab == TAB_HOLIDAY) tab = TAB_CHECKIN },
-                ),
-            contentPadding = PaddingValues(bottom = 28.dp),
-        ) {
-            item(key = "header") {
+        topBar = {
+            // 标题与 tab 行固定在 pager 外，切页时只有列表内容横向移动。
+            Column(modifier = Modifier.background(LxCanvas)) {
+                LxNavBar(onBack = onBack)
                 LxPageHeader(title = "学工在线", modifier = Modifier.padding(horizontal = 24.dp))
-            }
-            stickyHeader(key = "tabs") {
                 LxFilterTabs(
                     items = listOf(LxTabItem("查寝"), LxTabItem("离校登记")),
-                    selectedIndex = tab,
-                    onSelect = { tab = it },
+                    selectedIndex = pagerState.currentPage,
+                    indicatorFraction = pagerState.currentPage + pagerState.currentPageOffsetFraction,
+                    onSelect = selectTab,
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .background(LxCanvas)
                         .padding(horizontal = 24.dp, vertical = 12.dp)
                         .wrapContentWidth(Alignment.Start),
                 )
             }
-
-            when (tab) {
-                TAB_CHECKIN -> checkinContent(
-                    uiState = uiState,
-                    onTaskClick = onTaskClick,
-                    onRelogin = onRelogin,
-                    onRetry = viewModel::retry,
-                )
-                else -> holidayContent(
-                    uiState = uiState,
-                    onHolidayClick = onHolidayClick,
-                    onRetry = viewModel::retryHoliday,
-                )
+        },
+    ) { padding ->
+        LxTabPager(
+            state = pagerState,
+            modifier = Modifier.padding(padding).fillMaxSize(),
+        ) { pageIndex ->
+            LazyColumn(
+                state = if (pageIndex == TAB_CHECKIN) checkinListState else holidayListState,
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(bottom = 28.dp),
+            ) {
+                when (pageIndex) {
+                    TAB_CHECKIN -> checkinContent(
+                        uiState = uiState,
+                        onTaskClick = onTaskClick,
+                        onRelogin = onRelogin,
+                        onRetry = viewModel::retry,
+                    )
+                    else -> holidayContent(
+                        uiState = uiState,
+                        onHolidayClick = onHolidayClick,
+                        onRetry = viewModel::retryHoliday,
+                    )
+                }
             }
         }
     }

@@ -38,7 +38,7 @@ tags: [designsystem, motion, animation, compose]
 
 ## 后果
 
-- `LxCard` / `LxButton` / `LxIconButton` / `LxChoiceChip` / `LxMenuRow` 按压统一为 0.98/0.99 缩放 + 颜色 spring；`LxDialog` 入场 0.98→1、出场 140ms。
+- `LxCard` / `LxButton` / `LxIconButton` / `LxChoiceChip` / `LxMenuRow` 按压统一为 0.98/0.99 缩放 + 颜色 spring；`LxDialog` 入场 0.98→1（280ms）、出场 220ms，由 `Animatable` 驱动以跟随系统动画缩放。
 - `LxEmpty` 的 `it / 4` 位移改为固定 6dp。
 - 首页 tab 只做 6% 位移 + 淡入，stagger 最多 3 档、30ms 递增、仅首次进入播放。
 - 系统"动画时长 0 / 移除动画"下由 Compose durationScale 直接落终值，不留中间态。
@@ -48,3 +48,7 @@ tags: [designsystem, motion, animation, compose]
 - `codestable/architecture/designsystem-overview.md`
 - `codestable/architecture/navigation-overview.md`
 - 代码：`core/designsystem/theme/LxMotion.kt`、`core/designsystem/component/LxSharedTransition.kt`
+
+## 后续动效修订
+
+本篇的“快、短”和时长上限由用户要求放慢，参见 [舒缓分页动效](2026-10-18-decision-gentle-tab-paging.md)。无回弹、统一 token、无装饰动画及系统动画缩放约束继续有效。

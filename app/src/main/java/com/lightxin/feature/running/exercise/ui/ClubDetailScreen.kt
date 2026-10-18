@@ -53,6 +53,7 @@ import com.lightxin.core.designsystem.theme.LxCardBorder
 import com.lightxin.core.designsystem.theme.LxInkFaint
 import com.lightxin.core.designsystem.theme.LxInkMuted
 import com.lightxin.core.designsystem.theme.LxInkSoft
+import com.lightxin.core.designsystem.theme.LxMotion
 import com.lightxin.core.designsystem.theme.LxRose
 import com.lightxin.core.designsystem.theme.LxSage
 import com.lightxin.core.designsystem.theme.LxSand
@@ -126,8 +127,8 @@ private fun TaskCard(
             }
             AnimatedVisibility(
                 visible = expanded,
-                enter = expandVertically(tween(220)) + fadeIn(tween(220)),
-                exit = shrinkVertically(tween(180)) + fadeOut(tween(120)),
+                enter = expandVertically(tween(LxMotion.StateMs)) + fadeIn(tween(LxMotion.StateMs)),
+                exit = shrinkVertically(tween(LxMotion.CollapseMs)) + fadeOut(tween(LxMotion.QuickFadeMs)),
             ) {
                 Column(modifier = Modifier.fillMaxWidth()) {
                     Spacer(modifier = Modifier.height(16.dp))

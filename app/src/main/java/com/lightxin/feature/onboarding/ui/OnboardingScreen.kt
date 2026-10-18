@@ -23,12 +23,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lightxin.core.designsystem.component.LxButton
 import com.lightxin.core.designsystem.component.LxSecondaryButton
 import com.lightxin.core.designsystem.theme.LxCream
 import com.lightxin.core.designsystem.theme.LxInkMuted
+import com.lightxin.core.designsystem.theme.LxMotion
 import com.lightxin.core.designsystem.theme.NewsreaderLarge
 import kotlinx.coroutines.delay
 
@@ -90,12 +92,18 @@ fun OnboardingScreen(
 private fun StaggerItem(index: Int, content: @Composable () -> Unit) {
     var visible by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
-        delay(80L + index * 90L)
+        delay(
+            LxMotion.OnboardingStaggerBaseMs.toLong() +
+                index * LxMotion.OnboardingStaggerStepMs.toLong(),
+        )
         visible = true
     }
+    val fadeSpec = tween<Float>(LxMotion.OnboardingEnterMs, easing = LxMotion.EaseOut)
+    val slideSpec = tween<IntOffset>(LxMotion.OnboardingEnterMs, easing = LxMotion.EaseOut)
     AnimatedVisibility(
         visible = visible,
-        enter = fadeIn(tween(450)) + slideInVertically(tween(450)) { it / 4 },
+        enter = fadeIn(fadeSpec) +
+            slideInVertically(slideSpec) { (it * LxMotion.OnboardingShiftFraction).toInt() },
     ) {
         content()
     }

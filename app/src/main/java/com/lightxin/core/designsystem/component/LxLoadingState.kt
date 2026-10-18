@@ -210,7 +210,7 @@ fun LxShimmerCard(modifier: Modifier = Modifier) {
         initialValue = 0f,
         targetValue = 1000f,
         animationSpec = infiniteRepeatable(
-            animation = tween(1200),
+            animation = tween(LxMotion.ShimmerMs),
             repeatMode = RepeatMode.Restart,
         ),
         label = "shimmer_translate",

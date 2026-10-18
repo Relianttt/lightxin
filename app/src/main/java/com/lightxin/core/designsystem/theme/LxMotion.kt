@@ -23,41 +23,62 @@ import androidx.compose.ui.unit.dp
  * 全项目统一的动效 token。
  *
  * 基调：借“连续性”而不借“弹”——所有 spring 走临界阻尼（dampingRatio = 1f），
- * 交互反馈 ≤ 100ms、状态过渡 ≤ 200ms、页面转场 ≤ 260ms；不做回弹、视差、无限装饰动画。
- * 参数只在这里改，组件与页面不各自写数字。
+ * 按下及时响应，状态与页面舒缓收尾；不做回弹、视差、无限装饰动画。
+ * 参数只在这里改，组件与页面不各自写数字；`MotionTokenGateTest` 会拦截字面量。
+ *
+ * 节奏：按下即时（spring）→ 状态 280ms → 分页吸附 420ms → 页面进入 / 退出 420ms。
+ * 高频的分页切换不再与页面导航共用同一个慢时长。
  */
 object LxMotion {
     // ── 时长 ──
-    const val PressInMs = 80
-    const val PressOutMs = 140
-    const val StateMs = 160
-    const val PageMs = 240
-    const val PagePopExitMs = 160
+    const val StateMs = 280
+    const val PageMs = 420
+    const val PagePopExitMs = 350
+    const val TabMs = 420
+    const val DialogExitMs = 220
+    /** 小范围淡入淡出：顶栏小标题、折叠淡出。 */
+    const val QuickFadeMs = 160
+    /** 收起短于展开，避免退出拖沓。 */
+    const val CollapseMs = 180
+    /** 首页横幅 / 副标切换。 */
+    const val BannerMs = 200
+    const val BannerDelayMs = 200
+    /** 首页卡片入场：恢复 7 月手感（350ms、上移 1/3 卡高、60ms 错峰）。 */
+    const val CardEnterMs = 350
+    const val CardStaggerMs = 60
+    const val CardShiftFraction = 0.3333f
+    const val SharedBoundsStiffness = 240f
+
+    // ── 加载 / 首次入场（持续动画与 onboarding 例外）──
+    const val SkeletonMs = 1800
+    const val ShimmerMs = 1200
+    const val PulseMs = 2600
+    const val OnboardingEnterMs = 450
+    const val OnboardingStaggerBaseMs = 80
+    const val OnboardingStaggerStepMs = 90
 
     // ── 位移 / 缩放 ──
     val EnterShiftDp = 6.dp
-    const val PageShiftFraction = 0.12f
-    const val PagePopShiftFraction = 0.08f
-    const val TabShiftFraction = 0.06f
+    const val PageShiftFraction = 0.25f
+    const val PagePopShiftFraction = 0.25f
+    const val TabShiftFraction = 0.25f
+    /** onboarding 插画式入场：屏高 1/4。显式例外，不用于列表与状态过渡。 */
+    const val OnboardingShiftFraction = 0.25f
     const val PressedScaleButton = 0.98f
     const val PressedScaleCard = 0.99f
 
     // ── 曲线：快出慢收，无 overshoot ──
-    val EaseOut = CubicBezierEasing(0.22f, 1f, 0.36f, 1f)
+    val EaseOut = CubicBezierEasing(0.25f, 0.8f, 0.25f, 1f)
     val EaseInOut = CubicBezierEasing(0.4f, 0f, 0.2f, 1f)
 
     // ── 弹簧：全部临界阻尼 ──
-    val PressScale: SpringSpec<Float> = spring(dampingRatio = 1f, stiffness = 900f)
-    val Soft: SpringSpec<Float> = spring(dampingRatio = 1f, stiffness = 380f)
-    val SoftDp: SpringSpec<Dp> = spring(dampingRatio = 1f, stiffness = 380f)
-    val Page: SpringSpec<Float> = spring(dampingRatio = 1f, stiffness = 520f)
-    val ColorSpring: SpringSpec<Color> = spring(dampingRatio = 1f, stiffness = 1200f)
+    val PressScale: SpringSpec<Float> = spring(dampingRatio = 1f, stiffness = 700f)
+    val SoftDp: SpringSpec<Dp> = spring(dampingRatio = 1f, stiffness = 240f)
+    val ColorSpring: SpringSpec<Color> = spring(dampingRatio = 1f, stiffness = 600f)
 
     // ── 常用 tween ──
-    fun state() = tween<Float>(durationMillis = StateMs, easing = EaseOut)
-    fun pressIn() = tween<Float>(durationMillis = PressInMs, easing = EaseOut)
-    fun pressOut() = tween<Float>(durationMillis = PressOutMs, easing = EaseOut)
-    fun page() = tween<Float>(durationMillis = PageMs, easing = EaseOut)
+    fun tab() = tween<Float>(durationMillis = TabMs, easing = EaseOut)
+    fun dialogExit() = tween<Float>(durationMillis = DialogExitMs, easing = EaseOut)
 }
 
 /** 按压时连续缩放到 [pressedScale]，禁用态由调用方传 pressedScale = 1f。 */
