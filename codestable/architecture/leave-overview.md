@@ -52,6 +52,8 @@ depends_on: [network-overview, navigation-overview]
 | 可撤回 | `mobile/process/getMyRequestButtons.do` |
 | 撤回 | `mobile/flowRuTask/withdrawExecution.do` |
 | 销假信息 | `mobile/process/getXjxx.do` |
+| 待办任务节点 | `mobile/flowRuTask/getRunTaskByUserCode.do {approvedType:3}` |
+| 销假提交 | `mobile/process/agree.do`（dataJson / executionId / ruTaskNodeId / stuQjsq） |
 | 附件 | `file/upload.do`（multipart） |
 
 所有响应以 `JsonObject` 接收，`LeaveRepository` 递归容错提取；`flag/result/code` 任一成功语义都接受。
@@ -68,9 +70,9 @@ depends_on: [network-overview, navigation-overview]
 
 ### 2.4 UI 流程
 
-- `LeaveListScreen`：进行中 / 全部切换、下拉刷新、触底加载；行首日期块 + 标题 + 状态点，右上「发起」，无 FAB。标题从 `flowTitle` 提取已知请假类型（病假/事假等）显示为「病假申请」，取不到时回落「学生请假申请」；列表接口没有起止时间，日期范围只在详情展示
-- `LeaveCreateScreen`：按字段类型渲染；日期区间用自绘 `LxDateTimeSheet`（月历 + 时分 stepper）；附件支持文件/相册/拍照；顶部暂存 + 底部提交
-- `LeaveDetailScreen`：状态块 + 三步进度 + 时间块 + 字段网格 + 销假；撤回走底部确认弹层
+- `LeaveListScreen`：页头随列表滚动，滚动后导航栏出现“请假”小标题；分段 tab（进行中 / 全部，计数取服务端 `total`，进行中扣掉已撤回）；按“2026 年 6 月”分组，行首“01 周一” + 标题 + 信息行（状态 · 提交时间）；主动作“发起请假”是右下 FAB。标题从 `flowTitle` 提取已知请假类型（病假/事假等）显示为「病假申请」，取不到时回落「学生请假申请」
+- `LeaveCreateScreen`：显示顺序为 类型 → 起止时间 → 是否离校 → 事由 → 联系人与地址 → 附件（只调显示，提交字段不变）；起止时间在同一个 `LxDateRangeSheet` 里选（默认下一个整点、5 分钟步进、快捷时刻、结束须晚于开始）；说明 / 审批规则收成一行可展开；顶部暂存 + 底部固定提交
+- `LeaveDetailScreen`：状态块 + 三步进度 + 时间块 + 字段网格（值常规字重、长值独占行）；待销假时超假信息紧跟状态块（带单位），销假通过待办节点 + `agree.do` 提交；撤回走底部确认弹层
 - 提交成功 `popBackStack()`，列表通过 `savedStateHandle["leave_refresh"]` 刷新
 
 真机校准（2026-10-18）：
@@ -78,7 +80,8 @@ depends_on: [network-overview, navigation-overview]
 - `getFlowSheet.data.flowSheet` 和 `getForm.data.formJson` 是字符串，需解包
 - `getForm.do` 必须用 `type=0`，`type=1 + 空 ruTaskNodeId` 会挂起到超时
 - 列表 `status=1` 进行中 / `status=3` 全部
-- `getXjxx.do` 返回展示信息而非可回写表单，只在含 `QJRQ/dataJson/flowTitle` 时显示提交按钮
+- `getXjxx.do` 返回展示信息（`cjScStr/isCj/...`）而非可回写表单；销假不在本地回写它，而是取待办节点后 `agree.do`
+- `myExecution.do` 的 `status=1` 含“已撤回”，客户端在“进行中”里剔除；列表按 `receiveTime` 倒序，列表行没有 `flowNumber`
 
 `ADDRESS` 只做纯文本输入 —— 遵守项目「无地图 SDK」硬约束，不做地点选择器。
 
@@ -88,7 +91,8 @@ depends_on: [network-overview, navigation-overview]
 
 | 类型 | 含义 | 位置 |
 |---|---|---|
-| `LeaveSummary` | 列表项（executionId / flowTitle / statusTxt / receiveTime） | `data/LeaveModels.kt` |
+| `LeaveSummary` | 列表项（executionId / flowTitle / statusTxt / receiveTime / ruTaskNodeId） | `data/LeaveModels.kt` |
+| `LeavePage` | 分页信封（items + 服务端 total） | 同上 |
 | `LeaveDetail` | 详情（字段 + dataJson 解析值） | 同上 |
 | `LeaveFormField` | 渲染字段定义 | `domain/LeaveForm.kt` |
 | `LeaveFormInput` | 用户输入（文本 / 日期区间 / 附件） | 同上 |
@@ -106,7 +110,8 @@ depends_on: [network-overview, navigation-overview]
 - `getFlowSheet` / `myExecution` / 销假响应结构已在真机校准；后续服务端改结构时先看 `LeaveJson.parseSchema` 与 `LeaveFormSchemaParser`
 - `ADDRESS` 不接地图；用户需手填地点
 - 附件单文件上限 10MB（本地提示，服务端上限未验证）
-- 销假信息不是扁平表单时只展示、隐藏提交按钮
+- 销假需要“待销假”待办节点（`ruTaskNodeId`）；拿不到时按钮不出现，提示返回列表刷新
+- `getXjxx.do` 的 `cjSc` 是小时数（3342 → 139 天），界面优先显示 `cjScStr` 原文并补单位
 
 ## 6. 相关文档
 

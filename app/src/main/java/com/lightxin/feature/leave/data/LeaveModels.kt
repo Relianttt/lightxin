@@ -12,6 +12,17 @@ data class LeaveSummary(
     val statusTxt: String,
     val receiveTime: String,
     val flowNumber: String = "",
+    /** 待办节点：我的请求列表通常返回 null，销假时再从待办列表补（getRunTaskByUserCode）。 */
+    val ruTaskNodeId: String = "",
+)
+
+/**
+ * 列表是标准分页信封 {rows, total}；total 用来显示稳定计数，而不是数当前已加载的那一页。
+ * 有的部署只回 rows，这时 total 为 null，宁可不上计数也不显示错的数字。
+ */
+data class LeavePage(
+    val items: List<LeaveSummary>,
+    val total: Int?,
 )
 
 data class LeaveDetail(
@@ -22,6 +33,8 @@ data class LeaveDetail(
     val flowNumber: String,
     val fields: List<LeaveFormField>,
     val values: JsonObject,
+    /** 详情偶尔也带待办节点；列表行拿不到时用它兜底销假。 */
+    val ruTaskNodeId: String = "",
 )
 
 data class LeaveSchema(
@@ -123,6 +136,11 @@ internal fun JsonObject.string(vararg keys: String): String =
     keys.firstNotNullOfOrNull { key ->
         get(key)?.takeIf { it.isJsonPrimitive }?.asString?.takeIf { it.isNotBlank() }
     }.orEmpty()
+
+internal fun JsonObject.int(vararg keys: String): Int =
+    keys.firstNotNullOfOrNull { key ->
+        get(key)?.takeIf { it.isJsonPrimitive }?.let { runCatching { it.asInt }.getOrNull() }
+    } ?: 0
 
 internal fun JsonObject.bool(vararg keys: String): Boolean =
     keys.any { key ->

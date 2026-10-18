@@ -70,8 +70,19 @@ tags: [designsystem, ui, claude, tokens, components, leave, repair, running]
 - Pixel 4 / Android 13 真机走查：请假列表/详情/发起 + 日期弹层、报修列表/详情/新建、模板列表/详情/导入入口；浅色与深色各看一轮。
 - 已知问题：拍照入口在本机仍无法拉起系统相机，已做 `ActivityNotFoundException` 兜底并记录在 `.agents/notes/2026-10-18-learning-camera-intent-not-found.md`。
 
+## 后续修订
+
+2026-10-18 真机走查后，以下几条被 `.agents/notes/2026-10-18-decision-mobile-first-ui-revision.md` 取代：
+
+- 决定 3：导航栏不再“无标题”，滚动后显示小标题。
+- 决定 4：值不再一律 600，改为常规字重；长值独占一行。
+- 决定 6：模板详情不再用文字动作，改为普通按钮 + 底部独立删除。
+
+其余（并行 token 层、页面骨架、主按钮、危险操作实心、时间弹层、全角引号、迁移范围）继续有效。
+
 ## 相关文档
 
+- `.agents/notes/2026-10-18-decision-mobile-first-ui-revision.md`
 - `codestable/architecture/designsystem-overview.md`
 - `codestable/architecture/DESIGN.md`
 - `prototype/claude-ui-refactor-v3.html`

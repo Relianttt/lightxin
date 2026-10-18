@@ -155,8 +155,8 @@ RPill = 20dp  → 胶囊（Badge / 周选择器 chip）   → shapes.extraLarge
 | 文件 | 内容 | 说明 |
 |---|---|---|
 | `theme/ClaudeTokens.kt` | `LxCanvas / LxSurface / LxTint / LxTintStrong / LxText / LxTextSecondary / LxTextMuted / LxTextFaint / LxHairline / LxAccent / LxAccentText / LxOnAccent / LxStateSuccess / LxStateWarning / LxDanger / LxDangerFill / LxDangerSurface` | 色值来自 claude.ai 应用 CSS（2026-02 归档）；Light / Dark 由 `isSystemInDarkTheme()` 切换 |
-| `component/ClaudeComponents.kt` | `LxNavBar / LxPageHeader / LxSectionLabel / LxStatus / LxFilterTabs / LxPill / LxPanel / LxCallout / LxStepBar / LxFlowStep / LxMetaGrid / LxMetaRow / LxPrimaryButton / LxGhostButton / LxDangerButton / LxField / LxInput / LxSelectRow / LxGroupCard / LxGroupRow / LxEmptyState / LxErrorState / LxSkeleton*` | 无分割线、背景色阶分层、0.5dp 功能性边框；主按钮陶土、危险操作实心 `#B53333` |
-| `component/ClaudeSheets.kt` | `LxBottomSheet / LxConfirmSheet / LxOptionSheet / LxDateTimeSheet / LxTextArea` | 日期时间自绘月历 + 时分 stepper，替换 Material DatePicker/TimePicker |
+| `component/ClaudeComponents.kt` | `LxNavBar（滚动后小标题）/ LxPageHeader / LxSectionLabel / LxStatus / LxStatusLine / LxFilterTabs（分段）/ LxChoiceGroup（按宽换行）/ LxPill / LxPanel / LxCallout / LxStepBar / LxFlowStep / LxMetaGrid（值常规字重、长值独占行）/ LxMetaRow / LxPrimaryButton / LxGhostButton / LxDangerButton / LxBottomBar（吸底）/ LxFloatingAction / LxField / LxInput / LxSelectRow / LxGroupCard / LxGroupRow / LxGroupDivider / LxEmptyState（居中）/ LxErrorState / LxSkeleton*`、`LazyListState.lxHeaderCollapsed()` | 无分割线、背景色阶分层、0.5dp 功能性边框；主按钮陶土、危险操作实心 `#B53333` |
+| `component/ClaudeSheets.kt` | `LxBottomSheet / LxConfirmSheet / LxOptionSheet / LxDateTimeSheet / LxDateRangeSheet / LxTextArea`、`lxNextSlot / lxStepMinutes / lxShortDateTime / lxDurationLabel / formatLxDateTime / parseLxDateTime / shortLxDate` | 日期时间自绘月历 + 时分 stepper，起止时间同一弹层；默认下一个整点、分钟 5 分钟一档、08/10/12/14/18 快捷时刻 |
 
 边界：
 
@@ -164,7 +164,7 @@ RPill = 20dp  → 胶囊（Badge / 周选择器 chip）   → shapes.extraLarge
 - 新页面 Scaffold 必须显式 `containerColor = LxCanvas`，不能再依赖 `MaterialTheme.colorScheme.background`
 - `LxPageHeader` 不自带水平 padding：列表页显式 `padding(horizontal = 24.dp)`，放在 LazyColumn 内的页面沿用 contentPadding，避免出现 48dp 双缩进
 - 迁移完所有页面后再统一切全局 ColorScheme；当前两套色板并存是已知过渡状态
-- 决策与来源：`.agents/notes/2026-10-18-decision-claude-ui-language.md`；token 表：`prototype/claude-tokens.md`
+- 决策与来源：`.agents/notes/2026-10-18-decision-claude-ui-language.md` + 真机修订 `.agents/notes/2026-10-18-decision-mobile-first-ui-revision.md`；token 表：`prototype/claude-tokens.md`
 
 组件的共同模式：
 

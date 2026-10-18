@@ -31,6 +31,8 @@ import javax.inject.Inject
 data class LeaveListUiState(
     val items: List<LeaveSummary> = emptyList(),
     val status: String = "1",
+    val activeTotal: Int? = null,
+    val allTotal: Int? = null,
     val isLoading: Boolean = true,
     val isRefreshing: Boolean = false,
     val isLoadingMore: Boolean = false,
@@ -46,6 +48,7 @@ class LeaveListViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(LeaveListUiState())
     val uiState: StateFlow<LeaveListUiState> = _uiState.asStateFlow()
     private var page = 1
+    private var userChoseTab = false
 
     init {
         load(reset = true)
@@ -53,7 +56,8 @@ class LeaveListViewModel @Inject constructor(
 
     fun setStatus(status: String) {
         if (_uiState.value.status == status) return
-        _uiState.update { it.copy(status = status) }
+        userChoseTab = true
+        _uiState.update { it.copy(status = status, items = emptyList(), isLoading = true) }
         load(reset = true)
     }
 
@@ -68,6 +72,7 @@ class LeaveListViewModel @Inject constructor(
     }
 
     private fun load(reset: Boolean) {
+        val status = _uiState.value.status
         viewModelScope.launch {
             if (reset) {
                 page = 1
@@ -81,23 +86,47 @@ class LeaveListViewModel @Inject constructor(
             } else {
                 _uiState.update { it.copy(isLoadingMore = true) }
             }
-            val result = repository.myExecutions(page = page, status = _uiState.value.status)
-            result.fold(
-                onSuccess = { list ->
-                    val merged = if (reset) list else _uiState.value.items + list
+            repository.myExecutions(page = page, status = status).fold(
+                onSuccess = { result ->
+                    // 快速切 tab 时旧请求可能晚到，丢掉与当前 tab 不匹配的响应。
+                    if (_uiState.value.status != status) return@fold
+                    // 服务端的 status=1 是“未完成”，含已撤回；对用户来说撤回已经结束，从进行中列表里剔掉。
+                    val raw = (if (reset) result.items else _uiState.value.items + result.items)
+                        .distinctBy { it.executionId }
+                    val loadedAll = result.total != null && raw.size >= result.total
+                    val activeVisible = if (loadedAll) {
+                        result.total!!.minus(raw.count { isWithdrawn(it.statusTxt) }).coerceAtLeast(0)
+                    } else {
+                        null
+                    }
+                    val merged = (if (status == "1") raw.filterNot { isWithdrawn(it.statusTxt) } else raw)
+                        .sortedWith(compareByDescending { parseLeaveTime(it.receiveTime) })
                     _uiState.update {
                         it.copy(
-                            items = merged.distinctBy { item -> item.executionId },
+                            items = merged,
+                            activeTotal = if (status == "1") activeVisible else it.activeTotal,
+                            allTotal = if (status == "3") result.total else it.allTotal,
                             isLoading = false,
                             isRefreshing = false,
                             isLoadingMore = false,
-                            hasMore = list.size >= PAGE_SIZE,
+                            hasMore = result.total?.let { raw.size < it }
+                                ?: (result.items.size >= PAGE_SIZE),
                             error = null,
                         )
                     }
-                    if (list.size >= PAGE_SIZE) page++
+                    if (result.items.size >= PAGE_SIZE) page++
+                    if (reset) {
+                        refreshOtherTotal(status)
+                        // “进行中”一条都没有时落到“全部”，别让用户先看到一个空页（只在首次自动选择时生效）。
+                        if (!userChoseTab && status == "1" && merged.isEmpty() && loadedAll) {
+                            userChoseTab = true
+                            _uiState.update { it.copy(status = "3") }
+                            load(reset = true)
+                        }
+                    }
                 },
                 onFailure = { error ->
+                    if (_uiState.value.status != status) return@fold
                     _uiState.update {
                         it.copy(
                             isLoading = false,
@@ -111,9 +140,45 @@ class LeaveListViewModel @Inject constructor(
         }
     }
 
+    /** 另一个 tab 的计数：服务端 total，跨 tab 不再靠数已加载页。 */
+    private fun refreshOtherTotal(current: String) {
+        viewModelScope.launch {
+            if (current == "1") {
+                val total = repository.count("3") ?: return@launch
+                _uiState.update { it.copy(allTotal = total) }
+            } else {
+                // 进行中要扣掉已撤回，必须把整页拿回来数；没拿全就宁可不上计数。
+                val page = repository.myExecutions(page = 1, pageSize = 50, status = "1").getOrNull()
+                    ?: return@launch
+                val total = page.total?.takeIf { page.items.size >= it }
+                    ?.minus(page.items.count { isWithdrawn(it.statusTxt) })
+                    ?.coerceAtLeast(0)
+                    ?: return@launch
+                _uiState.update { it.copy(activeTotal = total) }
+            }
+        }
+    }
+
     private companion object {
         const val PAGE_SIZE = 20
     }
+}
+
+/** 服务端把已撤回也归在“未完成”里，界面上它已经结束。 */
+internal fun isWithdrawn(status: String): Boolean =
+    status.contains("撤回") || status.contains("撤销")
+
+/** “2026-06-01 10:13:09” / “2026/6/1 10:13” → LocalDateTime；解析失败排到最后。 */
+internal fun parseLeaveTime(raw: String): java.time.LocalDateTime? {
+    val cleaned = raw.trim()
+    if (cleaned.isBlank()) return null
+    val patterns = listOf("yyyy-MM-dd HH:mm:ss", "yyyy-MM-dd HH:mm", "yyyy/MM/dd HH:mm")
+    patterns.forEach { pattern ->
+        runCatching {
+            return java.time.LocalDateTime.parse(cleaned, java.time.format.DateTimeFormatter.ofPattern(pattern))
+        }
+    }
+    return null
 }
 
 // ═══════════════ 发起 ═══════════════
@@ -370,6 +435,7 @@ data class LeaveDetailUiState(
     val isWorking: Boolean = false,
     val xjxx: JsonObject? = null,
     val xjxxLoaded: Boolean = false,
+    val ruTaskNodeId: String = "",
     val withdrawn: Boolean = false,
     val message: String? = null,
 )
@@ -399,8 +465,9 @@ class LeaveDetailViewModel @Inject constructor(
                         flowNumber = loaded.flowNumber.ifBlank { summary?.flowNumber.orEmpty() },
                     )
                     val withdrawable = repository.canWithdraw(id)
-                    val isXj = detail.statusTxt.contains("销假")
+                    val isXj = detail.statusTxt.contains("待销假")
                     val xjxx = if (isXj) repository.getXjxx(id).getOrNull() else null
+                    val taskNode = if (isXj) repository.findTaskNodeId(id) else ""
                     _uiState.update {
                         it.copy(
                             isLoading = false,
@@ -408,6 +475,9 @@ class LeaveDetailViewModel @Inject constructor(
                             canWithdraw = withdrawable,
                             xjxx = xjxx,
                             xjxxLoaded = isXj,
+                            ruTaskNodeId = summary?.ruTaskNodeId.orEmpty()
+                                .ifBlank { detail.ruTaskNodeId }
+                                .ifBlank { taskNode },
                         )
                     }
                 },
@@ -457,20 +527,14 @@ class LeaveDetailViewModel @Inject constructor(
         }
     }
 
-    fun submitXjxx() {
-        val data = _uiState.value.xjxx ?: return
-        if (_uiState.value.isWorking) return
+    /** 销假 = 对「待销假」这个待办节点同意（H5 的 XjDialog 走 agree.do）。 */
+    fun submitCheckIn() {
+        val state = _uiState.value
+        if (state.isWorking) return
         viewModelScope.launch {
             _uiState.update { it.copy(isWorking = true) }
-            val definitionId = repository.getDefinitionId().getOrDefault(
-                LeaveRepository.FALLBACK_DEFINITION_ID,
-            )
-            repository.submit(
-                definitionId = definitionId,
-                dataJson = data,
-                executionId = executionId,
-                draft = false,
-            ).fold(
+            val dataJson = state.detail?.values ?: com.google.gson.JsonObject()
+            repository.submitCheckIn(executionId, state.ruTaskNodeId, dataJson).fold(
                 onSuccess = {
                     _uiState.update {
                         it.copy(isWorking = false, message = "销假已提交")

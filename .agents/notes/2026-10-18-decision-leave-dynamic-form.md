@@ -25,7 +25,8 @@ tags: [leave, ywlz, dynamic-form, workflow]
   - `getFlowSheet.do` 的 `data.flowSheet` 与 `getForm.do` 的 `data.formJson` 都是**再包一层字符串**，必须先 `JsonParser` 解包再解析字段。
   - `getForm.do` 用 `type=1` 且 `ruTaskNodeId` 为空时服务端会挂起到超时；改 `type=0` 正常返回，详情状态从 `myExecution.do` 回查补齐。
   - `myExecution.do` 的 `status=1` 是「进行中/未完成」（含待销假、已撤回），`status=3` 才是全部；列表默认 1。
-  - `getXjxx.do` 只接受 `id=<executionId>`，返回 `cjScStr/isCj/...` 展示信息，不是可回写表单；本地只在含 `QJRQ/dataJson/flowTitle` 时显示提交按钮，否则仅展示。
+  - `getXjxx.do` 只接受 `id=<executionId>`，返回 `cjScStr/isCj/...` 展示信息，不是可回写表单。
+  - 2026-10-18 补：销假的真实入口不是回写 `getXjxx`，而是从待办列表 `getRunTaskByUserCode.do {approvedType:3}` 取 `ruTaskNodeId` 后 `POST agree.do`；详见 `.agents/notes/2026-10-18-decision-mobile-first-ui-revision.md`。
 
 ## 理由
 

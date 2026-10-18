@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -20,7 +21,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -30,6 +30,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.lightxin.core.designsystem.component.LxBottomSheet
 import com.lightxin.core.designsystem.component.LxCallout
 import com.lightxin.core.designsystem.component.LxConfirmSheet
+import com.lightxin.core.designsystem.component.LxDangerButton
 import com.lightxin.core.designsystem.component.LxEmptyState
 import com.lightxin.core.designsystem.component.LxInput
 import com.lightxin.core.designsystem.component.LxMetaRow
@@ -37,15 +38,15 @@ import com.lightxin.core.designsystem.component.LxNavBar
 import com.lightxin.core.designsystem.component.LxPageHeader
 import com.lightxin.core.designsystem.component.LxPanel
 import com.lightxin.core.designsystem.component.LxPrimaryButton
+import com.lightxin.core.designsystem.component.LxGhostButton
 import com.lightxin.core.designsystem.component.LxTextAction
 import com.lightxin.core.designsystem.component.LxTone
+import com.lightxin.core.designsystem.component.lxHeaderCollapsed
 import com.lightxin.core.designsystem.theme.LxAccentText
 import com.lightxin.core.designsystem.theme.LxCanvas
-import com.lightxin.core.designsystem.theme.LxDanger
 import com.lightxin.core.designsystem.theme.LxText
 import com.lightxin.core.designsystem.theme.LxTextMuted
 import com.lightxin.feature.running.domain.RouteQualityStatus
-import com.lightxin.feature.running.domain.RouteTemplate
 
 @Composable
 fun RouteTemplateDetailScreen(
@@ -63,11 +64,19 @@ fun RouteTemplateDetailScreen(
     var renameVisible by remember { mutableStateOf(false) }
     var renameInput by remember { mutableStateOf("") }
     var deleteVisible by remember { mutableStateOf(false) }
+    val listState = rememberLazyListState()
+    val collapsed = listState.lxHeaderCollapsed()
 
     Scaffold(
         modifier = modifier,
         containerColor = LxCanvas,
-        topBar = { LxNavBar(onBack = onBack) },
+        topBar = {
+            LxNavBar(
+                onBack = onBack,
+                title = template?.name ?: "路线模板",
+                collapsed = collapsed,
+            )
+        },
     ) { padding ->
         if (template == null) {
             Column(
@@ -83,6 +92,7 @@ fun RouteTemplateDetailScreen(
         }
 
         LazyColumn(
+            state = listState,
             modifier = Modifier.padding(padding).fillMaxSize(),
             contentPadding = PaddingValues(horizontal = 24.dp, vertical = 2.dp),
         ) {
@@ -163,38 +173,13 @@ fun RouteTemplateDetailScreen(
             }
 
             item {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(24.dp),
-                ) {
-                    LxTextAction(
-                        text = "导出模板",
-                        onClick = { RouteTemplateExport.shareSingle(context, template) },
-                        modifier = Modifier.padding(horizontal = 0.dp),
-                    )
-                    LxTextAction(
-                        text = "重命名",
-                        onClick = {
-                            renameInput = template.name
-                            renameVisible = true
-                        },
-                        modifier = Modifier.padding(horizontal = 0.dp),
-                    )
-                    LxTextAction(
-                        text = "删除模板",
-                        onClick = { deleteVisible = true },
-                        color = LxDanger,
-                        modifier = Modifier.padding(horizontal = 0.dp),
-                    )
-                }
-                Spacer(Modifier.height(12.dp))
                 if (!template.isDefault) {
                     LxPrimaryButton(
                         text = "设为默认",
                         onClick = { viewModel.setDefault(template.id) },
                     )
                     Text(
-                        text = "设为默认后，跑步页会优先选中此模板；删除前建议先导出备份。",
+                        text = "设为默认后，跑步页会优先选中此模板。",
                         fontSize = 11.5.sp,
                         lineHeight = 19.sp,
                         color = LxTextMuted,
@@ -208,6 +193,36 @@ fun RouteTemplateDetailScreen(
                         color = LxTextMuted,
                     )
                 }
+                Spacer(Modifier.height(18.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    LxGhostButton(
+                        text = "导出模板",
+                        onClick = { RouteTemplateExport.shareSingle(context, template) },
+                        modifier = Modifier.weight(1f),
+                    )
+                    LxGhostButton(
+                        text = "重命名",
+                        onClick = {
+                            renameInput = template.name
+                            renameVisible = true
+                        },
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+                Spacer(Modifier.height(36.dp))
+                LxDangerButton(
+                    text = "删除模板",
+                    onClick = { deleteVisible = true },
+                )
+                Text(
+                    text = "删除后不可恢复，建议先导出备份。",
+                    fontSize = 11.sp,
+                    color = LxTextMuted,
+                    modifier = Modifier.padding(top = 8.dp),
+                )
                 Spacer(Modifier.height(28.dp))
             }
         }

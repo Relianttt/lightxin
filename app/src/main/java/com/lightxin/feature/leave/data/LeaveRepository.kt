@@ -25,6 +25,12 @@ class LeaveRepository @Inject constructor(
     @Volatile
     private var cachedDefinitionId: String? = null
 
+    /** 列表行按 executionId 缓存：详情页据此补 ruTaskNodeId / statusTxt，避免再拉一遍列表。 */
+    private val summaryCache = java.util.concurrent.ConcurrentHashMap<String, LeaveSummary>()
+
+    /** executionId → 待办节点 id（销假用）。 */
+    private val taskNodeCache = java.util.concurrent.ConcurrentHashMap<String, String>()
+
     suspend fun getDefinitionId(): Result<String> {
         cachedDefinitionId?.let { return Result.success(it) }
         return try {
@@ -88,7 +94,7 @@ class LeaveRepository @Inject constructor(
         page: Int,
         pageSize: Int = 20,
         status: String,
-    ): Result<List<LeaveSummary>> = runCatchingApi("获取请假列表") {
+    ): Result<LeavePage> = runCatchingApi("获取请假列表") {
         val response = api.myExecution(
             mapOf(
                 "currentPageNo" to page.toString(),
@@ -100,7 +106,7 @@ class LeaveRepository @Inject constructor(
         ensureSuccess(response, "获取请假列表失败")
         val array = LeaveJson.findFirstArray(response) { it.has("executionId") }
             ?: com.google.gson.JsonArray()
-        array.mapNotNull { element ->
+        val items = array.mapNotNull { element ->
             if (!element.isJsonObject) return@mapNotNull null
             val obj = element.asJsonObject
             val id = obj.string("executionId", "id")
@@ -111,9 +117,70 @@ class LeaveRepository @Inject constructor(
                 statusTxt = obj.string("statusTxt", "statusName", "taskName", "status"),
                 receiveTime = obj.string("receiveTime", "createTime", "createDate", "startTime", "beginTime", "gmtCreate"),
                 flowNumber = obj.string("flowNumber", "code", "processNumber"),
+                ruTaskNodeId = obj.string("ruTaskNodeId"),
             )
         }.distinctBy { it.executionId }
+        items.forEach { summaryCache[it.executionId] = it }
+        LeavePage(
+            items = items,
+            total = response.int("total").takeIf { it > 0 }
+                ?: LeaveJson.collectObjectsWith(response, "total")
+                    .firstOrNull()?.int("total")?.takeIf { it > 0 }
+                ?: items.size.takeIf { page == 1 && items.size < pageSize },
+        )
     }
+
+    /**
+     * 销假需要「待销假」这条待办任务节点：我的请求列表行不带它，待办列表才带。
+     * H5 也是从待办点进去，路由里同时带 executionId 和 ruTaskNodeId。
+     */
+    suspend fun findTaskNodeId(executionId: String): String {
+        taskNodeCache[executionId]?.let { return it }
+        return runCatching {
+            val response = api.getRunTask(
+                mapOf(
+                    "currentPageNo" to "1",
+                    "pageSize" to "50",
+                    "approvedType" to "3",
+                ),
+            )
+            val array = LeaveJson.findFirstArray(response) { it.has("ruTaskNodeId") }
+                ?: return@runCatching ""
+            val row = array.firstOrNull { item ->
+                item.isJsonObject && item.asJsonObject.string("executionId") == executionId
+            }?.asJsonObject ?: return@runCatching ""
+            row.string("ruTaskNodeId").also { node ->
+                if (node.isNotBlank()) taskNodeCache[executionId] = node
+            }
+        }.getOrDefault("")
+    }
+
+    /** 只取计数：pageSize=1 拉一页，total 是服务端算的，不会随已加载页数变化。 */
+    suspend fun count(status: String): Int? =
+        myExecutions(page = 1, pageSize = 1, status = status).getOrNull()?.total
+
+    /** 销假：H5 XjDialog 确认后调用 agree.do；附件可选，先按空列表提交。 */
+    suspend fun submitCheckIn(
+        executionId: String,
+        ruTaskNodeId: String,
+        dataJson: JsonObject,
+    ): Result<Unit> =
+        runCatchingApi("销假") {
+            if (ruTaskNodeId.isBlank()) throw IllegalStateException("缺少销假待办节点，请返回列表重新进入")
+            val stuQjsq = com.google.gson.JsonObject().apply {
+                add("xjfjList", com.google.gson.JsonArray())
+            }
+            val response = api.agree(
+                mapOf(
+                    "dataJson" to dataJson.toString(),
+                    "executionId" to executionId,
+                    "ruTaskNodeId" to ruTaskNodeId,
+                    "stuQjsq" to stuQjsq.toString(),
+                    "_t" to System.currentTimeMillis().toString(),
+                ),
+            )
+            ensureSuccess(response, "销假失败")
+        }
 
     suspend fun getForm(executionId: String): Result<LeaveDetail> = runCatchingApi("获取请假详情") {
         val response = api.getForm(
@@ -145,13 +212,17 @@ class LeaveRepository @Inject constructor(
             },
             fields = schema.ifEmpty { inferFieldsFromValues(values) },
             values = values,
+            ruTaskNodeId = obj.string("ruTaskNodeId"),
         )
     }
 
-    suspend fun findSummary(executionId: String): LeaveSummary? = runCatching {
-        myExecutions(page = 1, pageSize = 20, status = "3").getOrNull()
-            ?.firstOrNull { it.executionId == executionId }
-    }.getOrNull()
+    suspend fun findSummary(executionId: String): LeaveSummary? {
+        summaryCache[executionId]?.let { return it }
+        return runCatching {
+            myExecutions(page = 1, pageSize = 50, status = "3").getOrNull()
+                ?.items?.firstOrNull { it.executionId == executionId }
+        }.getOrNull()
+    }
 
     suspend fun canWithdraw(executionId: String): Boolean = runCatching {
         val response = api.getMyRequestButtons(

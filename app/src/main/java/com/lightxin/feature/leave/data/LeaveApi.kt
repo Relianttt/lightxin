@@ -48,6 +48,11 @@ interface LeaveApi {
     @POST("mobile/flowRuTask/myExecution.do")
     suspend fun myExecution(@FieldMap fields: Map<String, String>): JsonObject
 
+    /** 待办列表：待销假任务节点（ruTaskNodeId）来自这里，销假 agree.do 必须带。 */
+    @FormUrlEncoded
+    @POST("mobile/flowRuTask/getRunTaskByUserCode.do")
+    suspend fun getRunTask(@FieldMap fields: Map<String, String>): JsonObject
+
     @FormUrlEncoded
     @POST("mobile/process/getForm.do")
     suspend fun getForm(@FieldMap fields: Map<String, String>): JsonObject
@@ -63,6 +68,11 @@ interface LeaveApi {
     @FormUrlEncoded
     @POST("mobile/process/getXjxx.do")
     suspend fun getXjxx(@FieldMap fields: Map<String, String>): JsonObject
+
+    /** 销假 = 对「待销假」待办节点同意；H5 的 XjDialog 走的就是这个端点。 */
+    @FormUrlEncoded
+    @POST("mobile/process/agree.do")
+    suspend fun agree(@FieldMap fields: Map<String, String>): JsonObject
 
     @Multipart
     @POST("file/upload.do")

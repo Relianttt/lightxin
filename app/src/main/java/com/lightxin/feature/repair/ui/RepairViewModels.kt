@@ -3,6 +3,7 @@ package com.lightxin.feature.repair.ui
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.lightxin.feature.repair.data.REPAIR_ENDED_CODES
 import com.lightxin.feature.repair.data.RepairDetail
 import com.lightxin.feature.repair.data.RepairRepository
 import com.lightxin.feature.repair.data.RepairSummary
@@ -145,6 +146,9 @@ class RepairCreateViewModel @Inject constructor(
             val nodes = addresses.getOrDefault(emptyList())
             val defaultCampus = repository.defaultCampus().getOrNull()
             val contact = repository.contact().getOrNull()
+            // 联系人接口偶发拿不到号码：用列表里自己最近一条报修的 sjh 兜底，避免让用户重填。
+            val fallbackPhone = contact?.second?.takeIf { it.isNotBlank() }
+                ?: repository.list().getOrNull()?.firstOrNull()?.sjh.orEmpty()
             val campus = defaultCampus?.first?.takeIf { it.isNotBlank() }
                 ?.let { xqdm -> nodes.firstOrNull { it.value == xqdm } }
                 ?: RepairCascade.roots(nodes).firstOrNull()
@@ -156,7 +160,7 @@ class RepairCreateViewModel @Inject constructor(
                     xqdm = campus?.value.orEmpty(),
                     lyId = "",
                     qyfjh = "",
-                    sjh = contact?.second.orEmpty(),
+                    sjh = fallbackPhone,
                     xm = contact?.first.orEmpty(),
                 )
             }
@@ -317,7 +321,8 @@ class RepairDetailViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = it.detail == null, error = null) }
             repository.detail(bxdh).fold(
-                onSuccess = { detail ->
+                onSuccess = { loaded ->
+                    val detail = mergeWithList(loaded, bxdh)
                     repository.markRead(detail.id)
                     _uiState.update { it.copy(isLoading = false, detail = detail) }
                 },
@@ -361,6 +366,23 @@ class RepairDetailViewModel @Inject constructor(
 
     fun clearMessage() {
         _uiState.update { it.copy(message = null) }
+    }
+
+    /**
+     * 详情接口的状态/电话可能过期或缺失：HAR 里已完工的单详情仍返回 dqzt=9、wxySjh 为空，
+     * 而列表同一时刻是 dqzt=4、wxySjh 有值。用列表摘要补齐，列表拿不到时才用详情原值。
+     */
+    private suspend fun mergeWithList(detail: RepairDetail, bxdh: String): RepairDetail {
+        val summary = repository.cachedSummary(bxdh)
+            ?: repository.list().getOrNull()?.firstOrNull { it.bxdh == bxdh }
+            ?: return detail
+        return detail.copy(
+            dqzt = summary.dqzt.ifBlank { detail.dqzt },
+            dqztMc = if (summary.dqzt.isBlank()) detail.dqztMc else summary.dqztMc.ifBlank { detail.dqztMc },
+            wxr = detail.wxr.ifBlank { summary.wxyXm },
+            wxySjh = detail.wxySjh.ifBlank { summary.wxySjh },
+            completed = detail.completed || summary.dqzt in REPAIR_ENDED_CODES,
+        )
     }
 }
 

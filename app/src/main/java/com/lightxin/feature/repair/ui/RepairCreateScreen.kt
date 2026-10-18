@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
@@ -48,19 +49,20 @@ import androidx.core.content.FileProvider
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil3.compose.AsyncImage
 import com.lightxin.core.designsystem.component.LxErrorState
+import com.lightxin.core.designsystem.component.LxChoiceGroup
 import com.lightxin.core.designsystem.component.LxField
 import com.lightxin.core.designsystem.component.LxGroupCard
+import com.lightxin.core.designsystem.component.LxGroupDivider
 import com.lightxin.core.designsystem.component.LxGroupRow
 import com.lightxin.core.designsystem.component.LxInput
 import com.lightxin.core.designsystem.component.LxNavBar
 import com.lightxin.core.designsystem.component.LxOptionSheet
 import com.lightxin.core.designsystem.component.LxPageHeader
-import com.lightxin.core.designsystem.component.LxPill
 import com.lightxin.core.designsystem.component.LxPrimaryButton
-import com.lightxin.core.designsystem.component.LxSectionLabel
 import com.lightxin.core.designsystem.component.LxSkeletonList
 import com.lightxin.core.designsystem.component.LxTextAction
 import com.lightxin.core.designsystem.component.LxTextArea
+import com.lightxin.core.designsystem.component.lxHeaderCollapsed
 import com.lightxin.core.designsystem.theme.LxAccent
 import com.lightxin.core.designsystem.theme.LxCanvas
 import com.lightxin.core.designsystem.theme.LxDanger
@@ -85,6 +87,8 @@ fun RepairCreateScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     var addressPicker by remember { mutableStateOf<AddressPicker?>(null) }
+    val listState = rememberLazyListState()
+    val collapsed = listState.lxHeaderCollapsed()
 
     var pendingCameraUri by remember { mutableStateOf<Uri?>(null) }
     var pendingCameraFile by remember { mutableStateOf<File?>(null) }
@@ -139,7 +143,7 @@ fun RepairCreateScreen(
     Scaffold(
         modifier = modifier,
         containerColor = LxCanvas,
-        topBar = { LxNavBar(onBack = onBack) },
+        topBar = { LxNavBar(onBack = onBack, title = "新建报修", collapsed = collapsed) },
         snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { padding ->
         when {
@@ -151,6 +155,7 @@ fun RepairCreateScreen(
                 LxErrorState(message = uiState.loadError.orEmpty(), onRetry = viewModel::load)
             }
             else -> LazyColumn(
+                state = listState,
                 modifier = Modifier.padding(padding).fillMaxSize(),
                 contentPadding = PaddingValues(horizontal = 24.dp, vertical = 2.dp),
             ) {
@@ -169,6 +174,7 @@ fun RepairCreateScreen(
                                 enabled = uiState.buildingNodes.isNotEmpty(),
                                 onClick = { addressPicker = AddressPicker.Building },
                             )
+                            LxGroupDivider()
                             LxGroupRow(
                                 label = "房间",
                                 value = uiState.roomName,
@@ -202,15 +208,15 @@ fun RepairCreateScreen(
                         error = uiState.errors["bxlx"],
                     ) {
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            TypePills(
-                                nodes = uiState.typeRoots,
-                                selected = uiState.typeRoot,
+                            LxChoiceGroup(
+                                options = uiState.typeRoots.map { it.name to it.value },
+                                selectedValue = uiState.typeRoot,
                                 onSelect = viewModel::selectTypeRoot,
                             )
                             if (uiState.typeChildren.isNotEmpty()) {
-                                TypePills(
-                                    nodes = uiState.typeChildren,
-                                    selected = uiState.bxlx,
+                                LxChoiceGroup(
+                                    options = uiState.typeChildren.map { it.name to it.value },
+                                    selectedValue = uiState.bxlx,
                                     onSelect = viewModel::selectType,
                                 )
                             }
@@ -366,30 +372,5 @@ fun RepairCreateScreen(
             },
             onDismiss = { addressPicker = null },
         )
-    }
-}
-
-@Composable
-private fun TypePills(
-    nodes: List<RepairNode>,
-    selected: String,
-    onSelect: (String) -> Unit,
-) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        nodes.chunked(3).forEach { row ->
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                row.forEach { node ->
-                    LxPill(
-                        text = node.name,
-                        selected = selected == node.value,
-                        onClick = { onSelect(node.value) },
-                        modifier = Modifier.weight(1f),
-                        height = 44.dp,
-                        maxLines = 2,
-                    )
-                }
-                repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
-            }
-        }
     }
 }

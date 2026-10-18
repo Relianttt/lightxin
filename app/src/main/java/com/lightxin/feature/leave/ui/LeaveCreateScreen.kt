@@ -20,12 +20,14 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Description
+import androidx.compose.material.icons.outlined.KeyboardArrowDown
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -49,21 +51,20 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.FileProvider
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.lightxin.core.designsystem.component.LxDateTimeSheet
+import com.lightxin.core.designsystem.component.LxBottomBar
+import com.lightxin.core.designsystem.component.LxChoiceGroup
+import com.lightxin.core.designsystem.component.LxDateRangeSheet
 import com.lightxin.core.designsystem.component.LxField
 import com.lightxin.core.designsystem.component.LxInput
 import com.lightxin.core.designsystem.component.LxNavBar
 import com.lightxin.core.designsystem.component.LxOptionSheet
 import com.lightxin.core.designsystem.component.LxPageHeader
-import com.lightxin.core.designsystem.component.LxPill
 import com.lightxin.core.designsystem.component.LxPrimaryButton
-import com.lightxin.core.designsystem.component.LxSectionLabel
 import com.lightxin.core.designsystem.component.LxSelectRow
 import com.lightxin.core.designsystem.component.LxSkeletonList
 import com.lightxin.core.designsystem.component.LxTextAction
 import com.lightxin.core.designsystem.component.LxTextArea
-import com.lightxin.core.designsystem.component.formatLxDateTime
-import com.lightxin.core.designsystem.component.parseLxDateTime
+import com.lightxin.core.designsystem.component.lxHeaderCollapsed
 import com.lightxin.core.designsystem.theme.LxAccent
 import com.lightxin.core.designsystem.theme.LxCanvas
 import com.lightxin.core.designsystem.theme.LxDanger
@@ -91,6 +92,8 @@ fun LeaveCreateScreen(
     val context = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+    val listState = rememberLazyListState()
+    val collapsed = listState.lxHeaderCollapsed()
 
     var pendingUploadKey by remember { mutableStateOf<String?>(null) }
     var pendingCameraUri by remember { mutableStateOf<Uri?>(null) }
@@ -170,7 +173,7 @@ fun LeaveCreateScreen(
         modifier = modifier,
         containerColor = LxCanvas,
         topBar = {
-            LxNavBar(onBack = onBack) {
+            LxNavBar(onBack = onBack, title = "发起请假", collapsed = collapsed) {
                 LxTextAction(
                     text = "暂存",
                     onClick = { viewModel.submit(draft = true) },
@@ -180,6 +183,17 @@ fun LeaveCreateScreen(
             }
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
+        bottomBar = {
+            if (!uiState.isLoading && uiState.loadError == null) {
+                LxBottomBar {
+                    LxPrimaryButton(
+                        text = if (uiState.isSubmitting) "提交中…" else "提交申请",
+                        onClick = { viewModel.submit(draft = false) },
+                        enabled = !uiState.isSubmitting && uiState.fields.isNotEmpty(),
+                    )
+                }
+            }
+        },
     ) { padding ->
         when {
             uiState.isLoading -> LxSkeletonList(count = 5, modifier = Modifier.padding(padding))
@@ -191,13 +205,19 @@ fun LeaveCreateScreen(
                 LxTextAction(text = "重新加载", onClick = viewModel::load, modifier = Modifier.padding(top = 8.dp))
             }
             else -> LazyColumn(
+                state = listState,
                 modifier = Modifier.padding(padding).fillMaxSize(),
                 contentPadding = PaddingValues(horizontal = 24.dp, vertical = 2.dp),
             ) {
                 val hiddenReadonly = setOf("标题", "申请人", "班级", "编号", "学号")
-                val visibleFields = uiState.fields.filterNot {
-                    it.label == "标题" || (it.readonly && it.label in hiddenReadonly)
-                }
+                // 只调显示顺序：类型 → 起止时间 → 是否离校 → 事由 → 联系人与地址 → 附件。
+                // 提交仍按服务端字段原样回传，不受这里的顺序影响。
+                val visibleFields = uiState.fields
+                    .filterNot { it.label == "标题" || (it.readonly && it.label in hiddenReadonly) }
+                    .sortedBy(::displayRank)
+                // 说明/审批规则类只读字段收成一个可展开的条目，别让 5 条规则铺在表单前后。
+                val noteFields = visibleFields.filter { it.type == LeaveFormType.READONLY_TEXT }
+                val inputFields = visibleFields.filterNot { it.type == LeaveFormType.READONLY_TEXT }
                 val identity = listOf("申请人", "班级")
                     .mapNotNull { label ->
                         uiState.fields.firstOrNull { it.label == label }?.let { field ->
@@ -208,7 +228,7 @@ fun LeaveCreateScreen(
                     .filter { it.isNotBlank() }
                     .joinToString(" · ")
                 item {
-                    LxPageHeader(title = "发起请假", subtitle = "字段由学校服务端下发")
+                    LxPageHeader(title = "发起请假")
                     if (identity.isNotBlank()) {
                         Text(
                             text = identity,
@@ -219,7 +239,7 @@ fun LeaveCreateScreen(
                     }
                     Spacer(Modifier.height(4.dp))
                 }
-                itemsIndexed(visibleFields, key = { _, field -> field.key }) { _, field ->
+                itemsIndexed(inputFields, key = { _, field -> field.key }) { _, field ->
                     LeaveFieldBlock(
                         field = field,
                         state = uiState,
@@ -239,6 +259,23 @@ fun LeaveCreateScreen(
                         onRemoveAttachment = viewModel::removeAttachment,
                     )
                 }
+                if (noteFields.isNotEmpty()) {
+                    item(key = "notes") {
+                        val texts = noteFields
+                            .mapNotNull { field -> readonlyValue(field, uiState) }
+                            .filter { it.isNotBlank() }
+                        if (texts.isNotEmpty()) {
+                            ReadonlyNote(
+                                label = if (noteFields.any { it.label.contains("规则") || it.label.contains("说明") }) {
+                                    "审批规则与说明"
+                                } else {
+                                    noteFields.first().label
+                                },
+                                text = texts.joinToString("\n"),
+                            )
+                        }
+                    }
+                }
                 if (uiState.fields.isEmpty()) {
                     item {
                         Text(
@@ -250,17 +287,11 @@ fun LeaveCreateScreen(
                     }
                 }
                 item {
-                    Spacer(Modifier.height(12.dp))
-                    LxPrimaryButton(
-                        text = if (uiState.isSubmitting) "提交中…" else "提交申请",
-                        onClick = { viewModel.submit(draft = false) },
-                        enabled = !uiState.isSubmitting && uiState.fields.isNotEmpty(),
-                    )
                     Text(
                         text = "提交后进入辅导员审批，审批期间可撤回",
                         fontSize = 11.sp,
                         color = LxTextMuted,
-                        modifier = Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 28.dp),
+                        modifier = Modifier.fillMaxWidth().padding(top = 18.dp, bottom = 8.dp),
                         textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                     )
                 }
@@ -288,21 +319,11 @@ private fun LeaveFieldBlock(
             required = field.required,
             error = error,
         ) {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                field.options.chunked(3).forEach { row ->
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        row.forEach { option ->
-                            LxPill(
-                                text = option.label,
-                                selected = state.values[field.key] == option.value,
-                                onClick = { onValue(field.key, option.value) },
-                                modifier = Modifier.weight(1f),
-                            )
-                        }
-                        repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
-                    }
-                }
-            }
+            LxChoiceGroup(
+                options = field.options.map { it.label to it.value },
+                selectedValue = state.values[field.key],
+                onSelect = { value -> onValue(field.key, value) },
+            )
         }
 
         LeaveFormType.SELECT -> LxField(
@@ -365,7 +386,7 @@ private fun LeaveFieldBlock(
                 if (start != null && end != null && end.isAfter(start)) {
                     val minutes = java.time.Duration.between(start, end).toMinutes()
                     val hours = minutes / 60.0
-                    if (hours % 1.0 == 0.0) "${hours.toInt()} 小时" else String.format("%.1f 小时", hours)
+                    if (hours % 1.0 == 0.0) "${hours.toInt()} 小时" else String.format(java.util.Locale.US, "%.1f 小时", hours)
                 } else null
             } else null
             val value = computed
@@ -376,19 +397,9 @@ private fun LeaveFieldBlock(
         }
 
         LeaveFormType.READONLY_TEXT -> {
-            val value = field.defaultValue.orEmpty().ifBlank {
-                state.values[field.key].orEmpty().ifBlank {
-                    state.defaults.get(field.key)?.takeIf { it.isJsonPrimitive }?.asString.orEmpty()
-                }
-            }
+            val value = readonlyValue(field, state)
             if (value.isNotBlank()) {
-                Text(
-                    text = value,
-                    fontSize = 12.sp,
-                    lineHeight = 19.sp,
-                    color = LxTextMuted,
-                    modifier = Modifier.fillMaxWidth().padding(top = 14.dp),
-                )
+                ReadonlyNote(label = field.label.ifBlank { "审批规则" }, text = value)
             }
         }
 
@@ -469,66 +480,30 @@ private fun DateRangeField(
     range: Pair<String, String>?,
     onRange: (String, String) -> Unit,
 ) {
-    var editingStart by remember { mutableStateOf(false) }
-    var editingEnd by remember { mutableStateOf(false) }
+    var sheetVisible by remember { mutableStateOf(false) }
     val start = range?.first.orEmpty()
     val end = range?.second.orEmpty()
-
-    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        DateSlot(
-            label = "开始",
-            value = start,
-            modifier = Modifier.weight(1f),
-            onClick = { editingStart = true },
-        )
-        DateSlot(
-            label = "结束",
-            value = end,
-            modifier = Modifier.weight(1f),
-            onClick = { editingEnd = true },
-        )
+    val display = if (start.isBlank() && end.isBlank()) {
+        ""
+    } else {
+        formatRangeLabel(start) + "  →  " + formatRangeLabel(end)
     }
 
-    if (editingStart) {
-        LxDateTimeSheet(
-            initial = parseDateTime(start) ?: LocalDateTime.now(),
-            title = "选择开始时间",
-            onConfirm = { picked ->
-                val formatted = picked.format(DATE_FORMAT)
-                val nextEnd = if (end.isBlank()) picked.plusHours(2).format(DATE_FORMAT) else end
-                onRange(formatted, nextEnd)
-                editingStart = false
-            },
-            onDismiss = { editingStart = false },
-        )
-    }
-    if (editingEnd) {
-        LxDateTimeSheet(
-            initial = parseDateTime(end) ?: parseDateTime(start) ?: LocalDateTime.now(),
-            title = "选择结束时间",
-            onConfirm = { picked ->
-                onRange(start, picked.format(DATE_FORMAT))
-                editingEnd = false
-            },
-            onDismiss = { editingEnd = false },
-        )
-    }
-}
+    LxSelectRow(
+        value = display,
+        placeholder = "选择起止时间",
+        onClick = { sheetVisible = true },
+    )
 
-@Composable
-private fun DateSlot(
-    label: String,
-    value: String,
-    modifier: Modifier = Modifier,
-    onClick: () -> Unit,
-) {
-    Column(modifier = modifier) {
-        LxSelectRow(
-            value = value.let { raw ->
-                parseDateTime(raw)?.let { formatShort(it) } ?: raw
+    if (sheetVisible) {
+        LxDateRangeSheet(
+            initialStart = parseDateTime(start),
+            initialEnd = parseDateTime(end),
+            onConfirm = { pickedStart, pickedEnd ->
+                onRange(pickedStart.format(DATE_FORMAT), pickedEnd.format(DATE_FORMAT))
+                sheetVisible = false
             },
-            placeholder = label,
-            onClick = onClick,
+            onDismiss = { sheetVisible = false },
         )
     }
 }
@@ -615,13 +590,25 @@ private fun AttachmentField(
 }
 
 private val DATE_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
-private val SHORT_FORMAT = DateTimeFormatter.ofPattern("MM/dd HH:mm")
 
-private fun formatShort(value: LocalDateTime): String = value.format(SHORT_FORMAT)
+private fun formatRangeLabel(raw: String): String {
+    val parsed = parseDateTime(raw) ?: return raw
+    val week = listOf("周一", "周二", "周三", "周四", "周五", "周六", "周日")[parsed.dayOfWeek.value - 1]
+    return "%02d/%02d %s %02d:%02d".format(
+        parsed.monthValue,
+        parsed.dayOfMonth,
+        week,
+        parsed.hour,
+        parsed.minute,
+    )
+}
 
 private fun parseDateTime(raw: String): LocalDateTime? =
     runCatching { LocalDateTime.parse(raw, DATE_FORMAT) }.getOrNull()
         ?: runCatching { LocalDateTime.parse(raw) }.getOrNull()
+        ?: runCatching {
+            java.time.LocalDate.parse(raw, DateTimeFormatter.ofPattern("yyyy-MM-dd")).atStartOfDay()
+        }.getOrNull()
 
 private suspend fun copyToCache(context: Context, uri: Uri, prefix: String): File? =
     withContext(Dispatchers.IO) {
@@ -634,3 +621,67 @@ private suspend fun copyToCache(context: Context, uri: Uri, prefix: String): Fil
             file
         }.getOrNull()
     }
+
+private fun readonlyValue(field: LeaveFormField, state: LeaveCreateUiState): String =
+    field.defaultValue.orEmpty().ifBlank {
+        state.values[field.key].orEmpty().ifBlank {
+            state.defaults.get(field.key)?.takeIf { it.isJsonPrimitive }?.asString.orEmpty()
+        }
+    }
+
+/** 显示顺序用的分组：0 类型、1 起止时间、2 时长、3 是否离校、4 事由、5 联系人与地址、6 附件、7 规则说明。 */
+private fun displayRank(field: LeaveFormField): Int {
+    val label = field.label
+    return when {
+        field.type == LeaveFormType.DATE_RANGE -> 1
+        field.type == LeaveFormType.FORMULA -> 2
+        label.contains("离校") || label.contains("外出") || label.contains("住宿") -> 3
+        field.type == LeaveFormType.TEXTAREA || label.contains("事由") || label.contains("原因") -> 4
+        label.contains("类型") -> 0
+        field.type == LeaveFormType.UPLOAD_FILE || field.type == LeaveFormType.UPLOAD_IMG -> 6
+        field.type == LeaveFormType.READONLY_TEXT -> 7
+        else -> 5
+    }
+}
+
+/** 服务端下发的长说明（审批规则等）默认收成一行，需要时再展开，不占满首屏。 */
+@Composable
+private fun ReadonlyNote(label: String, text: String) {
+    var expanded by remember { mutableStateOf(false) }
+    Column(modifier = Modifier.fillMaxWidth().padding(top = 18.dp)) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { expanded = !expanded }
+                .padding(vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = label,
+                fontSize = 13.sp,
+                color = LxTextMuted,
+                modifier = Modifier.weight(1f),
+            )
+            Text(
+                text = if (expanded) "收起" else "展开",
+                fontSize = 12.sp,
+                color = LxAccent,
+            )
+            Icon(
+                imageVector = Icons.Outlined.KeyboardArrowDown,
+                contentDescription = null,
+                tint = LxTextMuted,
+                modifier = Modifier.padding(start = 2.dp).size(18.dp),
+            )
+        }
+        if (expanded) {
+            Text(
+                text = text,
+                fontSize = 12.sp,
+                lineHeight = 19.sp,
+                color = LxTextMuted,
+                modifier = Modifier.padding(top = 6.dp),
+            )
+        }
+    }
+}

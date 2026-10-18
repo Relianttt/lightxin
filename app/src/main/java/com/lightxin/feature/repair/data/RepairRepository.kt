@@ -28,6 +28,9 @@ data class RepairSummary(
     val bxsj: String,
     val dqzt: String,
     val dqztMc: String,
+    val wxyXm: String,
+    val wxySjh: String,
+    val sjh: String,
     val photoUrl: String?,
 )
 
@@ -51,6 +54,9 @@ data class RepairDetail(
     val yjfk: String,
     val wxr: String,
     val wxySjh: String,
+    val wcqk: String,
+    val fwpj: String,
+    val completed: Boolean,
     val photoUrls: List<String>,
     val steps: List<RepairStep>,
 )
@@ -61,11 +67,17 @@ class RepairRepository @Inject constructor(
     private val tokenManager: TokenManager,
 ) {
 
+    /** 详情接口的状态可能过期（已完工的单仍返回 dqzt=9），列表是同一时刻的准数据。 */
+    @Volatile
+    private var cachedList: List<RepairSummary> = emptyList()
+
+    fun cachedSummary(bxdh: String): RepairSummary? = cachedList.firstOrNull { it.bxdh == bxdh }
+
     suspend fun list(): Result<List<RepairSummary>> = runCatchingApi("获取报修列表") {
         val response = api.getWdbxList(emptyMap())
         ensureSuccess(response, "获取报修列表失败")
         val array = RepairJson.findArray(response) { it.has("bxdh") } ?: return@runCatchingApi emptyList()
-        array.mapNotNull { element ->
+        val items = array.mapNotNull { element ->
             if (!element.isJsonObject) return@mapNotNull null
             val obj = element.asJsonObject
             val bxdh = obj.string("bxdh")
@@ -79,9 +91,14 @@ class RepairRepository @Inject constructor(
                 bxsj = obj.string("bxsj"),
                 dqzt = obj.string("dqzt"),
                 dqztMc = obj.string("dqztMc", "dqztmc"),
+                wxyXm = obj.string("wxyXm"),
+                wxySjh = obj.string("wxySjh"),
+                sjh = obj.string("sjh"),
                 photoUrl = RepairJson.firstPhotoUrl(obj),
             )
         }.distinctBy { it.bxdh }
+        cachedList = items
+        items
     }
 
     suspend fun detail(bxdh: String): Result<RepairDetail> = runCatchingApi("获取报修详情") {
@@ -91,6 +108,15 @@ class RepairRepository @Inject constructor(
             ?: throw IllegalStateException("详情数据为空")
         val flow = runCatching { api.getLct(mapOf("bxdh" to bxdh)) }.getOrNull()
         val steps = flow?.let { RepairJson.parseSteps(it) }.orEmpty()
+        val wcqk = obj.string("wcqk")
+        val fwpj = obj.string("fwpj")
+        val rawCode = obj.string("dqzt")
+        val (code, name) = normalizedRepairStatus(
+            code = rawCode,
+            name = obj.string("dqztmc", "dqztMc"),
+            wcqk = wcqk,
+            fwpj = fwpj,
+        )
         RepairDetail(
             id = obj.string("bxdId", "id"),
             bxdh = obj.string("bxdh").ifBlank { bxdh },
@@ -98,8 +124,8 @@ class RepairRepository @Inject constructor(
             bxlx = obj.string("bxlx"),
             gzms = obj.string("gzms"),
             bxsj = obj.string("bxsj"),
-            dqzt = obj.string("dqzt"),
-            dqztMc = obj.string("dqztmc", "dqztMc"),
+            dqzt = code,
+            dqztMc = name,
             xxdz = obj.string("xxdz"),
             xqmc = obj.string("xqmc"),
             lymc = obj.string("lymc"),
@@ -109,6 +135,9 @@ class RepairRepository @Inject constructor(
             yjfk = obj.string("yjfk"),
             wxr = obj.string("wxr"),
             wxySjh = obj.string("wxySjh"),
+            wcqk = wcqk,
+            fwpj = fwpj,
+            completed = rawCode in REPAIR_ENDED_CODES || wcqk == "1" || fwpj == "1",
             photoUrls = RepairJson.photoUrls(obj),
             steps = steps,
         )
@@ -358,3 +387,21 @@ internal fun JsonObject.string(vararg keys: String): String =
     keys.firstNotNullOfOrNull { key ->
         get(key)?.takeIf { it.isJsonPrimitive }?.asString?.takeIf { it.isNotBlank() }
     }.orEmpty()
+
+/** 已结束的 dqzt：4 维修完成、5 已取消、6 废单审核中、7 已废单、8 已延单、10 已登记耗材。 */
+internal val REPAIR_ENDED_CODES = setOf("4", "5", "6", "7", "8", "10")
+
+/**
+ * 详情接口的状态会过期：HAR 已核对，20251225024 在列表里是 dqzt=4 维修完成，详情仍返回 dqzt=9 待处理，
+ * 但同时给了 wcqk=1 / fwpj=1。以完成标志为准修正状态，避免已完工的单在详情里显示“待处理”还能撤回。
+ */
+internal fun normalizedRepairStatus(
+    code: String,
+    name: String,
+    wcqk: String,
+    fwpj: String,
+): Pair<String, String> {
+    val finished = wcqk == "1" || fwpj == "1"
+    if (!finished || code in REPAIR_ENDED_CODES) return code to name.ifBlank { "处理中" }
+    return "4" to "维修完成"
+}
