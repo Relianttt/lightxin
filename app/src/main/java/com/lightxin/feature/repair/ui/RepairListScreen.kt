@@ -35,8 +35,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -61,6 +61,7 @@ import com.lightxin.core.designsystem.component.LxStatusLine
 import com.lightxin.core.designsystem.component.LxTabItem
 import com.lightxin.core.designsystem.component.LxTone
 import com.lightxin.core.designsystem.component.lxHeaderCollapsed
+import com.lightxin.core.designsystem.component.lxHorizontalSwipe
 import com.lightxin.core.designsystem.component.lxSharedBounds
 import com.lightxin.core.designsystem.theme.LxCanvas
 import com.lightxin.core.designsystem.theme.LxText
@@ -82,8 +83,8 @@ fun RepairListScreen(
     animatedVisibilityScope: AnimatedVisibilityScope? = null,
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    // null = 用户还没手动切换：有进行中的单子就停在“进行中”，否则直接看“全部”，不先给一个空页。
-    var userFilter by rememberSaveable { mutableStateOf<Int?>(null) }
+    // 默认停在“进行中”；0 条也保留，不自动跳“全部”。每次进入都从 0 开始。
+    var filter by remember { mutableIntStateOf(0) }
     val listState = rememberLazyListState()
     val collapsed = listState.lxHeaderCollapsed()
 
@@ -95,7 +96,6 @@ fun RepairListScreen(
     }
 
     val active = uiState.items.filter { isRepairActive(it.dqzt) }
-    val filter = userFilter ?: if (!uiState.isLoading && active.isEmpty()) 1 else 0
     val shown = if (filter == 0) active else uiState.items
 
     Scaffold(
@@ -113,7 +113,12 @@ fun RepairListScreen(
         ) {
             LazyColumn(
                 state = listState,
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .lxHorizontalSwipe(
+                        onSwipeLeft = { if (filter == 0) filter = 1 },
+                        onSwipeRight = { if (filter == 1) filter = 0 },
+                    ),
                 contentPadding = PaddingValues(bottom = 112.dp),
             ) {
                 item(key = "header") {
@@ -126,7 +131,7 @@ fun RepairListScreen(
                             LxTabItem("全部", uiState.items.size),
                         ),
                         selectedIndex = filter,
-                        onSelect = { userFilter = it },
+                        onSelect = { filter = it },
                         modifier = Modifier
                             .fillMaxWidth()
                             .background(LxCanvas)

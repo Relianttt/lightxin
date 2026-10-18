@@ -9,6 +9,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -41,6 +42,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -54,6 +56,7 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.SpanStyle
@@ -166,6 +169,36 @@ fun LxNavBar(
                 .height(0.5.dp)
                 .alpha(dividerAlpha)
                 .background(LxHairline),
+        )
+    }
+}
+
+/**
+ * 水平滑动切 tab：超过阈值才触发，垂直滚动不受影响。
+ * 回调用 rememberUpdatedState 兜住，避免每次重组都重启手势检测。
+ */
+@Composable
+fun Modifier.lxHorizontalSwipe(
+    onSwipeLeft: () -> Unit,
+    onSwipeRight: () -> Unit,
+    threshold: Dp = 56.dp,
+): Modifier {
+    val currentLeft by rememberUpdatedState(onSwipeLeft)
+    val currentRight by rememberUpdatedState(onSwipeRight)
+    val thresholdPx = with(LocalDensity.current) { threshold.toPx() }
+    return pointerInput(thresholdPx) {
+        var total = 0f
+        detectHorizontalDragGestures(
+            onDragStart = { total = 0f },
+            onDragCancel = { total = 0f },
+            onDragEnd = {
+                if (total <= -thresholdPx) currentLeft() else if (total >= thresholdPx) currentRight()
+                total = 0f
+            },
+            onHorizontalDrag = { change, dragAmount ->
+                total += dragAmount
+                change.consume()
+            },
         )
     }
 }

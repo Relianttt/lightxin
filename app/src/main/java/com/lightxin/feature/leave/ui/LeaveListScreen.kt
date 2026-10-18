@@ -43,6 +43,7 @@ import com.lightxin.core.designsystem.component.LxStatusLine
 import com.lightxin.core.designsystem.component.LxTabItem
 import com.lightxin.core.designsystem.component.LxTone
 import com.lightxin.core.designsystem.component.lxHeaderCollapsed
+import com.lightxin.core.designsystem.component.lxHorizontalSwipe
 import com.lightxin.core.designsystem.theme.LxCanvas
 import com.lightxin.core.designsystem.theme.LxText
 import com.lightxin.core.designsystem.theme.LxTextFaint
@@ -66,6 +67,9 @@ fun LeaveListScreen(
     val listState = rememberLazyListState()
     val collapsed = listState.lxHeaderCollapsed()
 
+    // 每次进入列表都从“进行中”开始，不记忆上次停留的 tab。
+    LaunchedEffect(Unit) { viewModel.setStatus("1") }
+
     LaunchedEffect(shouldRefresh) {
         if (shouldRefresh) {
             viewModel.refresh()
@@ -88,7 +92,12 @@ fun LeaveListScreen(
         ) {
             LazyColumn(
                 state = listState,
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .lxHorizontalSwipe(
+                        onSwipeLeft = { if (uiState.status == "1") viewModel.setStatus("3") },
+                        onSwipeRight = { if (uiState.status == "3") viewModel.setStatus("1") },
+                    ),
                 contentPadding = PaddingValues(bottom = 112.dp),
             ) {
                 item(key = "header") {

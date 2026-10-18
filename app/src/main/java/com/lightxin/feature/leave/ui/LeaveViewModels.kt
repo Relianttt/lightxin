@@ -48,7 +48,6 @@ class LeaveListViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(LeaveListUiState())
     val uiState: StateFlow<LeaveListUiState> = _uiState.asStateFlow()
     private var page = 1
-    private var userChoseTab = false
 
     init {
         load(reset = true)
@@ -56,7 +55,6 @@ class LeaveListViewModel @Inject constructor(
 
     fun setStatus(status: String) {
         if (_uiState.value.status == status) return
-        userChoseTab = true
         _uiState.update { it.copy(status = status, items = emptyList(), isLoading = true) }
         load(reset = true)
     }
@@ -115,15 +113,7 @@ class LeaveListViewModel @Inject constructor(
                         )
                     }
                     if (result.items.size >= PAGE_SIZE) page++
-                    if (reset) {
-                        refreshOtherTotal(status)
-                        // “进行中”一条都没有时落到“全部”，别让用户先看到一个空页（只在首次自动选择时生效）。
-                        if (!userChoseTab && status == "1" && merged.isEmpty() && loadedAll) {
-                            userChoseTab = true
-                            _uiState.update { it.copy(status = "3") }
-                            load(reset = true)
-                        }
-                    }
+                    if (reset) refreshOtherTotal(status)
                 },
                 onFailure = { error ->
                     if (_uiState.value.status != status) return@fold
