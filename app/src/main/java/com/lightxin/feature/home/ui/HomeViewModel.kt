@@ -3,11 +3,13 @@ package com.lightxin.feature.home.ui
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.lightxin.core.auth.TokenManager
+import com.lightxin.core.auth.AccountSession
 import com.lightxin.core.network.isAuthExpired
 import com.lightxin.core.notification.CourseNotificationScheduler
 import com.lightxin.feature.aiclass.data.AiClassSessionCheck
 import com.lightxin.feature.aiclass.data.AiClassSessionGuard
-import com.lightxin.feature.checkin.data.CheckinRepository
+import com.lightxin.feature.aiclass.data.AiClassRepository
+import com.lightxin.feature.aiclass.data.AiClassMemoryStore
 import com.lightxin.feature.checkin.domain.CheckinTask
 import com.lightxin.feature.holiday.data.HolidayRepository
 import com.lightxin.feature.holiday.domain.HolidayTask
@@ -21,23 +23,25 @@ import com.lightxin.feature.labor.data.LaborRepository
 import com.lightxin.feature.labor.domain.HoursSummary
 import com.lightxin.feature.running.data.RunningRepository
 import com.lightxin.feature.running.domain.RunningDashboard
-import com.lightxin.feature.schedule.data.ScheduleRepository
 import com.lightxin.feature.schedule.domain.Course
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.async
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import java.time.LocalDate
 import java.time.LocalDateTime
 import javax.inject.Inject
 
 data class HomeDashboardData(
     val todayCourses: List<Course> = emptyList(),
-    val tomorrowFirstSection: Int? = null, // 明天第一节课的起始节次，null表示无课
+    val tomorrowFirstSection: Int? = null,
+    val todayKnown: Boolean = false,
+    val tomorrowKnown: Boolean = false,
+    val scheduleSyncedAt: Long? = null,
     val currentWeek: Int = 0,
     val nextCheckin: CheckinTask? = null,
     val holidayTask: HolidayTask? = null,
@@ -62,14 +66,15 @@ enum class SessionAlert { LoginExpired, AiClassBlocked }
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     private val homeBootstrap: HomeBootstrap,
-    private val scheduleRepository: ScheduleRepository,
-    private val checkinRepository: CheckinRepository,
     private val holidayRepository: HolidayRepository,
     private val runningRepository: RunningRepository,
     private val laborRepository: LaborRepository,
     private val tokenManager: TokenManager,
     private val courseNotificationScheduler: CourseNotificationScheduler,
     private val aiClassSessionGuard: AiClassSessionGuard,
+    private val aiClassRepository: AiClassRepository,
+    private val aiClassMemory: AiClassMemoryStore,
+    private val accountSession: AccountSession,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HomeUiState())
@@ -95,6 +100,11 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch { loadExtras() }
         // AI课堂会话体检：官方 App 登录后 FIF 服务端映射会被顶掉，本地 Cookie 却看不出来
         viewModelScope.launch { checkAiClassSession() }
+        viewModelScope.launch {
+            aiClassMemory.snapshots.collect { cached ->
+                if (cached.failures.isNotEmpty()) applySessionAlert(SessionAlert.AiClassBlocked)
+            }
+        }
         // 启动课程倒计时通知调度
         courseNotificationScheduler.start(viewModelScope) {
             _uiState.value.dashboardData.todayCourses
@@ -122,7 +132,11 @@ class HomeViewModel @Inject constructor(
      * 断网与超时归 Inconclusive，必须沉默，否则就是把网络故障说成别人顶号。
      */
     private suspend fun checkAiClassSession() {
-        val alert = when (aiClassSessionGuard.checkOnLaunch()) {
+        val lease = accountSession.capture()
+        val check = aiClassSessionGuard.checkOnLaunch()
+        accountSession.requireCurrent(lease)
+        if (check == AiClassSessionCheck.Blocked) aiClassMemory.markBlocked(lease)
+        val alert = when (check) {
             AiClassSessionCheck.Blocked -> SessionAlert.AiClassBlocked
             AiClassSessionCheck.LoginExpired -> SessionAlert.LoginExpired
             AiClassSessionCheck.Healthy,
@@ -131,6 +145,13 @@ class HomeViewModel @Inject constructor(
             -> null
         }
         applySessionAlert(alert)
+        if (check == AiClassSessionCheck.Healthy) {
+            lease.scope.launch {
+                try { aiClassRepository.warmUp(check) }
+                catch (e: CancellationException) { throw e }
+                catch (_: Exception) { /* Ordinary prewarm failures do not change login status. */ }
+            }
+        }
     }
 
     /**
@@ -175,32 +196,25 @@ class HomeViewModel @Inject constructor(
     }
 
     private fun applyBootstrap(snapshot: HomeBootstrapSnapshot) {
-        val mergedData = _uiState.value.dashboardData.copy(
-            todayCourses = snapshot.todayCourses,
-            tomorrowFirstSection = snapshot.tomorrowFirstSection,
-            currentWeek = snapshot.currentWeek,
-            nextCheckin = snapshot.nextUnsignedCheckin,
-        )
         _uiState.update { current ->
-            val merged = current.dashboardData.copy(
-                todayCourses = snapshot.todayCourses,
-                tomorrowFirstSection = snapshot.tomorrowFirstSection,
-                currentWeek = snapshot.currentWeek,
-                nextCheckin = snapshot.nextUnsignedCheckin,
+            val previous = current.dashboardData
+            val merged = previous.copy(
+                todayCourses = if (snapshot.scheduleLoaded) snapshot.todayCourses else previous.todayCourses,
+                tomorrowFirstSection = if (snapshot.scheduleLoaded) snapshot.tomorrowFirstSection else previous.tomorrowFirstSection,
+                currentWeek = if (snapshot.scheduleLoaded) snapshot.currentWeek else previous.currentWeek,
+                todayKnown = if (snapshot.scheduleLoaded) snapshot.todayKnown else previous.todayKnown,
+                tomorrowKnown = if (snapshot.scheduleLoaded) snapshot.tomorrowKnown else previous.tomorrowKnown,
+                scheduleSyncedAt = if (snapshot.scheduleLoaded) snapshot.scheduleSyncedAt else previous.scheduleSyncedAt,
+                nextCheckin = if (snapshot.checkinLoaded) snapshot.nextUnsignedCheckin else previous.nextCheckin,
             )
             val errors = current.errors.toMutableMap().apply {
-                snapshot.scheduleError?.let { put("schedule", it) } ?: remove("schedule")
-                snapshot.checkinError?.let { put("checkin", it) } ?: remove("checkin")
+                if (snapshot.scheduleLoaded) snapshot.scheduleError?.let { put("schedule", it) } ?: remove("schedule")
+                if (snapshot.checkinLoaded) snapshot.checkinError?.let { put("checkin", it) } ?: remove("checkin")
             }
-            current.copy(
-                userName = snapshot.userName.ifBlank { current.userName },
-                dashboardData = merged,
-                subtitle = buildSubtitle(merged),
-                isLoading = false,
-                errors = errors,
-            )
+            current.copy(userName = snapshot.userName.ifBlank { current.userName }, dashboardData = merged,
+                subtitle = buildSubtitle(merged), isLoading = !snapshot.scheduleLoaded, errors = errors)
         }
-        courseNotificationScheduler.checkNow(mergedData.todayCourses)
+        courseNotificationScheduler.checkNow(_uiState.value.dashboardData.todayCourses)
     }
 
     private suspend fun loadExtras() = coroutineScope {
@@ -230,53 +244,14 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    private suspend fun loadAll() {
-        _uiState.update { it.copy(isLoading = _uiState.value.dashboardData == HomeDashboardData()) }
-
-        coroutineScope {
-            val scheduleDeferred = async { loadTodayCourses() }
-            val checkinDeferred = async { loadNextCheckin() }
-            val runningDeferred = async { loadRunning() }
-            val laborDeferred = async { loadLabor() }
-            val holidayDeferred = async { loadHoliday() }
-
-            val (courses, tomorrowFirst, currentWeek, scheduleError) = scheduleDeferred.await()
-            val (checkinTask, checkinError) = checkinDeferred.await()
-            val (running, runningError) = runningDeferred.await()
-            val (labor, laborError) = laborDeferred.await()
-            val (holiday, holidayError) = holidayDeferred.await()
-
-            val errors = buildMap {
-                scheduleError?.let { put("schedule", it) }
-                checkinError?.let { put("checkin", it) }
-                runningError?.let { put("running", it) }
-                laborError?.let { put("labor", it) }
-                holidayError?.let { put("holiday", it) }
-            }
-
-            val merged = HomeDashboardData(
-                todayCourses = courses,
-                tomorrowFirstSection = tomorrowFirst,
-                currentWeek = currentWeek,
-                nextCheckin = checkinTask,
-                holidayTask = holiday,
-                runningProgress = running,
-                laborHours = labor,
-            )
-            _uiState.update {
-                it.copy(
-                    dashboardData = merged,
-                    subtitle = buildSubtitle(merged),
-                    isLoading = false,
-                    errors = errors,
-                )
-            }
-            courseNotificationScheduler.checkNow(merged.todayCourses)
-        }
+    private suspend fun loadAll() = coroutineScope {
+        launch { homeBootstrap.refresh() }
+        launch { loadExtras() }
     }
 
     /** 场景优先：命中则用场景文案；否则走文案库 */
     private fun buildSubtitle(data: HomeDashboardData): String {
+        if (!data.todayKnown) return "课表暂未同步，联网后可更新"
         val now = LocalDateTime.now()
         val scene = SceneResolver.resolve(now, data.todayCourses, data.nextCheckin)
         SubtitleLibrary.fromScene(scene)?.let { return it }
@@ -289,46 +264,6 @@ class HomeViewModel @Inject constructor(
             ),
             rotation = subtitleRotation,
         )
-    }
-
-    private data class ScheduleResult(
-        val todayCourses: List<Course>,
-        val tomorrowFirstSection: Int?,
-        val currentWeek: Int,
-        val error: String?,
-    )
-
-    private suspend fun loadTodayCourses(): ScheduleResult {
-        val weekInfoResult = scheduleRepository.getWeekInfo()
-        val weekInfo = weekInfoResult.getOrNull()
-            ?: return ScheduleResult(emptyList(), null, 0, weekInfoResult.exceptionOrNull()?.message)
-
-        val coursesResult = scheduleRepository.getCourses(
-            weekInfo.schoolYear,
-            weekInfo.schoolTerm,
-            weekInfo.currentWeek,
-        )
-        val allCourses = coursesResult.getOrNull()?.courses.orEmpty()
-
-        val todayDow = LocalDate.now().dayOfWeek.value
-        val todayCourses = allCourses
-            .filter { it.dayOfWeek == todayDow }
-            .distinctBy { Triple(it.name, it.startSection, it.endSection) }
-            .sortedBy { it.startSection }
-
-        val tomorrowDow = if (todayDow == 7) 1 else todayDow + 1
-        val tomorrowFirst = allCourses
-            .filter { it.dayOfWeek == tomorrowDow }
-            .minByOrNull { it.startSection }
-            ?.startSection
-
-        return ScheduleResult(todayCourses, tomorrowFirst, weekInfo.currentWeek, coursesResult.exceptionOrNull()?.message)
-    }
-
-    private suspend fun loadNextCheckin(): Pair<CheckinTask?, String?> {
-        val result = checkinRepository.getTasks(page = 1, pageSize = 5)
-        val task = result.getOrNull()?.firstOrNull { !it.isSigned && it.isInOpenWindow }
-        return Pair(task, result.exceptionOrNull()?.message)
     }
 
     private suspend fun loadHoliday(): Pair<HolidayTask?, String?> {

@@ -1,0 +1,132 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 1,
+    "identityHash": "4e65c0795c33021b7edc704e986feea9",
+    "entities": [
+      {
+        "tableName": "semester_cache",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`userCode` TEXT NOT NULL, `schoolYear` TEXT NOT NULL, `schoolTerm` TEXT NOT NULL, `weekNumbersJson` TEXT NOT NULL, `referenceWeek` INTEGER NOT NULL, `referenceLocalDate` TEXT NOT NULL, `syncedAt` INTEGER NOT NULL, `isLatestKnown` INTEGER NOT NULL, PRIMARY KEY(`userCode`, `schoolYear`, `schoolTerm`))",
+        "fields": [
+          {
+            "fieldPath": "userCode",
+            "columnName": "userCode",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "schoolYear",
+            "columnName": "schoolYear",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "schoolTerm",
+            "columnName": "schoolTerm",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "weekNumbersJson",
+            "columnName": "weekNumbersJson",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "referenceWeek",
+            "columnName": "referenceWeek",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "referenceLocalDate",
+            "columnName": "referenceLocalDate",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "syncedAt",
+            "columnName": "syncedAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "isLatestKnown",
+            "columnName": "isLatestKnown",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "userCode",
+            "schoolYear",
+            "schoolTerm"
+          ]
+        }
+      },
+      {
+        "tableName": "schedule_week_cache",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`userCode` TEXT NOT NULL, `schoolYear` TEXT NOT NULL, `schoolTerm` TEXT NOT NULL, `weekNumber` INTEGER NOT NULL, `payloadJson` TEXT NOT NULL, `syncedAt` INTEGER NOT NULL, `payloadVersion` INTEGER NOT NULL, PRIMARY KEY(`userCode`, `schoolYear`, `schoolTerm`, `weekNumber`))",
+        "fields": [
+          {
+            "fieldPath": "userCode",
+            "columnName": "userCode",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "schoolYear",
+            "columnName": "schoolYear",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "schoolTerm",
+            "columnName": "schoolTerm",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "weekNumber",
+            "columnName": "weekNumber",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "payloadJson",
+            "columnName": "payloadJson",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "syncedAt",
+            "columnName": "syncedAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "payloadVersion",
+            "columnName": "payloadVersion",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "userCode",
+            "schoolYear",
+            "schoolTerm",
+            "weekNumber"
+          ]
+        }
+      }
+    ],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '4e65c0795c33021b7edc704e986feea9')"
+    ]
+  }
+}

@@ -34,6 +34,7 @@ data class FifMappingFailure(
 }
 
 enum class FifOperation(val label: String) {
+    COURSES("加载课程"), WORKING_RECORD("加载课堂状态"),
     HOME("加载课堂"), QUIZ("加载测验"), HOMEWORK("加载作业"),
     SIGN_CODE("数字码签到"), QR_SIGN("扫码签到"),
     HOMEWORK_DETAIL("加载作业详情"), WORKS_MORE("加载更多提交"), SUBMIT_HOMEWORK("提交作业"),

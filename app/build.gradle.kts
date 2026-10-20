@@ -67,6 +67,15 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
+    testOptions.unitTests.isIncludeAndroidResources = true
+    testOptions.unitTests.all {
+        it.systemProperty("robolectric.dependency.repo.url", "https://repo.maven.apache.org/maven2")
+    }
+    sourceSets.getByName("androidTest").assets.srcDir("$projectDir/schemas")
+}
+
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
 }
 
 dependencies {
@@ -88,6 +97,9 @@ dependencies {
     implementation(libs.lifecycle.runtime.compose)
     implementation(libs.core.ktx)
     implementation(libs.datastore.preferences)
+    implementation(libs.room.runtime)
+    implementation(libs.room.ktx)
+    ksp(libs.room.compiler)
 
     // Navigation
     implementation(libs.navigation.compose)
@@ -117,6 +129,9 @@ dependencies {
     implementation(libs.zxing.core)
 
     testImplementation("junit:junit:4.13.2")
+    testImplementation(libs.robolectric)
+    testImplementation(libs.room.testing)
+    testImplementation(libs.coroutines.test)
     androidTestImplementation(composeBom)
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
     androidTestImplementation("androidx.test.ext:junit:1.3.0")

@@ -17,6 +17,7 @@ import androidx.lifecycle.lifecycleScope
 import com.lightxin.core.auth.SessionManager
 import com.lightxin.core.designsystem.theme.LightXinTheme
 import com.lightxin.feature.home.domain.HomeBootstrap
+import com.lightxin.feature.schedule.data.ScheduleSyncCoordinator
 import com.lightxin.feature.update.data.UpdateRepository
 import com.lightxin.navigation.LightXinNavHost
 import com.lightxin.navigation.ShortcutRouter
@@ -35,11 +36,22 @@ class MainActivity : ComponentActivity() {
     @Inject lateinit var homeBootstrap: HomeBootstrap
     @Inject lateinit var shortcutRouter: ShortcutRouter
     @Inject lateinit var updateRepository: UpdateRepository
+    @Inject lateinit var scheduleSync: ScheduleSyncCoordinator
 
     private var shortcutTarget by mutableStateOf<ShortcutTarget?>(null)
     private var pendingDormTaskId by mutableStateOf<String?>(null)
     private var dormShortcutResolved by mutableStateOf(false)
     private var pendingNotificationRoute by mutableStateOf<String?>(null)
+
+    override fun onStart() {
+        super.onStart()
+        scheduleSync.onForeground(true)
+    }
+
+    override fun onStop() {
+        scheduleSync.onForeground(false)
+        super.onStop()
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

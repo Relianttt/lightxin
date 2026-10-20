@@ -1,14 +1,29 @@
 package com.lightxin.feature.schedule.data
 
 import com.lightxin.core.auth.TokenManager
+import com.lightxin.core.auth.AccountContext
+import com.lightxin.core.auth.AccountSession
+import com.lightxin.core.database.LightXinDatabase
 import com.lightxin.core.network.CshRetrofit
-import com.lightxin.feature.schedule.domain.Course
+import com.lightxin.core.network.SingleFlight
 import com.lightxin.feature.schedule.domain.ScheduleData
 import com.lightxin.feature.schedule.domain.WeekInfo
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.withContext
+import androidx.room.withTransaction
+import com.lightxin.feature.schedule.data.local.ScheduleCacheMapper
+import com.lightxin.feature.schedule.data.local.ScheduleWeekSnapshot
+import com.lightxin.feature.schedule.data.local.SemesterSnapshot
+import com.lightxin.feature.schedule.data.local.SCHOOL_ZONE
+import java.time.LocalDate
 import java.io.IOException
 import retrofit2.Retrofit
 import retrofit2.HttpException
@@ -19,73 +34,84 @@ import javax.inject.Singleton
 class ScheduleRepository @Inject constructor(
     private val api: ScheduleApi,
     private val tokenManager: TokenManager,
+    private val session: AccountSession,
+    private val database: LightXinDatabase,
 ) {
-    suspend fun getWeekInfo(): Result<WeekInfo> {
-        return try {
-            val response = api.getWeekList()
-            val data = response.data
-            val rows = response.rows
+    private val dao = database.scheduleCacheDao()
+    private val semesters = SingleFlight<String, Result<SemesterSnapshot>>()
+    private val weeks = SingleFlight<String, Result<ScheduleWeekSnapshot>>()
 
-            if (data == null) {
-                Result.failure(Exception("获取周次信息失败"))
-            } else {
-                Result.success(
-                    WeekInfo(
-                        currentWeek = data.week?.toIntOrNull() ?: 1,
-                        totalWeeks = rows?.size ?: 18,
-                        schoolYear = data.schoolYear ?: "",
-                        schoolTerm = data.schoolTerm ?: "",
-                    )
-                )
-            }
-        } catch (e: Exception) {
-            Result.failure(Exception(mapErrorMessage("获取周次", e), e))
-        }
+    suspend fun account(): AccountContext = tokenManager.account()
+
+    fun observeSemester(account: AccountContext): Flow<SemesterSnapshot?> =
+        dao.observeSemester(account.userCode).map { entity ->
+            if (session.isCurrent(account.lease)) entity?.let(ScheduleCacheMapper::semester) else null
+        }.flowOn(Dispatchers.IO)
+
+    suspend fun cachedSemester(account: AccountContext): SemesterSnapshot? = withContext(Dispatchers.IO) {
+        session.requireCurrent(account.lease)
+        dao.semester(account.userCode)?.let(ScheduleCacheMapper::semester)
     }
 
-    suspend fun getCourses(
-        schoolYear: String,
-        schoolTerm: String,
-        week: Int,
-    ): Result<ScheduleData> {
-        return try {
-            val userCode = tokenManager.getUserCode().orEmpty()
-            if (userCode.isBlank()) {
-                return Result.failure(Exception("登录信息已失效，请重新登录"))
-            }
+    fun observeWeek(account: AccountContext, info: WeekInfo, week: Int): Flow<ScheduleWeekSnapshot?> =
+        dao.observeWeek(account.userCode, info.schoolYear, info.schoolTerm, week).map { entity ->
+            if (session.isCurrent(account.lease)) entity?.let(ScheduleCacheMapper::week) else null
+        }.flowOn(Dispatchers.IO)
 
-            val response = api.getTimeTable(
-                userCode = userCode,
-                schoolYear = schoolYear,
-                schoolTerm = schoolTerm,
-                week = week.toString(),
-            )
+    suspend fun cachedWeek(account: AccountContext, info: WeekInfo, week: Int): ScheduleWeekSnapshot? = withContext(Dispatchers.IO) {
+        session.requireCurrent(account.lease)
+        dao.week(account.userCode, info.schoolYear, info.schoolTerm, week)?.let(ScheduleCacheMapper::week)
+    }
 
-            val courses = mutableListOf<Course>()
-            val weekDates = mutableMapOf<Int, String>()
-            response.rows?.forEach { day ->
-                val dayOfWeek = day.xq?.toIntOrNull() ?: return@forEach
-                if (day.rq != null) weekDates[dayOfWeek] = day.rq
-                day.kcVoList?.forEach { vo ->
-                    val startSection = vo.ksjc?.toIntOrNull() ?: return@forEach
-                    val endSection = vo.jsjc?.toIntOrNull() ?: startSection
-                    courses.add(
-                        Course(
-                            name = vo.kcmc ?: "",
-                            startSection = startSection,
-                            endSection = endSection,
-                            room = vo.jsmc ?: "",
-                            teacher = vo.teacherName ?: "",
-                            dayOfWeek = dayOfWeek,
-                        )
-                    )
+    suspend fun cachedWeekNumbers(account: AccountContext, info: WeekInfo): Set<Int> = withContext(Dispatchers.IO) {
+        session.requireCurrent(account.lease)
+        dao.weeks(account.userCode, info.schoolYear, info.schoolTerm)
+            .filter { ScheduleCacheMapper.week(it) != null }.map { it.weekNumber }.toSet()
+    }
+
+    suspend fun refreshSemester(account: AccountContext): Result<SemesterSnapshot> =
+        semesters.run("${account.lease.generation}:${account.userCode}", account.lease.scope) {
+            request(account, "获取周次") {
+                val snapshot = SemesterSnapshot(api.getWeekList().toWeekInfo(), LocalDate.now(SCHOOL_ZONE), System.currentTimeMillis())
+                database.withTransaction {
+                    session.requireCurrent(account.lease)
+                    dao.saveSemester(ScheduleCacheMapper.semester(account.userCode, snapshot))
+                    session.requireCurrent(account.lease)
                 }
+                snapshot
             }
-
-            Result.success(ScheduleData(courses = courses, weekDates = weekDates))
-        } catch (e: Exception) {
-            Result.failure(Exception(mapErrorMessage("加载课表", e), e))
         }
+
+    suspend fun refreshWeek(account: AccountContext, info: WeekInfo, week: Int): Result<ScheduleWeekSnapshot> =
+        weeks.run("${account.lease.generation}:${account.userCode}:${info.schoolYear}:${info.schoolTerm}:$week", account.lease.scope) {
+            request(account, "加载课表") {
+                require(week in info.weekNumbers) { "周次不在当前学期列表中" }
+                val response = api.getTimeTable(account.userCode, info.schoolYear, info.schoolTerm, week.toString())
+                val snapshot = ScheduleWeekSnapshot(response.toScheduleData(), System.currentTimeMillis())
+                database.withTransaction {
+                    session.requireCurrent(account.lease)
+                    dao.saveWeek(ScheduleCacheMapper.week(account.userCode, info, week, snapshot))
+                    session.requireCurrent(account.lease)
+                }
+                snapshot
+            }
+        }
+
+    suspend fun getWeekInfo(): Result<WeekInfo> = refreshSemester(account()).map { it.info }
+
+    suspend fun getCourses(schoolYear: String, schoolTerm: String, week: Int): Result<ScheduleData> =
+        refreshWeek(account(), WeekInfo(week, 1, schoolYear, schoolTerm, listOf(week)), week).map { it.data }
+
+    private suspend fun <T> request(account: AccountContext, action: String, block: suspend () -> T): Result<T> = try {
+        session.requireCurrent(account.lease)
+        require(account.userCode.isNotBlank()) { "登录信息已失效，请重新登录" }
+        val data = block()
+        session.requireCurrent(account.lease)
+        Result.success(data)
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        Result.failure(Exception(mapErrorMessage(action, e), e))
     }
 
     private fun mapErrorMessage(action: String, error: Exception): String {

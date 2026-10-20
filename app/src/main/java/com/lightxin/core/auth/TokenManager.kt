@@ -11,6 +11,8 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -28,7 +30,9 @@ data class AuthCredentials(
 @Singleton
 class TokenManager @Inject constructor(
     @ApplicationContext private val context: Context,
+    private val accountSession: AccountSession,
 ) {
+    private val sessionMutex = Mutex()
     companion object {
         private val KEY_ACCESS_TOKEN = stringPreferencesKey("access_token")
         private val KEY_REFRESH_TOKEN = stringPreferencesKey("refresh_token")
@@ -64,7 +68,8 @@ class TokenManager @Inject constructor(
         userName: String,
         userType: String,
         fileAddress: String,
-    ) {
+    ) = sessionMutex.withLock {
+        accountSession.invalidate()
         context.dataStore.edit { prefs ->
             prefs[KEY_ACCESS_TOKEN] = accessToken
             prefs[KEY_REFRESH_TOKEN] = refreshToken
@@ -108,10 +113,33 @@ class TokenManager @Inject constructor(
         )
     }
 
+    suspend fun account(): AccountContext = sessionMutex.withLock {
+        AccountContext(getUserCode().orEmpty(), accountSession.capture())
+    }
+
+    internal suspend fun <T> withCurrentAccount(lease: AccountLease, block: suspend () -> T): T =
+        sessionMutex.withLock {
+            accountSession.requireCurrent(lease)
+            block()
+        }
+
     /** 仅清除会话相关 key；onboarded 标志保留，避免退出登录后重现欢迎页。 */
     suspend fun clear() {
-        context.dataStore.edit { prefs ->
-            SESSION_KEYS.forEach { prefs.remove(it) }
+        sessionMutex.withLock {
+            accountSession.invalidate()
+            context.dataStore.edit { prefs ->
+                SESSION_KEYS.forEach { prefs.remove(it) }
+            }
         }
     }
+
+    suspend fun updateTokens(lease: AccountLease, accessToken: String, refreshToken: String): Boolean =
+        sessionMutex.withLock {
+            if (!accountSession.isCurrent(lease)) return@withLock false
+            context.dataStore.edit { prefs ->
+                prefs[KEY_ACCESS_TOKEN] = accessToken
+                prefs[KEY_REFRESH_TOKEN] = refreshToken
+            }
+            true
+        }
 }

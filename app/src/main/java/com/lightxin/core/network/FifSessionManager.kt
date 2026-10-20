@@ -8,12 +8,15 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.lightxin.core.auth.TokenManager
+import com.lightxin.core.auth.AccountSession
 import com.google.gson.JsonParser
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import okhttp3.Cookie
@@ -38,6 +41,7 @@ class FifSessionManager @Inject constructor(
     private val tokenManager: TokenManager,
     @FifOkHttpClient private val fifClient: OkHttpClient,
     private val cookieJar: FifCookieJar,
+    private val accountSession: AccountSession,
 ) {
     private val sessionMutex = Mutex()
     companion object {
@@ -139,10 +143,13 @@ class FifSessionManager @Inject constructor(
      * 4. 调用 getAiktUserIdByMemberId 获取 FIF 用户标识
      */
     private suspend fun runSsoChain(): Result<Unit> {
-        val accessToken = tokenManager.getAccessToken().orEmpty()
-        val userCode = tokenManager.getUserCode().orEmpty()
-        val userName = tokenManager.getUserName().orEmpty()
-        val userType = tokenManager.getUserType().orEmpty()
+        val account = tokenManager.account()
+        val credentials = tokenManager.snapshot()
+        accountSession.requireCurrent(account.lease)
+        val accessToken = credentials.accessToken.orEmpty()
+        val userCode = credentials.userCode.orEmpty()
+        val userName = credentials.userName.orEmpty()
+        val userType = credentials.userType.orEmpty()
 
         if (accessToken.isBlank() || userCode.isBlank()) {
             return Result.failure(Exception("校内登录信息已失效，请重新登录"))
@@ -151,6 +158,8 @@ class FifSessionManager @Inject constructor(
         // Step 1: SSO 跳转，提取 FIF token
         val fifToken = performSsoRedirect(accessToken, userCode, userName, userType)
             ?: return Result.failure(Exception("FIF 单点登录失败"))
+        currentCoroutineContext().ensureActive()
+        accountSession.requireCurrent(account.lease)
 
         // Step 2: 用 token 访问 FIF 首页建立 Cookie
         establishSession(fifToken)
@@ -160,20 +169,22 @@ class FifSessionManager @Inject constructor(
         val memberUserId = extractMemberUserIdFromFifToken(fifToken)
 
         // 持久化
-        context.fifDataStore.edit { prefs ->
-            prefs[KEY_FIF_TOKEN] = fifToken
-            prefs[KEY_STUDENT_ID] = userInfo.studentId
-            prefs[KEY_USER_NAME] = userInfo.userName
-            prefs[KEY_SCHOOL_ID] = userInfo.schoolId
-            if (!memberUserId.isNullOrBlank()) {
-                prefs[KEY_MEMBER_USER_ID] = memberUserId
-            } else {
-                prefs.remove(KEY_MEMBER_USER_ID)
+        currentCoroutineContext().ensureActive()
+        tokenManager.withCurrentAccount(account.lease) {
+            context.fifDataStore.edit { prefs ->
+                prefs[KEY_FIF_TOKEN] = fifToken
+                prefs[KEY_STUDENT_ID] = userInfo.studentId
+                prefs[KEY_USER_NAME] = userInfo.userName
+                prefs[KEY_SCHOOL_ID] = userInfo.schoolId
+                if (!memberUserId.isNullOrBlank()) {
+                    prefs[KEY_MEMBER_USER_ID] = memberUserId
+                } else {
+                    prefs.remove(KEY_MEMBER_USER_ID)
+                }
             }
+            // Keep identity publication serialized with logout/account replacement.
+            saveIdentityCookies(userInfo.studentId, userInfo.userName)
         }
-
-        // 同步身份 Cookie 到 OkHttp jar，让 qrcodeHandler 等原生请求能从 jar 中读取
-        saveIdentityCookies(userInfo.studentId, userInfo.userName)
 
         return Result.success(Unit)
     }

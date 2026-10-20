@@ -56,6 +56,9 @@ import com.lightxin.core.designsystem.theme.LxInkSoft
 import com.lightxin.core.designsystem.theme.LxTerra
 import com.lightxin.core.designsystem.theme.LxTerraGlow
 import com.lightxin.feature.schedule.domain.Course
+import com.lightxin.feature.schedule.data.local.SCHOOL_ZONE
+import java.time.Instant
+import java.time.format.DateTimeFormatter
 import java.time.LocalDate
 
 private const val SECTION_COUNT = 10
@@ -89,16 +92,35 @@ fun ScheduleScreen(
         Column(modifier = Modifier.padding(padding)) {
             uiState.weekInfo?.let { info ->
                 WeekSelector(
-                    totalWeeks = info.totalWeeks,
+                    weeks = info.weekNumbers,
                     selectedWeek = uiState.selectedWeek,
                     currentWeek = info.currentWeek,
                     onWeekSelected = viewModel::onWeekSelected,
                 )
             }
 
+            if (uiState.isEstimatedWeek) {
+                Text("第 ${uiState.weekInfo?.currentWeek} 周（根据上次同步估算）",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp))
+            }
+            uiState.lastSyncedAt?.let { syncedAt ->
+                val time = DateTimeFormatter.ofPattern("MM月dd日 HH:mm").withZone(SCHOOL_ZONE).format(Instant.ofEpochMilli(syncedAt))
+                val prefix = when {
+                    uiState.isRefreshing -> "正在刷新 · "
+                    uiState.refreshError != null -> "正在显示本地课表 · "
+                    else -> ""
+                }
+                Text("${prefix}上次同步 $time",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp))
+            }
+
             when {
-                uiState.isLoading -> LxLoading()
-                error != null -> LxError(
+                uiState.isLoading && !uiState.hasLoadedWeek -> LxLoading()
+                error != null && !uiState.hasLoadedWeek -> LxError(
                     message = error,
                     onRetry = viewModel::retry,
                 )
@@ -129,25 +151,27 @@ fun ScheduleScreen(
 
 @Composable
 private fun WeekSelector(
-    totalWeeks: Int,
+    weeks: List<Int>,
     selectedWeek: Int,
     currentWeek: Int,
     onWeekSelected: (Int) -> Unit,
 ) {
     val listState = rememberLazyListState()
-    LaunchedEffect(selectedWeek) {
-        val target = (selectedWeek - 2).coerceAtLeast(0)
-        listState.animateScrollToItem(target)
+    LaunchedEffect(selectedWeek, weeks) {
+        val index = weeks.indexOf(selectedWeek)
+        if (index >= 0) listState.animateScrollToItem((index - 2).coerceAtLeast(0))
     }
-    val currentWeekHint by remember(listState, currentWeek) {
+    val currentWeekHint by remember(listState, currentWeek, weeks) {
         derivedStateOf {
             val visibleItems = listState.layoutInfo.visibleItemsInfo
             if (visibleItems.isEmpty()) return@derivedStateOf null
             val firstVisibleIndex = visibleItems.first().index
             val lastVisibleIndex = visibleItems.last().index
+            val currentIndex = weeks.indexOf(currentWeek)
             when {
-                currentWeek < firstVisibleIndex -> "← 本周" to Alignment.TopStart
-                currentWeek > lastVisibleIndex -> "本周 →" to Alignment.TopEnd
+                currentIndex < 0 -> null
+                currentIndex < firstVisibleIndex -> "← 本周" to Alignment.TopStart
+                currentIndex > lastVisibleIndex -> "本周 →" to Alignment.TopEnd
                 else -> null
             }
         }
@@ -161,7 +185,7 @@ private fun WeekSelector(
                 .padding(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 10.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            itemsIndexed(List(totalWeeks) { it }) { _, week ->
+            itemsIndexed(weeks) { _, week ->
                 WeekChip(
                     label = if (week == 0) "预备" else "第${week}周",
                     isSelected = week == selectedWeek,

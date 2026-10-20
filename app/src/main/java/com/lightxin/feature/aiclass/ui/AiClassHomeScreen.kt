@@ -229,6 +229,18 @@ private fun AiClassContent(
         contentPadding = PaddingValues(horizontal = 20.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
+        item(key = "refresh_status") {
+            val status = when {
+                uiState.isWorkingLoading -> "正在更新课堂状态…"
+                uiState.workingError != null -> "课堂状态更新失败：${uiState.workingError}"
+                uiState.isCoursesRefreshing -> "正在更新课程…"
+                uiState.coursesRefreshError != null -> "课程更新失败，保留上次内容"
+                uiState.workingKnown && uiState.workingRecord == null -> "当前没有进行中的课堂"
+                else -> ""
+            }
+            if (status.isNotEmpty()) Text(status, style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
         // 当前课堂状态
         uiState.workingRecord?.let { record ->
             item(key = "working") {

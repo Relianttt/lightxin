@@ -6,7 +6,6 @@ import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import okhttp3.CookieJar
 import okhttp3.OkHttpClient
-import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import java.util.concurrent.TimeUnit
@@ -36,14 +35,10 @@ object NetworkModule {
         authInterceptor: AuthInterceptor,
         tokenRefreshInterceptor: TokenRefreshInterceptor,
     ): OkHttpClient {
-        val logging = HttpLoggingInterceptor().apply {
-            level = HttpLoggingInterceptor.Level.BODY
-        }
 
         return OkHttpClient.Builder()
             .addInterceptor(authInterceptor)
             .addInterceptor(tokenRefreshInterceptor)
-            .addInterceptor(logging)
             .connectTimeout(30, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
             .writeTimeout(30, TimeUnit.SECONDS)
@@ -104,12 +99,8 @@ object NetworkModule {
 
     @Provides @Singleton @FifOkHttpClient
     fun provideFifOkHttpClient(cookieJar: CookieJar): OkHttpClient {
-        val logging = HttpLoggingInterceptor().apply {
-            level = HttpLoggingInterceptor.Level.BODY
-        }
         return OkHttpClient.Builder()
             .cookieJar(cookieJar)
-            .addInterceptor(logging)
             .connectTimeout(30, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
             .build()

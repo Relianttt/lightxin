@@ -52,7 +52,10 @@ class AiClassSessionGuard @Inject constructor(
         } ?: (AiClassSessionCheck.Inconclusive to null)
 
         val (conclusion, error) = outcome
-        val cause = rootCauseChain(error).joinToString(" <- ") { "${it::class.simpleName}(${it.message})" }
+        val cause = rootCauseChain(error).joinToString(" <- ") { when (it) {
+            is FifUserMappingException -> "FifUserMappingException(${it.reason}, HTTP ${it.httpStatus})"
+            else -> it::class.simpleName.orEmpty()
+        } }
         val line = "会话体检：$conclusion" + if (cause.isBlank()) "" else "；原因链：$cause"
         // 结论一律留痕：横幅误报/漏报时，第一手依据只能是这条日志
         if (conclusion == AiClassSessionCheck.Healthy || conclusion == AiClassSessionCheck.Skipped) {

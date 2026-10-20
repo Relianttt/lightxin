@@ -3,26 +3,29 @@ package com.lightxin.feature.aiclass.ui
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.lightxin.core.network.FifMappingRecovery
+import com.lightxin.core.network.FifMappingRecoveryState
 import com.lightxin.core.network.FifOperation
 import com.lightxin.core.network.fifMappingFailure
 import com.lightxin.feature.aiclass.data.AiClassRepository
+import com.lightxin.feature.aiclass.data.AiClassMemoryStore
 import com.lightxin.feature.aiclass.domain.AiClassQrPayload
 import com.lightxin.feature.aiclass.domain.AiCourse
 import com.lightxin.feature.aiclass.domain.AiQuiz
 import com.lightxin.feature.aiclass.domain.AiWorkingRecord
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.TimeoutCancellationException
-import kotlinx.coroutines.async
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeout
 import javax.inject.Inject
 
-private const val AICLASS_INITIAL_LOAD_TIMEOUT_MS = 18_000L
-private const val AICLASS_OPTIONAL_LOAD_TIMEOUT_MS = 8_000L
 private const val AICLASS_DETAIL_LOAD_TIMEOUT_MS = 12_000L
 
 data class AiClassUiState(
@@ -32,6 +35,11 @@ data class AiClassUiState(
     val quizList: List<AiQuiz> = emptyList(),
     val homeworkList: List<com.lightxin.feature.aiclass.domain.AiHomework> = emptyList(),
     val isLoading: Boolean = true,
+    val isCoursesRefreshing: Boolean = false,
+    val isWorkingLoading: Boolean = true,
+    val workingKnown: Boolean = false,
+    val coursesRefreshError: String? = null,
+    val workingError: String? = null,
     val isSsoInProgress: Boolean = false,
     val isSigningIn: Boolean = false,
     val isQuizLoading: Boolean = false,
@@ -45,50 +53,76 @@ data class AiClassUiState(
 @HiltViewModel
 class AiClassViewModel @Inject constructor(
     private val repository: AiClassRepository,
+    private val memory: AiClassMemoryStore,
 ) : ViewModel() {
-    private val _uiState = MutableStateFlow(AiClassUiState())
+    private val initial = memory.snapshot()
+    private val _uiState = MutableStateFlow(AiClassUiState(
+        courses = initial.courses?.courses.orEmpty(), workingRecord = initial.workingRecord,
+        isLoading = initial.courses == null, workingKnown = initial.workingAt != null,
+    ))
     val uiState: StateFlow<AiClassUiState> = _uiState
     private val recovery = FifMappingRecovery(repository::resetFifSession)
-    val mappingRecovery = recovery.state
-    private var loadingHome = false
+    private val retrying = MutableStateFlow(false)
+    val mappingRecovery = combine(recovery.state, memory.snapshots, retrying) { local, cached, sharedRetry ->
+        FifMappingRecoveryState(local.failure ?: cached.failures.values.firstOrNull(), local.isRetrying || sharedRetry)
+    }.stateIn(viewModelScope, SharingStarted.Eagerly,
+        FifMappingRecoveryState(failure = initial.failures.values.firstOrNull()))
+    private var homeJob: Job? = null
 
-    init { load() }
-
-    fun retryMapping() { viewModelScope.launch { recovery.retry() } }
-
-    fun load() {
-        if (_uiState.value.isLoading && loadingHome) return
-        loadingHome = true
-        _uiState.update { it.copy(isLoading = true, error = null) }
+    init {
         viewModelScope.launch {
+            memory.snapshots.collect { cached ->
+                _uiState.update { it.copy(
+                    courses = cached.courses?.courses.orEmpty(), workingRecord = cached.workingRecord,
+                    workingKnown = cached.workingAt != null,
+                    isLoading = cached.courses == null && it.isCoursesRefreshing,
+                ) }
+            }
+        }
+        load()
+    }
+
+    fun retryMapping() {
+        if (mappingRecovery.value.isRetrying) return
+        viewModelScope.launch {
+            retrying.value = true
             try {
-                recovery.execute(FifOperation.HOME, request = {
-                    coroutineScope {
-                        val courses = async {
-                            withResultTimeout("获取课程列表", AICLASS_INITIAL_LOAD_TIMEOUT_MS) { repository.getCourses() }
-                        }
-                        val working = async {
-                            withResultTimeout("获取课堂状态", AICLASS_OPTIONAL_LOAD_TIMEOUT_MS) { repository.getWorkingRecord() }
-                        }
-                        val courseResult = courses.await()
-                        val workingResult = working.await()
-                        val error = listOfNotNull(courseResult.exceptionOrNull(), workingResult.exceptionOrNull())
-                            .firstOrNull { it.fifMappingFailure(FifOperation.HOME) != null }
-                            ?: courseResult.exceptionOrNull()
-                        if (error != null) Result.failure(error)
-                        else Result.success(courseResult.getOrDefault(emptyList()) to workingResult.getOrNull())
-                    }
-                }) { result ->
-                    _uiState.update {
-                        it.copy(
-                            courses = result.getOrNull()?.first.orEmpty(),
-                            workingRecord = result.getOrNull()?.second,
-                            isLoading = false,
-                            error = result.exceptionOrNull()?.safeMessage(),
-                        )
+                homeJob?.cancel()
+                homeJob?.join()
+                if (recovery.state.value.failure != null) recovery.retry()
+                else repository.resetFifSession()
+                load()
+            } finally { retrying.value = false }
+        }
+    }
+
+    fun load(forceRefresh: Boolean = false) {
+        if (homeJob?.isActive == true) return
+        _uiState.update { it.copy(isLoading = memory.snapshot().courses == null,
+            isCoursesRefreshing = true, isWorkingLoading = true, error = null,
+            coursesRefreshError = null, workingError = null) }
+        homeJob = viewModelScope.launch {
+            coroutineScope {
+                launch {
+                    recovery.execute(FifOperation.COURSES, request = { repository.getCourses(forceRefresh) }) { result ->
+                        _uiState.update { it.copy(
+                            courses = result.getOrNull() ?: it.courses,
+                            isLoading = false, isCoursesRefreshing = false,
+                            error = if (memory.snapshot().courses == null) result.exceptionOrNull()?.safeMessage() else null,
+                            coursesRefreshError = result.exceptionOrNull()?.safeMessage(),
+                        ) }
                     }
                 }
-            } finally { loadingHome = false }
+                launch {
+                    recovery.execute(FifOperation.WORKING_RECORD, request = { repository.getWorkingRecord(forceRefresh) }) { result ->
+                        _uiState.update { it.copy(
+                            workingRecord = if (result.isSuccess) result.getOrNull() else it.workingRecord,
+                            workingKnown = result.isSuccess || it.workingKnown, isWorkingLoading = false,
+                            workingError = result.exceptionOrNull()?.safeMessage(),
+                        ) }
+                    }
+                }
+            }
         }
     }
 
@@ -130,7 +164,7 @@ class AiClassViewModel @Inject constructor(
     }
 
     fun consumeSignResult() { _uiState.update { it.copy(signResult = null) } }
-    fun retry() { load() }
+    fun retry() { load(forceRefresh = true) }
 
     fun openCourseDetail(classId: String) {
         if (classId == "_working") return

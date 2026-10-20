@@ -19,6 +19,8 @@ import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import com.google.gson.JsonElement
 import com.google.gson.JsonObject
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.TimeoutCancellationException
@@ -48,8 +50,10 @@ class AiClassRepository @Inject constructor(
     private val fifSession: FifSessionManager,
     private val cookieJar: CookieJar,
     @FifOkHttpClient private val fifClient: OkHttpClient,
+    private val memory: AiClassMemoryStore,
 ) {
     suspend fun resetFifSession() {
+        memory.clear()
         clearJtzyCache()
         fifSession.clear()
     }
@@ -63,7 +67,27 @@ class AiClassRepository @Inject constructor(
     }
 
     /** 获取当前学期课程列表 */
-    suspend fun getCourses(): Result<List<AiCourse>> {
+    suspend fun getCourses(forceRefresh: Boolean = false): Result<List<AiCourse>> =
+        memory.courses(if (forceRefresh) 0 else 300_000, ::fetchCourses).map { it.courses }
+
+    suspend fun getWorkingRecord(forceRefresh: Boolean = false): Result<AiWorkingRecord?> =
+        memory.working(if (forceRefresh) 0 else 20_000, ::fetchWorkingRecord)
+
+    suspend fun warmUp(check: AiClassSessionCheck) {
+        if (check != AiClassSessionCheck.Healthy) return
+        val cached = memory.snapshot()
+        val now = System.currentTimeMillis()
+        coroutineScope {
+            if (cached.coursesAt == null || now - cached.coursesAt >= 300_000 || com.lightxin.core.network.FifOperation.COURSES in cached.failures) {
+                launch { getCourses() }
+            }
+            if (cached.workingAt == null || now - cached.workingAt >= 20_000 || com.lightxin.core.network.FifOperation.WORKING_RECORD in cached.failures) {
+                launch { getWorkingRecord() }
+            }
+        }
+    }
+
+    private suspend fun fetchCourses(): Result<AiCourseSnapshot> {
         return try {
             val auth = ensureSession()
 
@@ -113,23 +137,26 @@ class AiClassRepository @Inject constructor(
                     term = term,
                 )
             }.onFailure { error ->
-                Log.w(REPOSITORY_LOG_TAG, "loadTimetableSupplementCourses failed", error)
+                if (error is CancellationException || error.definitiveFifFailure() != null) throw error
+                Log.w(REPOSITORY_LOG_TAG, "loadTimetableSupplementCourses failed: ${error::class.simpleName}")
             }.getOrDefault(emptyList())
 
-            Result.success(
+            Result.success(AiCourseSnapshot(termYear, term,
                 AiClassCourseMerger.mergeCourses(
                     primary = primaryCourses,
                     supplemental = supplementalCourses,
                     log = { message -> Log.i(REPOSITORY_LOG_TAG, message) },
                 ),
-            )
+            ))
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Result.failure(Exception(mapError("获取课程列表", e), e))
         }
     }
 
     /** 查询正在进行的课堂 */
-    suspend fun getWorkingRecord(): Result<AiWorkingRecord?> {
+    private suspend fun fetchWorkingRecord(): Result<AiWorkingRecord?> {
         return try {
             val auth = ensureSession()
             val studentId = fifSession.getStudentId().orEmpty()
@@ -151,6 +178,8 @@ class AiClassRepository @Inject constructor(
                     ),
                 )
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Result.failure(Exception(mapError("获取课堂状态", e), e))
         }
@@ -467,7 +496,7 @@ class AiClassRepository @Inject constructor(
         try {
             Log.i(
                 REPOSITORY_LOG_TAG,
-                "submitQrCode start, raw=${payload.rawValue.previewForLog(48)}, token=${payload.token.previewForLog()}, length=${payload.token.length}",
+                "submitQrCode start",
             )
             var auth = ensureSession()
             var attempt = executeQrCodeRequest(payload, auth)
@@ -479,7 +508,7 @@ class AiClassRepository @Inject constructor(
 
             AiClassQrResultResolver.resolveResult(attempt)
         } catch (e: Exception) {
-            Log.e(REPOSITORY_LOG_TAG, "submitQrCode failed", e)
+            Log.e(REPOSITORY_LOG_TAG, "submitQrCode failed: ${e::class.simpleName}")
             Result.failure(Exception(mapError("扫码签到", e), e))
         }
     }
@@ -550,7 +579,7 @@ class AiClassRepository @Inject constructor(
 
         Log.i(
             REPOSITORY_LOG_TAG,
-            "qrcodeHandler finished, httpCode=$code, location=${location.previewForLog(96)}, url=${url.previewForLog(96)}",
+            "qrcodeHandler finished, httpCode=$code",
         )
 
         return QrRequestResult(
@@ -600,7 +629,7 @@ class AiClassRepository @Inject constructor(
                 auth = auth,
             )
         }.getOrElse { error ->
-            Log.w(REPOSITORY_LOG_TAG, "loadCoursePaperQuizList failed", error)
+            Log.w(REPOSITORY_LOG_TAG, "loadCoursePaperQuizList failed: ${error::class.simpleName}")
             return emptyList()
         }
         return AiClassQuizParser.extractQuizzesFromCoursePaperInfo(response.data)
@@ -625,7 +654,8 @@ class AiClassRepository @Inject constructor(
                 auth = auth,
             )
         }.getOrElse { error ->
-            Log.w(REPOSITORY_LOG_TAG, "loadTimetableSupplementCourses failed", error)
+            if (error.definitiveFifFailure() != null) throw error
+            Log.w(REPOSITORY_LOG_TAG, "loadTimetableSupplementCourses failed: ${error::class.simpleName}")
             return emptyList()
         }
         val courses = extractTimetableCourses(
@@ -633,14 +663,9 @@ class AiClassRepository @Inject constructor(
             termYear = termYear,
             term = term,
         )
-        Log.i(REPOSITORY_LOG_TAG, "Timetable supplement: ${courses.size} courses loaded, schoolId=$schoolId, memberId=$memberId")
+        Log.i(REPOSITORY_LOG_TAG, "Timetable supplement: ${courses.size} courses loaded")
         return courses
     }
-}
-
-private fun String.previewForLog(maxLen: Int = 16): String {
-    if (isBlank()) return "<blank>"
-    return if (length <= maxLen) this else take(maxLen) + "..."
 }
 
 private fun buildCourseStableId(item: AiClassCourseResponse.CourseItem): String {

@@ -1,7 +1,5 @@
 package com.lightxin.feature.schedule.data
 
-import com.google.gson.annotations.SerializedName
-
 /**
  * selectZcList.do 响应
  */
@@ -18,8 +16,8 @@ data class WeekListData(
 )
 
 data class WeekRow(
-    val zc: String?,
-    @SerializedName("zcName") val name: String?,
+    val value: String?,
+    val text: String?,
 )
 
 /**

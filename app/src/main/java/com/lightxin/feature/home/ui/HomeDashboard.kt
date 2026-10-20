@@ -189,6 +189,7 @@ fun HomeDashboard(
                     NextClassHeadline(
                         courses = data.todayCourses,
                         tomorrowFirstSection = data.tomorrowFirstSection,
+                        todayKnown = data.todayKnown,
                         modifier = Modifier.padding(horizontal = 24.dp),
                     )
                 }
@@ -204,6 +205,8 @@ fun HomeDashboard(
                             courses = data.todayCourses,
                             currentWeek = data.currentWeek,
                             error = errors["schedule"],
+                            todayKnown = data.todayKnown,
+                            syncedAt = data.scheduleSyncedAt,
                             onClick = { onTabSelected(1) },
                         )
                     }
@@ -356,11 +359,12 @@ private fun SectionRule() {
 private fun NextClassHeadline(
     courses: List<Course>,
     tomorrowFirstSection: Int?,
+    todayKnown: Boolean,
     modifier: Modifier = Modifier,
 ) {
     val now = remember { LocalTime.now() }
-    val headline = remember(courses, tomorrowFirstSection, now) {
-        buildNextClassHeadline(courses, tomorrowFirstSection, now)
+    val headline = remember(courses, tomorrowFirstSection, todayKnown, now) {
+        if (todayKnown) buildNextClassHeadline(courses, tomorrowFirstSection, now) else "课表暂未同步"
     }
     Text(
         text = headline,
@@ -439,6 +443,8 @@ private fun TodayCourseCard(
     courses: List<Course>,
     currentWeek: Int,
     error: String?,
+    todayKnown: Boolean,
+    syncedAt: Long?,
     onClick: () -> Unit,
 ) {
     // badge 改为承载"星期"（课数在列表里可见，不重复）
@@ -452,7 +458,7 @@ private fun TodayCourseCard(
         onClick = onClick,
     ) {
         when {
-            error != null -> LxErrorHint(error)
+            !todayKnown -> LxErrorHint(error ?: "课表暂未同步，联网后可更新")
             courses.isEmpty() -> LxEmptyHint("今天没有课，好好休息")
             else -> {
                 courses.take(3).forEach { course ->
@@ -499,6 +505,15 @@ private fun TodayCourseCard(
                     )
                 }
             }
+        }
+        if (todayKnown && error != null) {
+            val time = syncedAt?.let {
+                java.time.format.DateTimeFormatter.ofPattern("MM月dd日 HH:mm")
+                    .withZone(com.lightxin.feature.schedule.data.local.SCHOOL_ZONE).format(java.time.Instant.ofEpochMilli(it))
+            }
+            Text("正在显示本地课表" + (time?.let { " · 上次同步 $it" } ?: ""),
+                style = MaterialTheme.typography.labelSmall, color = LxInkMuted,
+                modifier = Modifier.padding(top = 6.dp))
         }
     }
 }

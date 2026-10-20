@@ -5,6 +5,7 @@ data class WeekInfo(
     val totalWeeks: Int,
     val schoolYear: String,
     val schoolTerm: String,
+    val weekNumbers: List<Int> = emptyList(),
 )
 
 data class Course(
