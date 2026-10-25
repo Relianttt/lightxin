@@ -22,6 +22,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.lang.reflect.Type
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeParseException
@@ -254,7 +255,8 @@ class LaborViewModel @Inject constructor(
 }
 
 private const val LaborPageSize = 100
-private val activityListType = object : TypeToken<List<ActivityRecord>>() {}.type
+private val activityListType: Type =
+    TypeToken.getParameterized(List::class.java, ActivityRecord::class.java).type
 private val LaborDateFormat = DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss")
     .withResolverStyle(ResolverStyle.STRICT)
 

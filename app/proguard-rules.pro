@@ -26,3 +26,9 @@
 # ML Kit Barcode Scanning — 必须 keep 整个 com.google.mlkit 树，因为内部依赖注入
 # 在 MlKitInitProvider 启动时解析组件，混淆后接口名/类名不匹配会导致直接崩溃
 -keep class com.google.mlkit.** { *; }
+
+# Gson TypeToken — release 包实测崩溃：R8 丢掉匿名 TypeToken 子类的泛型签名，
+# 运行时抛 "TypeToken must be created with a type argument"。代码里改用
+# TypeToken.getParameterized，这里再兜一层，避免以后新增匿名 TypeToken 复发。
+-keep class com.google.gson.reflect.TypeToken { *; }
+-keep class * extends com.google.gson.reflect.TypeToken { *; }

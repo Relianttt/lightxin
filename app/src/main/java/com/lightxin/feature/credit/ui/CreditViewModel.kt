@@ -22,6 +22,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.lang.reflect.Type
 import javax.inject.Inject
 
 data class CreditUiState(
@@ -182,4 +183,5 @@ class CreditViewModel @Inject constructor(
     }
 }
 
-private val creditRecordsType = object : TypeToken<List<CreditRecord>>() {}.type
+private val creditRecordsType: Type =
+    TypeToken.getParameterized(List::class.java, CreditRecord::class.java).type

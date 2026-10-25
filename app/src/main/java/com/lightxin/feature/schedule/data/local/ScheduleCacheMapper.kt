@@ -4,6 +4,7 @@ import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import com.lightxin.feature.schedule.domain.ScheduleData
 import com.lightxin.feature.schedule.domain.WeekInfo
+import java.lang.reflect.Type
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.temporal.TemporalAdjusters
@@ -26,7 +27,10 @@ data class SemesterSnapshot(val info: WeekInfo, val referenceDate: LocalDate, va
 
 internal object ScheduleCacheMapper {
     private val gson = Gson()
-    private val weekType = object : TypeToken<List<Int>>() {}.type
+    // 用 getParameterized 而不是匿名 TypeToken：release 包 R8 会丢掉匿名子类的泛型签名，
+    // 运行时直接抛 “TypeToken must be created with a type argument”。
+    private val weekType: Type =
+        TypeToken.getParameterized(List::class.java, Int::class.javaObjectType).type
 
     fun semester(entity: SemesterCacheEntity): SemesterSnapshot? = runCatching {
         val weeks: List<Int> = gson.fromJson(entity.weekNumbersJson, weekType)
