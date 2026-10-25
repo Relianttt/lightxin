@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -31,12 +32,14 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
-import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -59,17 +62,21 @@ import com.lightxin.core.designsystem.component.ServiceErrorCard
 import com.lightxin.core.designsystem.component.LxStatusLine
 import com.lightxin.core.designsystem.component.LxTabItem
 import com.lightxin.core.designsystem.component.LxTone
+import com.lightxin.core.designsystem.component.rememberLxPullToRefreshState
 import com.lightxin.core.designsystem.component.rememberLxTabPagerSelection
 import com.lightxin.core.designsystem.component.LxTabPager
 import com.lightxin.core.designsystem.component.rememberLxTabPagerState
 import com.lightxin.core.designsystem.component.lxSharedBounds
 import com.lightxin.core.designsystem.theme.LxCanvas
 import com.lightxin.core.designsystem.theme.LxAccent
+import com.lightxin.core.designsystem.theme.LxMotion
 import com.lightxin.core.designsystem.theme.LxSurface
 import com.lightxin.core.designsystem.theme.LxText
 import com.lightxin.core.designsystem.theme.LxTextSecondary
 import com.lightxin.core.designsystem.theme.LxTintStrong
+import com.lightxin.core.designsystem.theme.lxStaggerEnter
 import com.lightxin.feature.repair.data.RepairSummary
+import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -132,7 +139,15 @@ fun RepairListScreen(
             modifier = Modifier.padding(padding).fillMaxSize(),
         ) { pageIndex ->
             val shown = if (pageIndex == 0) active else uiState.items
-            val refreshState = rememberPullToRefreshState()
+            val refreshState = rememberLxPullToRefreshState()
+            var staggerDone by rememberSaveable { mutableStateOf(false) }
+            LaunchedEffect(shown.isNotEmpty()) {
+                if (shown.isNotEmpty() && !staggerDone) {
+                    delay(LxMotion.StaggerWindowMs.toLong())
+                    staggerDone = true
+                }
+            }
+            val playStagger = !staggerDone
             PullToRefreshBox(
                 state = refreshState,
                 indicator = {
@@ -154,7 +169,15 @@ fun RepairListScreen(
                     contentPadding = PaddingValues(bottom = 112.dp),
                 ) {
                     when {
-                        uiState.isLoading -> item(key = "loading") { LxSkeletonList(count = 6) }
+                        uiState.isLoading -> item(key = "loading") {
+                            LxSkeletonList(
+                                count = 6,
+                                modifier = Modifier.animateItem(
+                                    fadeInSpec = LxMotion.enter(),
+                                    fadeOutSpec = LxMotion.exit(),
+                                ),
+                            )
+                        }
                         uiState.authExpiredDetail != null -> item(key = "auth_error") {
                             ServiceErrorCard(
                                 title = "暂时无法加载报修",
@@ -184,7 +207,7 @@ fun RepairListScreen(
                                 )
                             }
                         }
-                        else -> items(shown, key = { it.bxdh }) { item ->
+                        else -> itemsIndexed(shown, key = { _, item -> item.bxdh }) { index, item ->
                             RepairRow(
                                 item = item,
                                 sharedTransitionScope = sharedTransitionScope.takeIf { pagerState.currentPage == pageIndex },
@@ -192,6 +215,13 @@ fun RepairListScreen(
                                 onClick = {
                                     viewModel.openDetail(item.id, item.bxdh) { onOpenDetail(item.bxdh) }
                                 },
+                                modifier = Modifier
+                                    .animateItem(
+                                        fadeInSpec = LxMotion.enter(),
+                                        placementSpec = LxMotion.placement(),
+                                        fadeOutSpec = LxMotion.exit(),
+                                    )
+                                    .lxStaggerEnter(index = index, play = playStagger),
                             )
                         }
                     }
@@ -207,9 +237,10 @@ private fun RepairRow(
     sharedTransitionScope: SharedTransitionScope?,
     animatedVisibilityScope: AnimatedVisibilityScope?,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     Row(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .lxPressable(onClick = onClick)
             .padding(horizontal = 24.dp, vertical = 14.dp),

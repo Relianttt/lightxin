@@ -42,4 +42,6 @@ tags: [motion, compose, designsystem]
 
 ## 后果
 
-P2 基础动效已通过单元测试、lintDebug、Debug 与 androidTest APK 构建，并保留数据覆盖安装；首页/课表/我的及模块导航已完成真机冒烟。尚未完成 release 三次 fling 对照与录屏，不能作为回弹诊断或手感验收结论。P7 首屏错峰、计数、触感与预测性返回尚未接线；token 预留不表示已实现。共享容器/圆角过渡不再被原则性禁止，但 T12-C 仍需先向用户展示录屏并确认，当前未实施。
+P2 基础动效已通过单元测试、lintDebug、Debug 与 androidTest APK 构建，并保留数据覆盖安装；首页/课表/我的及模块导航已完成真机冒烟。尚未完成 release 三次 fling 对照与录屏，不能作为回弹诊断或手感验收结论。
+
+P7 已接线首屏错峰（`lxStaggerEnter`）、列表增删 `animateItem`、计数与分段填充（`rememberLxCountUp`）、点击/分页吸附/下拉阈值/开关/签到结果触感，以及预测性返回（`enableOnBackInvokedCallback`）。共享容器/圆角过渡不再被原则性禁止，但 T12-C 仍需先向用户展示录屏并确认，当前未实施。

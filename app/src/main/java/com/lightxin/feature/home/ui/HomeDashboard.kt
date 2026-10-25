@@ -38,7 +38,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
-import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -63,6 +62,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.navigation.NavHostController
 import com.lightxin.core.designsystem.component.LxSessionBanner
+import com.lightxin.core.designsystem.component.rememberLxPullToRefreshState
 import com.lightxin.core.designsystem.component.LxCard
 import com.lightxin.core.designsystem.component.LxEmptyHint
 import com.lightxin.core.designsystem.component.LxErrorHint
@@ -120,7 +120,7 @@ fun HomeDashboard(
         }
     }
 
-    val refreshState = rememberPullToRefreshState()
+    val refreshState = rememberLxPullToRefreshState()
     PullToRefreshBox(
         state = refreshState,
         indicator = {

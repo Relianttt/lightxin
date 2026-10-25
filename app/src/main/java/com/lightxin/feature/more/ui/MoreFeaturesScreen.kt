@@ -177,6 +177,7 @@ private fun LiveNotificationRow(
     enabled: Boolean,
     onCheckedChange: (Boolean) -> Unit,
 ) {
+    val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -206,7 +207,16 @@ private fun LiveNotificationRow(
         }
         Switch(
             checked = enabled,
-            onCheckedChange = onCheckedChange,
+            onCheckedChange = { checked ->
+                haptic.performHapticFeedback(
+                    if (checked) {
+                        androidx.compose.ui.hapticfeedback.HapticFeedbackType.ToggleOn
+                    } else {
+                        androidx.compose.ui.hapticfeedback.HapticFeedbackType.ToggleOff
+                    },
+                )
+                onCheckedChange(checked)
+            },
         )
     }
 }

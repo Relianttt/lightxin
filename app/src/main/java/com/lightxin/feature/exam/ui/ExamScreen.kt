@@ -3,7 +3,7 @@ package com.lightxin.feature.exam.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -12,6 +12,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -35,6 +36,14 @@ fun ExamScreen(
     val state by viewModel.uiState.collectAsState()
     val listState = rememberLazyListState()
     var showTerms by remember { mutableStateOf(false) }
+    var staggerDone by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(state.scores.isNotEmpty()) {
+        if (state.scores.isNotEmpty() && !staggerDone) {
+            kotlinx.coroutines.delay(LxMotion.StaggerWindowMs.toLong())
+            staggerDone = true
+        }
+    }
+    val playStagger = !staggerDone
     val semesters = listOf("1" to "第一学期", "2" to "第二学期")
     val yearLabel = state.schoolYears.find { it.value == state.selectedYear }?.display ?: state.selectedYear
     val semesterLabel = semesters.find { it.first == state.selectedSemester }?.second.orEmpty()
@@ -76,7 +85,18 @@ fun ExamScreen(
                     if (state.scores.isEmpty()) item("empty") {
                         Text("该学期暂无成绩记录", fontSize = 13.sp, color = LxTextMuted, modifier = Modifier.padding(24.dp))
                     }
-                    items(state.scores) { ScoreRow(it) }
+                    itemsIndexed(state.scores, key = { index, score -> "${score.courseCode}-$index" }) { index, score ->
+                        ScoreRow(
+                            score = score,
+                            modifier = Modifier
+                                .animateItem(
+                                    fadeInSpec = LxMotion.enter(),
+                                    placementSpec = LxMotion.placement(),
+                                    fadeOutSpec = LxMotion.exit(),
+                                )
+                                .lxStaggerEnter(index = index + 1, play = playStagger),
+                        )
+                    }
                 }
             }
         }
@@ -99,10 +119,16 @@ fun ExamScreen(
 @Composable
 private fun ExamHero(scores: List<ExamScore>) {
     val summary = remember(scores) { summarize(scores) }
+    val gpa by rememberLxCountUp(summary.weightedGpa?.toFloat() ?: 0f)
+    val credit by rememberLxCountUp(summary.totalCredit.toFloat())
     LxPanel(modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 18.dp).fillMaxWidth(), padding = 20.dp) {
         Row(Modifier.fillMaxWidth()) {
-            ExamStat(summary.weightedGpa?.let { "%.2f".format(it) } ?: "--", "学期绩点", Modifier.weight(1f))
-            ExamStat("%.1f".format(summary.totalCredit), "总学分", Modifier.weight(1f))
+            ExamStat(
+                summary.weightedGpa?.let { "%.2f".format(gpa) } ?: "--",
+                "学期绩点",
+                Modifier.weight(1f),
+            )
+            ExamStat("%.1f".format(credit), "总学分", Modifier.weight(1f))
             ExamStat(summary.courseCount.toString(), "课程", Modifier.weight(1f))
         }
         Text("绩点按学分加权，仅计入有绩点的课程", fontSize = 11.sp, color = LxTextFaint, modifier = Modifier.padding(top = 12.dp))
@@ -118,14 +144,14 @@ private fun ExamStat(value: String, label: String, modifier: Modifier) {
 }
 
 @Composable
-private fun ScoreRow(score: ExamScore) {
+private fun ScoreRow(score: ExamScore, modifier: Modifier = Modifier) {
     val failed = score.score.toDoubleOrNull()?.let { it < 60 } == true || "不及格" in score.score || "不合格" in score.score
     val meta = listOfNotNull(
         score.credit.takeIf { it.isNotBlank() }?.let { "$it 学分" },
         score.gpa.takeIf { it.isNotBlank() }?.let { "绩点 $it" },
         score.category.takeIf { it.isNotBlank() },
     ).joinToString(" · ")
-    Row(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
             Text(score.courseName, fontSize = 15.5.sp, fontWeight = FontWeight.SemiBold, color = LxText, maxLines = 2, overflow = TextOverflow.Ellipsis)
             Text(meta, fontSize = 12.5.sp, color = LxTextMuted, modifier = Modifier.padding(top = 5.dp))

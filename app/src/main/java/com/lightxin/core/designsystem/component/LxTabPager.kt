@@ -5,11 +5,16 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerDefaults
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import com.lightxin.core.designsystem.theme.LxMotion
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
 
 /** 每次进入默认第一页；各页的列表状态由调用方独立保留。 */
@@ -45,6 +50,13 @@ fun LxTabPager(
     modifier: Modifier = Modifier,
     content: @Composable (page: Int) -> Unit,
 ) {
+    // 吸附落定后给一次极短触感，确认“翻到下一页了”。
+    val haptic = LocalHapticFeedback.current
+    LaunchedEffect(state) {
+        snapshotFlow { state.settledPage }
+            .drop(1)
+            .collect { haptic.performHapticFeedback(HapticFeedbackType.SegmentTick) }
+    }
     HorizontalPager(
         state = state,
         modifier = modifier,
