@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.io.File
+import java.time.LocalTime
 import javax.inject.Inject
 
 data class CheckinDetailUiState(
@@ -32,6 +33,8 @@ data class CheckinDetailUiState(
     // 签到
     val isSubmitting: Boolean = false,
     val submitSuccess: Boolean = false,
+    /** 提交成功的时间，成功弹层里显示。 */
+    val signedAt: LocalTime? = null,
     val submitError: String? = null,
 )
 
@@ -143,7 +146,9 @@ class CheckinDetailViewModel @Inject constructor(
                 lngLatString = lngLatStr,
             ).fold(
                 onSuccess = {
-                    _uiState.update { it.copy(isSubmitting = false, submitSuccess = true) }
+                    _uiState.update {
+                        it.copy(isSubmitting = false, submitSuccess = true, signedAt = LocalTime.now())
+                    }
                 },
                 onFailure = { e ->
                     _uiState.update {

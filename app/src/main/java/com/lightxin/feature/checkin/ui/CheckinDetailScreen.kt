@@ -25,15 +25,14 @@ import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.MyLocation
+import androidx.compose.material.icons.outlined.Check
+import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -42,23 +41,38 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.content.FileProvider
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil3.compose.AsyncImage
+import com.lightxin.core.designsystem.component.LxBottomSheet
 import com.lightxin.core.designsystem.component.LxButton
 import com.lightxin.core.designsystem.component.LxCard
 import com.lightxin.core.designsystem.component.LxDetailRow
 import com.lightxin.core.designsystem.component.LxError
 import com.lightxin.core.designsystem.component.LxLoading
+import com.lightxin.core.designsystem.component.LxMetaRow
 import com.lightxin.core.designsystem.component.LxOutlinedButton
+import com.lightxin.core.designsystem.component.LxPrimaryButton
+import com.lightxin.core.designsystem.component.LxTextAction
 import com.lightxin.core.designsystem.component.LxTopBar
+import com.lightxin.core.designsystem.theme.LxAccent
+import com.lightxin.core.designsystem.theme.LxDanger
+import com.lightxin.core.designsystem.theme.LxDangerSurface
+import com.lightxin.core.designsystem.theme.LxStateSuccess
 import com.lightxin.core.designsystem.theme.LxSuccess
+import com.lightxin.core.designsystem.theme.LxText
+import com.lightxin.core.designsystem.theme.LxTextMuted
 import com.lightxin.feature.checkin.domain.TaskDetail
 import java.io.File
+import java.time.LocalTime
 
 @Composable
 fun CheckinDetailScreen(
@@ -68,31 +82,17 @@ fun CheckinDetailScreen(
     viewModel: CheckinDetailViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    val snackbarHostState = remember { SnackbarHostState() }
     val error = uiState.error
-
-    // 签到成功后返回
-    LaunchedEffect(uiState.submitSuccess) {
-        if (uiState.submitSuccess) {
-            snackbarHostState.showSnackbar("签到成功！")
-            onSubmitSuccess()
-            onBack()
-        }
-    }
-
-    // 签到失败提示
-    LaunchedEffect(uiState.submitError) {
-        uiState.submitError?.let {
-            snackbarHostState.showSnackbar(it)
-            viewModel.clearSubmitError()
-        }
+    var photoFile by remember { mutableStateOf<File?>(null) }
+    val finish = {
+        onSubmitSuccess()
+        onBack()
     }
 
     Scaffold(
         modifier = modifier,
         containerColor = MaterialTheme.colorScheme.background,
         topBar = { LxTopBar(title = "签到", onBack = onBack) },
-        snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { padding ->
         when {
             uiState.isLoading -> LxLoading(modifier = Modifier.padding(padding))
@@ -105,25 +105,151 @@ fun CheckinDetailScreen(
                 DetailContent(
                     detail = detail,
                     uiState = uiState,
+                    photoFile = photoFile,
+                    onPhotoFileChange = { photoFile = it },
                     viewModel = viewModel,
                     modifier = Modifier.padding(padding),
                 )
             }
         }
     }
+
+    if (uiState.submitSuccess) {
+        SuccessSheet(
+            signedAt = uiState.signedAt,
+            detail = uiState.detail,
+            onFinish = finish,
+            onDismiss = finish,
+        )
+    }
+
+    uiState.submitError?.let { message ->
+        FailureSheet(
+            message = message,
+            onRetry = {
+                viewModel.clearSubmitError()
+                viewModel.submitSignIn(photoFile)
+            },
+            onBack = viewModel::clearSubmitError,
+            onDismiss = viewModel::clearSubmitError,
+        )
+    }
 }
+
+@Composable
+private fun SuccessSheet(
+    signedAt: LocalTime?,
+    detail: TaskDetail?,
+    onFinish: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val haptic = LocalHapticFeedback.current
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        haptic.performHapticFeedback(HapticFeedbackType.Confirm)
+    }
+    LxBottomSheet(onDismiss = onDismiss) {
+        androidx.compose.foundation.layout.Column(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(androidx.compose.foundation.shape.CircleShape)
+                    .background(LxStateSuccess.copy(alpha = 0.12f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(Icons.Outlined.Check, contentDescription = null, tint = LxStateSuccess, modifier = Modifier.size(26.dp))
+            }
+            Text(
+                text = "签到成功",
+                fontSize = 18.sp,
+                lineHeight = 25.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = LxText,
+                modifier = Modifier.padding(top = 14.dp),
+            )
+            androidx.compose.foundation.layout.Spacer(Modifier.height(16.dp))
+            signedAt?.let { time ->
+                LxMetaRow(label = "时间", value = "%02d:%02d".format(time.hour, time.minute))
+            }
+            detail?.let {
+                val place = it.address.ifBlank { it.signinPlace }
+                if (place.isNotBlank()) LxMetaRow(label = "地点", value = place)
+            }
+            androidx.compose.foundation.layout.Spacer(Modifier.height(20.dp))
+            LxPrimaryButton(text = "完成", onClick = onFinish)
+        }
+    }
+}
+
+@Composable
+private fun FailureSheet(
+    message: String,
+    onRetry: () -> Unit,
+    onBack: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val haptic = LocalHapticFeedback.current
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        haptic.performHapticFeedback(HapticFeedbackType.Reject)
+    }
+    LxBottomSheet(onDismiss = onDismiss) {
+        androidx.compose.foundation.layout.Column(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(androidx.compose.foundation.shape.CircleShape)
+                    .background(LxDangerSurface),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(Icons.Outlined.ErrorOutline, contentDescription = null, tint = LxDanger, modifier = Modifier.size(26.dp))
+            }
+            Text(
+                text = "签到没有成功",
+                fontSize = 18.sp,
+                lineHeight = 25.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = LxText,
+                modifier = Modifier.padding(top = 14.dp),
+            )
+            Text(
+                text = message,
+                fontSize = 13.5.sp,
+                lineHeight = 22.sp,
+                color = LxTextMuted,
+                textAlign = TextAlign.Center,
+                maxLines = 3,
+                modifier = Modifier.padding(top = 10.dp),
+            )
+            androidx.compose.foundation.layout.Spacer(Modifier.height(20.dp))
+            LxPrimaryButton(text = "重试", onClick = onRetry)
+            LxTextAction(
+                text = "返回修改",
+                onClick = onBack,
+                color = LxTextMuted,
+                modifier = Modifier.padding(top = 4.dp),
+            )
+        }
+    }
+}
+
 
 @Composable
 private fun DetailContent(
     detail: TaskDetail,
     uiState: CheckinDetailUiState,
+    photoFile: File?,
+    onPhotoFileChange: (File) -> Unit,
     viewModel: CheckinDetailViewModel,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
 
     // 相机拍照文件
-    var photoFile by remember { mutableStateOf<File?>(null) }
     var tempPhotoUri by remember { mutableStateOf<Uri?>(null) }
 
     val cameraLauncher = rememberLauncherForActivityResult(
@@ -197,7 +323,7 @@ private fun DetailContent(
                 onTakePhoto = {
                     val file = File(context.cacheDir, "images").also { it.mkdirs() }
                         .let { File(it, "checkin_${System.currentTimeMillis()}.jpg") }
-                    photoFile = file
+                    onPhotoFileChange(file)
                     val uri = FileProvider.getUriForFile(
                         context,
                         "${context.packageName}.fileprovider",
