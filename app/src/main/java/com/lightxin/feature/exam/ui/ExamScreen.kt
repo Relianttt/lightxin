@@ -25,6 +25,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.lightxin.core.designsystem.component.*
 import com.lightxin.core.designsystem.theme.*
 import com.lightxin.feature.exam.domain.ExamScore
+import com.lightxin.feature.exam.domain.examTermOptions
 import com.lightxin.feature.exam.domain.summarize
 
 @Composable
@@ -45,6 +46,7 @@ fun ExamScreen(
     }
     val playStagger = !staggerDone
     val semesters = listOf("1" to "第一学期", "2" to "第二学期")
+    val termOptions = remember(state.schoolYears) { examTermOptions(state.schoolYears)}
     val yearLabel = state.schoolYears.find { it.value == state.selectedYear }?.display ?: state.selectedYear
     val semesterLabel = semesters.find { it.first == state.selectedSemester }?.second.orEmpty()
     Scaffold(
@@ -104,7 +106,7 @@ fun ExamScreen(
     if (showTerms) {
         LxOptionSheet(
             title = "选择学期",
-            options = state.schoolYears.flatMap { year -> semesters.map { (value, label) -> "${year.display} $label" to "${year.value}|$value" } },
+            options = termOptions.map { it.label to it.value },
             selectedValue = "${state.selectedYear}|${state.selectedSemester}",
             onSelect = { _, value ->
                 val parts = value.split('|', limit = 2)
@@ -131,7 +133,6 @@ private fun ExamHero(scores: List<ExamScore>) {
             ExamStat("%.1f".format(credit), "总学分", Modifier.weight(1f))
             ExamStat(summary.courseCount.toString(), "课程", Modifier.weight(1f))
         }
-        Text("绩点按学分加权，仅计入有绩点的课程", fontSize = 11.sp, color = LxTextFaint, modifier = Modifier.padding(top = 12.dp))
     }
 }
 
