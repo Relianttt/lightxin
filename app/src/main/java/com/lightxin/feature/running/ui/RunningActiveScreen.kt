@@ -27,6 +27,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.platform.LocalContext
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.lightxin.core.designsystem.component.LxButton
@@ -35,6 +36,7 @@ import com.lightxin.core.designsystem.component.LxEmpty
 import com.lightxin.core.designsystem.component.LxLoading
 import com.lightxin.core.designsystem.component.LxOutlinedButton
 import com.lightxin.core.designsystem.component.LxTopBar
+import com.lightxin.core.designsystem.theme.LxTextMuted
 import com.lightxin.feature.running.domain.RunningTrackerState
 import com.lightxin.feature.running.service.RunTrackingService
 import kotlinx.coroutines.delay
@@ -137,6 +139,32 @@ private fun RunningActiveContent(
                         style = MaterialTheme.typography.titleMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                }
+            }
+        }
+
+        item {
+            LxCard {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(200.dp)
+                        .padding(16.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    if (trackerState.points.size >= 2) {
+                        TrackCanvas(
+                            points = trackerState.points,
+                            modifier = Modifier.fillMaxSize(),
+                            live = true,
+                        )
+                    } else {
+                        Text(
+                            text = "等待定位…",
+                            fontSize = 13.sp,
+                            color = LxTextMuted,
+                        )
+                    }
                 }
             }
         }

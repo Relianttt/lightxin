@@ -76,6 +76,8 @@ data class RunningResult(
     val durationSeconds: Long,
     val speedKmh: Double,
     val pointCount: Int,
+    /** 上传前缓存的轨迹点；成功失败都保留，结果页画形状用。 */
+    val points: List<TrackPoint> = emptyList(),
     /** 回读到的服务端判定文案；未回读或回读失败时为空，界面不显示该行。 */
     val verdict: String = "",
     /** 上传前后 todayKm 的差值；null 表示无法判定（未取到首页数据）。0 表示服务端没计入。 */

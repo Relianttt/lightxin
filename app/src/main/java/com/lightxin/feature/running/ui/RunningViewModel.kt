@@ -301,6 +301,7 @@ class RunningViewModel @Inject constructor(
                     message = error.message ?: "模拟提交失败",
                     config = config,
                     pointCount = trajectorySize,
+                    points = templatePoints,
                 )
                 _uiState.update {
                     it.copy(
@@ -392,6 +393,7 @@ class RunningViewModel @Inject constructor(
                             durationSeconds = snapshot.durationSeconds,
                             startTimeMillis = snapshot.startTimeMillis,
                             pointCount = snapshot.points.size,
+                            points = snapshot.points,
                         ),
                         shouldNavigateToResult = true,
                     )
@@ -456,6 +458,7 @@ class RunningViewModel @Inject constructor(
         message: String,
         config: SimConfig,
         pointCount: Int = 0,
+        points: List<TrackPoint> = emptyList(),
     ): RunningResult =
         buildFailedResult(
             message = message,
@@ -463,6 +466,7 @@ class RunningViewModel @Inject constructor(
             durationSeconds = config.durationSeconds,
             startTimeMillis = config.startTimeMillis,
             pointCount = pointCount,
+            points = points,
         )
 
     private fun buildFailedResult(
@@ -471,6 +475,7 @@ class RunningViewModel @Inject constructor(
         durationSeconds: Long,
         startTimeMillis: Long,
         pointCount: Int,
+        points: List<TrackPoint> = emptyList(),
     ): RunningResult {
         val speedKmh = if (durationSeconds > 0) distanceKm / durationSeconds * 3600.0 else 0.0
         val startDate = Instant.ofEpochMilli(startTimeMillis)
@@ -490,6 +495,7 @@ class RunningViewModel @Inject constructor(
             durationSeconds = durationSeconds,
             speedKmh = speedKmh,
             pointCount = pointCount,
+            points = points,
         )
     }
 

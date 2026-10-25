@@ -26,45 +26,63 @@ import com.lightxin.core.designsystem.theme.LxStateSuccess
 import com.lightxin.core.designsystem.theme.LxTextMuted
 import com.lightxin.core.designsystem.theme.LxTint
 import com.lightxin.feature.running.domain.TrackPoint
+import kotlin.math.cos
+import kotlin.math.min
 
-/** 把轨迹点等比投影到给定画布；列表缩略图与详情大图共用，保证共享元素形态一致。 */
-@Composable
-fun TrackCanvas(points: List<TrackPoint>, modifier: Modifier = Modifier) {
-    if (points.size < 2) return
+/**
+ * 经纬度 → 画布坐标。经度按中心纬度的 cos 修正，否则北纬 31° 附近形状会被横向拉宽约 17%。
+ * 只做等比缩放和居中，不旋转、不翻转。
+ */
+internal fun projectTrack(points: List<TrackPoint>, width: Float, height: Float): List<Offset> {
+    if (points.isEmpty() || width <= 0f || height <= 0f) return emptyList()
     val minLat = points.minOf { it.latitude }
     val maxLat = points.maxOf { it.latitude }
     val minLng = points.minOf { it.longitude }
     val maxLng = points.maxOf { it.longitude }
     val latSpan = (maxLat - minLat).coerceAtLeast(1e-6)
-    val lngSpan = (maxLng - minLng).coerceAtLeast(1e-6)
+    val k = cos(Math.toRadians((minLat + maxLat) / 2))
+    val lngSpanAdj = ((maxLng - minLng) * k).coerceAtLeast(1e-6)
+    val scale = min(width / lngSpanAdj.toFloat(), height / latSpan.toFloat())
+    val offsetX = (width - lngSpanAdj.toFloat() * scale) / 2f
+    val offsetY = (height - latSpan.toFloat() * scale) / 2f
+    return points.map { point ->
+        Offset(
+            x = offsetX + ((point.longitude - minLng) * k * scale).toFloat(),
+            y = offsetY + ((maxLat - point.latitude) * scale).toFloat(),
+        )
+    }
+}
 
+/**
+ * 把轨迹点等比投影到给定画布；列表缩略图与详情大图共用，保证共享元素形态一致。
+ * [live] = true 用于跑步进行中：终点画成带光晕的强调色圆点，而不是结果页的红色终点。
+ */
+@Composable
+fun TrackCanvas(points: List<TrackPoint>, modifier: Modifier = Modifier, live: Boolean = false) {
+    if (points.size < 2) return
     val pathColor = LxAccent
     val startColor = LxStateSuccess
     val endColor = LxDanger
 
     Canvas(modifier = modifier) {
-        val w = size.width
-        val h = size.height
-        val scale = minOf(w / lngSpan.toFloat(), h / latSpan.toFloat())
-        val offsetX = (w - lngSpan.toFloat() * scale) / 2f
-        val offsetY = (h - latSpan.toFloat() * scale) / 2f
-
-        fun project(p: TrackPoint): Offset {
-            val x = offsetX + ((p.longitude - minLng) * scale).toFloat()
-            val y = offsetY + ((maxLat - p.latitude) * scale).toFloat()
-            return Offset(x, y)
-        }
-
+        val projected = projectTrack(points, size.width, size.height)
+        if (projected.size < 2) return@Canvas
         val path = Path()
-        val first = project(points.first())
+        val first = projected.first()
         path.moveTo(first.x, first.y)
-        for (i in 1 until points.size) {
-            val o = project(points[i])
-            path.lineTo(o.x, o.y)
+        for (index in 1 until projected.size) {
+            val point = projected[index]
+            path.lineTo(point.x, point.y)
         }
         drawPath(path = path, color = pathColor, style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round))
         drawCircle(color = startColor, radius = 4.dp.toPx(), center = first)
-        drawCircle(color = endColor, radius = 4.dp.toPx(), center = project(points.last()))
+        val last = projected.last()
+        if (live) {
+            drawCircle(color = pathColor.copy(alpha = 0.2f), radius = 9.dp.toPx(), center = last)
+            drawCircle(color = pathColor, radius = 4.dp.toPx(), center = last)
+        } else {
+            drawCircle(color = endColor, radius = 4.dp.toPx(), center = last)
+        }
     }
 }
 

@@ -15,11 +15,16 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.UploadFile
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -38,6 +43,8 @@ import com.lightxin.core.designsystem.component.LxTone
 import com.lightxin.core.designsystem.component.lxHeaderCollapsed
 import com.lightxin.core.designsystem.theme.LxAccentText
 import com.lightxin.core.designsystem.theme.LxCanvas
+import com.lightxin.core.designsystem.theme.LxMotion
+import com.lightxin.core.designsystem.theme.lxStaggerEnter
 import com.lightxin.core.designsystem.theme.LxText
 import com.lightxin.core.designsystem.theme.LxTextMuted
 import com.lightxin.feature.running.domain.RouteQualityStatus
@@ -58,6 +65,14 @@ fun RouteTemplateListScreen(
     val systemCount = uiState.templates.count { it.source == com.lightxin.feature.running.domain.RouteTemplateSource.SYSTEM }
     val listState = rememberLazyListState()
     val collapsed = listState.lxHeaderCollapsed()
+    var staggerDone by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(uiState.templates.isNotEmpty()) {
+        if (uiState.templates.isNotEmpty() && !staggerDone) {
+            kotlinx.coroutines.delay(LxMotion.StaggerWindowMs.toLong())
+            staggerDone = true
+        }
+    }
+    val playStagger = !staggerDone
 
     Scaffold(
         modifier = modifier,
@@ -105,12 +120,19 @@ fun RouteTemplateListScreen(
                     }
                 }
             } else {
-                items(uiState.templates, key = { it.id }) { template ->
+                itemsIndexed(uiState.templates, key = { _, template -> template.id }) { index, template ->
                     TemplateRow(
                         template = template,
                         onClick = { onOpenDetail(template.id) },
                         sharedTransitionScope = sharedTransitionScope,
                         animatedVisibilityScope = animatedVisibilityScope,
+                        modifier = Modifier
+                            .animateItem(
+                                fadeInSpec = LxMotion.enter(),
+                                placementSpec = LxMotion.placement(),
+                                fadeOutSpec = LxMotion.exit(),
+                            )
+                            .lxStaggerEnter(index = index, play = playStagger),
                     )
                 }
             }
@@ -124,9 +146,10 @@ private fun TemplateRow(
     onClick: () -> Unit,
     sharedTransitionScope: SharedTransitionScope?,
     animatedVisibilityScope: AnimatedVisibilityScope?,
+    modifier: Modifier = Modifier,
 ) {
     Row(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .lxPressable(onClick = onClick)
             .padding(horizontal = 24.dp, vertical = 14.dp),

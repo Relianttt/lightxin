@@ -1,6 +1,7 @@
 package com.lightxin.feature.running.ui
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -60,6 +61,20 @@ fun RunningResultScreen(
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             item { ResultStatusCard(result) }
+            if (result.points.size >= 2) {
+                item {
+                    LxCard {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(180.dp)
+                                .padding(16.dp),
+                        ) {
+                            TrackCanvas(points = result.points, modifier = Modifier.fillMaxSize())
+                        }
+                    }
+                }
+            }
             item { ResultMetricsCard(result) }
             item {
                 LxButton(

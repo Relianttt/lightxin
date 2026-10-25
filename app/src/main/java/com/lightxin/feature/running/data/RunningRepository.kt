@@ -318,6 +318,7 @@ class RunningRepository @Inject constructor(
                     durationSeconds = durationSeconds,
                     speedKmh = speedKmh,
                     pointCount = route.size,
+                    points = snapshot.points,
                 )
             )
         } catch (e: Exception) {
