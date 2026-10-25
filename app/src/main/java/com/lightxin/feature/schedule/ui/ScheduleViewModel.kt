@@ -31,7 +31,6 @@ data class ScheduleUiState(
     val isRefreshing: Boolean = false,
     val refreshError: String? = null,
     val lastSyncedAt: Long? = null,
-    val isEstimatedWeek: Boolean = false,
 )
 
 @HiltViewModel
@@ -77,7 +76,7 @@ class ScheduleViewModel @Inject constructor(
         val info = if (estimated) snapshot.estimatedInfo() else snapshot.info
         val previous = _uiState.value.weekInfo
         val changed = previous == null || previous.schoolYear != info.schoolYear || previous.schoolTerm != info.schoolTerm
-        _uiState.update { it.copy(weekInfo = info, isEstimatedWeek = estimated,
+        _uiState.update { it.copy(weekInfo = info,
             hasLoadedWeek = if (changed) false else it.hasLoadedWeek) }
         if (changed || _uiState.value.selectedWeek !in info.weekNumbers) selectWeek(info.currentWeek, force = true)
     }

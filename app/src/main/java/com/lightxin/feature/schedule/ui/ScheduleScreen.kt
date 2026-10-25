@@ -99,20 +99,10 @@ fun ScheduleScreen(
                 )
             }
 
-            if (uiState.isEstimatedWeek) {
-                Text("第 ${uiState.weekInfo?.currentWeek} 周（根据上次同步估算）",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp))
-            }
-            uiState.lastSyncedAt?.let { syncedAt ->
+            // 同步时间只在刷新失败、正在用本地缓存时提示；联网正常时不占版面。
+            uiState.lastSyncedAt?.takeIf { uiState.refreshError != null }?.let { syncedAt ->
                 val time = DateTimeFormatter.ofPattern("MM月dd日 HH:mm").withZone(SCHOOL_ZONE).format(Instant.ofEpochMilli(syncedAt))
-                val prefix = when {
-                    uiState.isRefreshing -> "正在刷新 · "
-                    uiState.refreshError != null -> "正在显示本地课表 · "
-                    else -> ""
-                }
-                Text("${prefix}上次同步 $time",
+                Text("正在显示本地课表 · 上次同步 $time",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp))
