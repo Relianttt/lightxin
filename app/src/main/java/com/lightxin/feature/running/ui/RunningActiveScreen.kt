@@ -118,6 +118,32 @@ private fun RunningActiveContent(
     ) {
         item {
             LxCard {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(200.dp)
+                        .padding(16.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    if (trackerState.points.size >= 2) {
+                        TrackCanvas(
+                            points = trackerState.points,
+                            modifier = Modifier.fillMaxSize(),
+                            live = true,
+                        )
+                    } else {
+                        Text(
+                            text = "等待定位…",
+                            fontSize = 13.sp,
+                            color = LxTextMuted,
+                        )
+                    }
+                }
+            }
+        }
+
+        item {
+            LxCard {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -139,32 +165,6 @@ private fun RunningActiveContent(
                         style = MaterialTheme.typography.titleMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                }
-            }
-        }
-
-        item {
-            LxCard {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(200.dp)
-                        .padding(16.dp),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    if (trackerState.points.size >= 2) {
-                        TrackCanvas(
-                            points = trackerState.points,
-                            modifier = Modifier.fillMaxSize(),
-                            live = true,
-                        )
-                    } else {
-                        Text(
-                            text = "等待定位…",
-                            fontSize = 13.sp,
-                            color = LxTextMuted,
-                        )
-                    }
                 }
             }
         }

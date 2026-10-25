@@ -35,6 +35,7 @@ import com.lightxin.core.designsystem.component.LxCard
 import com.lightxin.core.designsystem.component.LxChoiceChip
 import com.lightxin.core.designsystem.component.LxTextField
 import com.lightxin.core.designsystem.component.LxTopBar
+import com.lightxin.core.designsystem.theme.LxHairline
 import com.lightxin.core.designsystem.theme.LxInk
 import com.lightxin.core.designsystem.theme.LxTint
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -215,7 +216,7 @@ fun RunningSimScreen(
                         )
 
                         Spacer(modifier = Modifier.height(16.dp))
-                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                        HorizontalDivider(thickness = 0.5.dp, color = LxHairline)
                         Spacer(modifier = Modifier.height(14.dp))
 
                         val speed = viewModel.simulationSpeedKmh()

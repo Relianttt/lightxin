@@ -13,6 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.lightxin.core.designsystem.theme.LxHairline
 
 @Composable
 fun LxDetailRow(
@@ -44,7 +45,8 @@ fun LxDetailRow(
         }
         if (showDivider) {
             HorizontalDivider(
-                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                thickness = 0.5.dp,
+                color = LxHairline,
             )
         }
     }

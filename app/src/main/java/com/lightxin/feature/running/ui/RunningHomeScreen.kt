@@ -19,8 +19,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.DirectionsRun
-import androidx.compose.material.icons.filled.Flag
-import androidx.compose.material.icons.filled.SsidChart
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -37,7 +35,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.lightxin.core.designsystem.theme.LxTabularNums
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -316,22 +313,17 @@ private fun SummaryCard(
 
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 MetricBlock(
-                    icon = Icons.Default.Flag,
                     title = "任务进度",
                     value = if (targetKm > 0.0) {
                         "${formatKmValue(completedKm)} / ${formatKmValue(targetKm)} km"
                     } else {
                         formatKm(completedKm, 2)
                     },
-                    iconOnStart = true,
-                    startPadding = 4.dp,
                     modifier = Modifier.weight(1f),
                 )
                 MetricBlock(
-                    icon = Icons.Default.SsidChart,
                     title = if (isActive) "会话状态" else "进度占比",
                     value = if (isActive) trackerLabel else String.format(Locale.CHINA, "%.0f%%", progress * 100),
-                    iconOnStart = true,
                     modifier = Modifier.weight(1f),
                 )
             }
@@ -401,67 +393,27 @@ private fun InsightCard(dashboard: RunningDashboard?) {
 
 @Composable
 private fun MetricBlock(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
     title: String,
     value: String,
-    iconOnStart: Boolean = false,
-    startPadding: Dp = 14.dp,
     modifier: Modifier = Modifier,
 ) {
-    LxCard(modifier = modifier) {
-        Column(
-            modifier = Modifier.padding(
-                start = startPadding,
-                top = 14.dp,
-                end = 14.dp,
-                bottom = 14.dp,
-            ),
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                if (iconOnStart) {
-                    Icon(
-                        imageVector = icon,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.secondary,
-                        modifier = Modifier.size(16.dp),
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = title,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.weight(1f),
-                    )
-                } else {
-                    Text(
-                        text = title,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.weight(1f),
-                    )
-                    Icon(
-                        imageVector = icon,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.secondary,
-                        modifier = Modifier.size(16.dp),
-                    )
-                }
-            }
-            Spacer(modifier = Modifier.height(6.dp))
-            // value 单行 + 末尾省略：保证左右两块高度恒等，不会因 "48 / 120 km" 之类长文本折行失衡
-            Text(
-                text = value,
-                style = MaterialTheme.typography.titleSmall.merge(LxTabularNums),
-                fontWeight = FontWeight.SemiBold,
-                maxLines = 1,
-                softWrap = false,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.fillMaxWidth(),
-            )
-        }
+    Column(modifier = modifier.padding(horizontal = 2.dp)) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(modifier = Modifier.height(6.dp))
+        // 单行 + 末尾省略：保证左右两块高度恒等，不会因 "48 / 120 km" 之类长文本折行失衡
+        Text(
+            text = value,
+            style = MaterialTheme.typography.titleSmall.merge(LxTabularNums),
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 1,
+            softWrap = false,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.fillMaxWidth(),
+        )
     }
 }
 
