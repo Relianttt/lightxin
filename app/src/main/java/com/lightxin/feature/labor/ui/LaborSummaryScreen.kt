@@ -290,7 +290,7 @@ private fun HoursHero(summary: HoursSummary, modifier: Modifier = Modifier) {
         LxSegment("其他", summary.otherTimes, LxCategoryColors[4]),
     )
     val total by rememberLxCountUp(summary.totalTimes.toFloat())
-    val fill by rememberLxCountUp(1f)
+    val fill by rememberLxCountUp(1f, delayMs = LxMotion.ContentDelayMs)
 
     LxPanel(modifier = modifier.fillMaxWidth(), radius = LxRadiusLg, padding = 20.dp) {
         LxSectionLabel("累计时长")

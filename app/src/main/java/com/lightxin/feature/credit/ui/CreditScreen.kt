@@ -226,7 +226,7 @@ private fun CreditHero(overview: CreditOverview, modifier: Modifier = Modifier) 
         )
     }
     val total by rememberLxCountUp(overview.totalCredit.toFloat())
-    val fill by rememberLxCountUp(1f)
+    val fill by rememberLxCountUp(1f, delayMs = LxMotion.ContentDelayMs)
 
     LxPanel(modifier = modifier.fillMaxWidth(), radius = LxRadiusLg, padding = 20.dp) {
         Row(

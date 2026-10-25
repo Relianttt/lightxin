@@ -180,12 +180,12 @@ fun Modifier.lxStaggerEnter(index: Int, play: Boolean): Modifier {
  * 避免刷新时数字又从头跑一遍。
  */
 @Composable
-fun rememberLxCountUp(target: Float): State<Float> {
+fun rememberLxCountUp(target: Float, delayMs: Int = 0): State<Float> {
     val anim = remember { Animatable(0f) }
     var first by remember { mutableStateOf(true) }
     LaunchedEffect(target) {
         val durationMs = if (first) LxMotion.CountUpMs else LxMotion.StateMs
-        anim.animateTo(target, tween(durationMs, easing = LxMotion.EaseEnter))
+        anim.animateTo(target, tween(durationMs, delayMs, LxMotion.EaseEnter))
         first = false
     }
     return remember(anim) { derivedStateOf { anim.value } }
