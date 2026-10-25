@@ -6,8 +6,11 @@ import androidx.compose.foundation.pager.PagerDefaults
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -29,9 +32,24 @@ fun rememberLxTabPagerState(pageCount: Int = 2): PagerState =
 @Composable
 fun rememberLxTabPagerSelection(state: PagerState): (Int) -> Unit {
     val scope = rememberCoroutineScope()
-    return remember(state, scope) {
+    val haptic = LocalHapticFeedback.current
+    var feedbackPage by remember(state) { mutableIntStateOf(state.currentPage) }
+    LaunchedEffect(state, haptic) {
+        snapshotFlow { state.currentPage }.drop(1).collect { page ->
+            if (page != feedbackPage) {
+                feedbackPage = page
+                haptic.performHapticFeedback(HapticFeedbackType.SegmentTick)
+            }
+        }
+    }
+    return remember(state, scope, haptic) {
         var job: Job? = null
         { target: Int ->
+            // 点选立即确认；后续 currentPage 追上目标时不重复震动。
+            if (target != feedbackPage) {
+                feedbackPage = target
+                haptic.performHapticFeedback(HapticFeedbackType.SegmentTick)
+            }
             job?.cancel()
             job = scope.launch {
                 state.animateScrollToPage(target, animationSpec = LxMotion.pagerSnap())
@@ -50,13 +68,6 @@ fun LxTabPager(
     modifier: Modifier = Modifier,
     content: @Composable (page: Int) -> Unit,
 ) {
-    // 吸附落定后给一次极短触感，确认“翻到下一页了”。
-    val haptic = LocalHapticFeedback.current
-    LaunchedEffect(state) {
-        snapshotFlow { state.settledPage }
-            .drop(1)
-            .collect { haptic.performHapticFeedback(HapticFeedbackType.SegmentTick) }
-    }
     HorizontalPager(
         state = state,
         modifier = modifier,

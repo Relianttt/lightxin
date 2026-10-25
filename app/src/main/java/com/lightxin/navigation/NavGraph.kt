@@ -611,6 +611,7 @@ fun LightXinNavHost(
                 .getStateFlow("leave_refresh", false)
                 .collectAsState()
             LeaveListScreen(
+                onRelogin = onSessionRelogin,
                 onBack = { navController.popBackStack() },
                 onCreate = {
                     navController.navigate(Routes.LEAVE_CREATE) { launchSingleTop = true }

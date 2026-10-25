@@ -179,14 +179,19 @@ fun RepairListScreen(
                             )
                         }
                         uiState.authExpiredDetail != null -> item(key = "auth_error") {
-                            ServiceErrorCard(
-                                title = "暂时无法加载报修",
-                                message = "可能是登录已过期，先重试一次。",
-                                technicalDetail = uiState.authExpiredDetail.orEmpty(),
-                                isRetrying = uiState.isRefreshing,
-                                onRetry = viewModel::retry,
-                                onRelogin = onRelogin,
-                            )
+                            Box(
+                                modifier = Modifier.fillParentMaxHeight().fillMaxWidth().padding(24.dp),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                ServiceErrorCard(
+                                    title = "暂时无法加载报修",
+                                    message = "可能是登录已过期，先重试一次。",
+                                    technicalDetail = uiState.authExpiredDetail.orEmpty(),
+                                    isRetrying = uiState.isRefreshing,
+                                    onRetry = viewModel::retry,
+                                    onRelogin = onRelogin,
+                                )
+                            }
                         }
                         uiState.error != null && uiState.items.isEmpty() -> item(key = "error") {
                             Box(

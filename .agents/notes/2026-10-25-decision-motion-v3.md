@@ -12,6 +12,8 @@ tags: [motion, compose, designsystem]
 
 ## 决定
 
+分页触感时机由 [恢复卡片与 Tab 反馈](2026-10-25-decision-recovery-card-tab-feedback.md) 修订为点选立即反馈、滑动跟随选中页变化，其余动效规则不变。
+
 - 进场长减速、退场加速、屏内往返对称；透明度、小位移与小缩放组合，容器先于内容出现，进场慢于退场。
 - 转场不 overshoot；唯一轻回弹点为按压松开，`PressRelease` 阻尼 0.75，可独立回退为 1。
 - 固定时长除计数外不超过 450ms；手势驱动物理动画不受此限。系统边缘拉伸保留，不自定义 overscroll，不手写底部弹层运动。

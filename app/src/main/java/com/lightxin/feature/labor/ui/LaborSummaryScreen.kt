@@ -105,7 +105,9 @@ fun LaborSummaryScreen(
             uiState.isLoading -> LxSkeletonList(count = 5, modifier = Modifier.padding(padding))
             // 有缓存时只挂横幅，列表照常显示；没缓存才整页替换。
             authExpiredDetail != null && !hasContent -> Box(
-                modifier = Modifier.padding(padding).fillMaxSize().verticalScroll(rememberScrollState()),
+                modifier = Modifier.padding(padding).fillMaxSize()
+                    .verticalScroll(rememberScrollState()).padding(24.dp),
+                contentAlignment = Alignment.Center,
             ) {
                 ServiceErrorCard(
                     title = "登录已失效",

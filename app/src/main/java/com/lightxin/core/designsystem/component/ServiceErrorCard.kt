@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
@@ -40,28 +41,33 @@ fun ServiceErrorCard(
     var showDetails by rememberSaveable(technicalDetail) { mutableStateOf(false) }
     val retryText = if (isRetrying) "正在重试…" else "重试"
     val reloginFirst = primary == RecoveryPrimary.Relogin
-    Column(
-        modifier = modifier.fillMaxWidth().padding(horizontal = 32.dp, vertical = 48.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
+    LxPanel(
+        modifier = modifier.widthIn(max = 440.dp).fillMaxWidth(),
+        padding = 24.dp,
     ) {
-        Text(title, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = LxText, textAlign = TextAlign.Center)
-        Spacer(Modifier.height(8.dp))
-        Text(message, fontSize = 13.5.sp, lineHeight = 22.sp, color = LxTextMuted, textAlign = TextAlign.Center, maxLines = 2)
-        Spacer(Modifier.height(24.dp))
-        LxPrimaryButton(
-            text = if (reloginFirst) "重新登录" else retryText,
-            onClick = if (reloginFirst) onRelogin else onRetry,
-            enabled = !isRetrying,
-            modifier = Modifier.fillMaxWidth(0.72f),
-        )
-        Spacer(Modifier.height(8.dp))
-        LxTextAction(
-            text = if (reloginFirst) retryText else "重新登录",
-            onClick = if (reloginFirst) onRetry else onRelogin,
-            enabled = !isRetrying,
-        )
-        Spacer(Modifier.height(4.dp))
-        LxTextAction("查看错误详情", onClick = { showDetails = true }, color = LxTextFaint)
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(title, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = LxText, textAlign = TextAlign.Center)
+            Spacer(Modifier.height(8.dp))
+            Text(message, fontSize = 13.5.sp, lineHeight = 22.sp, color = LxTextMuted, textAlign = TextAlign.Center)
+            Spacer(Modifier.height(24.dp))
+            LxPrimaryButton(
+                text = if (reloginFirst) "重新登录" else retryText,
+                onClick = if (reloginFirst) onRelogin else onRetry,
+                enabled = !isRetrying,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Spacer(Modifier.height(8.dp))
+            LxTextAction(
+                text = if (reloginFirst) retryText else "重新登录",
+                onClick = if (reloginFirst) onRetry else onRelogin,
+                enabled = !isRetrying,
+            )
+            Spacer(Modifier.height(4.dp))
+            LxTextAction("查看错误详情", onClick = { showDetails = true }, color = LxTextFaint)
+        }
     }
     if (showDetails) {
         LxDialog(

@@ -12,6 +12,8 @@ tags: [designsystem, theme, recovery, ui]
 
 ## 决定
 
+模块恢复卡片的容器与居中方式由 [恢复卡片与 Tab 反馈](2026-10-25-decision-recovery-card-tab-feedback.md) 修订；其余约定保持有效。
+
 - 旧语义 token 保留名称，作为新 token 的别名；全局 ColorScheme 包括 surface 容器使用同一色板。Raw 色值和课程分类配色不改。
 - `LxCard` 保留 16dp 圆角，增加 0.5dp hairline；启动页浅/深色与 LxCanvas 一致。
 - 首屏加载用骨架；详情加载三行骨架；局部操作保留进度指示器；分页统一文字页脚与显式错误重试。

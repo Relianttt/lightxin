@@ -37,7 +37,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.lightxin.core.designsystem.component.LxDateBlock
 import com.lightxin.core.designsystem.component.LxEmptyState
-import com.lightxin.core.designsystem.component.LxErrorState
+import com.lightxin.core.designsystem.component.ServiceErrorCard
 import com.lightxin.core.designsystem.component.LxFilterTabs
 import com.lightxin.core.designsystem.component.LxFloatingAction
 import com.lightxin.core.designsystem.component.LxMonthHeader
@@ -73,6 +73,7 @@ fun LeaveListScreen(
     onOpenDetail: (String) -> Unit,
     shouldRefresh: Boolean,
     onRefreshConsumed: () -> Unit,
+    onRelogin: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: LeaveListViewModel = hiltViewModel(),
 ) {
@@ -175,10 +176,17 @@ fun LeaveListScreen(
                         }
                         uiState.error != null && uiState.items.isEmpty() -> item(key = "error") {
                             Box(
-                                modifier = Modifier.fillParentMaxHeight(0.6f).fillMaxWidth().padding(24.dp),
+                                modifier = Modifier.fillParentMaxHeight().fillMaxWidth().padding(24.dp),
                                 contentAlignment = Alignment.Center,
                             ) {
-                                LxErrorState(message = uiState.error.orEmpty(), onRetry = { viewModel.retry(status) })
+                                ServiceErrorCard(
+                                    title = "暂时无法加载请假",
+                                    message = "请先重试，仍无法加载可重新登录。",
+                                    technicalDetail = uiState.error.orEmpty(),
+                                    isRetrying = uiState.isRefreshing,
+                                    onRetry = { viewModel.retry(status) },
+                                    onRelogin = onRelogin,
+                                )
                             }
                         }
                         uiState.items.isEmpty() -> item(key = "empty") {

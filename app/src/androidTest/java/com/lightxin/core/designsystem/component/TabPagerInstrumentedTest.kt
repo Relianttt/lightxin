@@ -8,7 +8,11 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.material3.Text
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.hapticfeedback.HapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -35,33 +39,58 @@ class TabPagerInstrumentedTest {
     private lateinit var pager: PagerState
     private lateinit var firstList: LazyListState
     private lateinit var secondList: LazyListState
+    private val ticks = mutableListOf<HapticFeedbackType>()
 
     private fun showPager() {
         compose.setContent {
             LightXinTheme {
-                pager = rememberLxTabPagerState()
-                firstList = rememberLazyListState()
-                secondList = rememberLazyListState()
-                val select = rememberLxTabPagerSelection(pager)
-                Column(Modifier.fillMaxSize()) {
-                    // 与三个列表页一致：tab 行在 pager 外，切页时不跟内容一起移动。
-                    LxFilterTabs(
-                        items = listOf(LxTabItem("First"), LxTabItem("Second")),
-                        selectedIndex = pager.currentPage,
-                        indicatorFraction = pager.currentPage + pager.currentPageOffsetFraction,
-                        onSelect = select,
-                    )
-                    LxTabPager(pager, Modifier.fillMaxSize().testTag("pager")) { page ->
-                        LazyColumn(
-                            state = if (page == 0) firstList else secondList,
-                            modifier = Modifier.fillMaxSize().testTag("list-$page"),
-                        ) {
-                            items(100, key = { it }) { Text("Row $it", Modifier.padding(24.dp)) }
+                CompositionLocalProvider(LocalHapticFeedback provides object : HapticFeedback {
+                    override fun performHapticFeedback(hapticFeedbackType: HapticFeedbackType) {
+                        ticks += hapticFeedbackType
+                    }
+                }) {
+                    pager = rememberLxTabPagerState()
+                    firstList = rememberLazyListState()
+                    secondList = rememberLazyListState()
+                    val select = rememberLxTabPagerSelection(pager)
+                    Column(Modifier.fillMaxSize()) {
+                        // 与三个列表页一致：tab 行在 pager 外，切页时不跟内容一起移动。
+                        LxFilterTabs(
+                            items = listOf(LxTabItem("First"), LxTabItem("Second")),
+                            selectedIndex = pager.currentPage,
+                            indicatorFraction = pager.currentPage + pager.currentPageOffsetFraction,
+                            onSelect = select,
+                        )
+                        LxTabPager(pager, Modifier.fillMaxSize().testTag("pager")) { page ->
+                            LazyColumn(
+                                state = if (page == 0) firstList else secondList,
+                                modifier = Modifier.fillMaxSize().testTag("list-$page"),
+                            ) {
+                                items(100, key = { it }) { Text("Row $it", Modifier.padding(24.dp)) }
+                            }
                         }
                     }
                 }
             }
         }
+    }
+
+    @Test fun clickFeedbackPrecedesAnimationAndDoesNotRepeatOnSettle() {
+        showPager()
+        compose.runOnIdle { assertTrue(ticks.isEmpty()) }
+        compose.mainClock.autoAdvance = false
+        compose.onNodeWithText("Second").performClick()
+        compose.runOnIdle {
+            assertEquals(listOf(HapticFeedbackType.SegmentTick), ticks)
+            assertEquals(0, pager.settledPage)
+        }
+        compose.mainClock.autoAdvance = true
+        compose.runOnIdle {
+            assertEquals(1, pager.settledPage)
+            assertEquals(1, ticks.size)
+        }
+        compose.onNodeWithText("Second").performClick()
+        compose.runOnIdle { assertEquals(1, ticks.size) }
     }
 
     @Test fun contentFollowsFingerBeforeReleaseAndShortDragReturnsWithoutBounce() {

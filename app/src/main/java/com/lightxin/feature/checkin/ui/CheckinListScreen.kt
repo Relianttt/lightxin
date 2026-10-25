@@ -178,7 +178,10 @@ private fun androidx.compose.foundation.lazy.LazyListScope.checkinContent(
             )
         }
         uiState.rejectedDetail != null -> item(key = "checkin_rejected") {
-            Box(modifier = Modifier.fillMaxWidth()) {
+            Box(
+                modifier = Modifier.fillParentMaxHeight().fillMaxWidth().padding(24.dp),
+                contentAlignment = Alignment.Center,
+            ) {
                 ServiceErrorCard(
                     title = "暂时无法加载查寝",
                     message = "可能是登录已过期，先重试一次。",
