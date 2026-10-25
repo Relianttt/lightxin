@@ -6,6 +6,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -55,13 +56,17 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.VisualTransformation
@@ -71,6 +76,8 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import java.time.LocalDateTime
+import java.time.YearMonth
 import com.lightxin.core.designsystem.theme.LxAccent
 import com.lightxin.core.designsystem.theme.LxAccentText
 import com.lightxin.core.designsystem.theme.LxCanvas
@@ -263,6 +270,139 @@ fun LxSectionLabel(text: String, modifier: Modifier = Modifier) {
         color = LxTextMuted,
         modifier = modifier,
     )
+}
+
+/** 按月分组的组头；日期块只显示日 + 周几，月份交给这里，避免把日读成序号。 */
+@Composable
+fun LxMonthHeader(month: YearMonth, modifier: Modifier = Modifier) {
+    Text(
+        text = "${month.year} 年 ${month.monthValue} 月",
+        fontSize = 12.5.sp,
+        lineHeight = 18.sp,
+        fontWeight = FontWeight.Medium,
+        color = LxTextMuted,
+        modifier = modifier.fillMaxWidth().padding(start = 24.dp, end = 24.dp, top = 18.dp, bottom = 2.dp),
+    )
+}
+
+private val LxWeekLabels = listOf("周一", "周二", "周三", "周四", "周五", "周六", "周日")
+
+/** 列表行左侧 44dp 日期块：日 + 周几；解析失败时显示占位符。 */
+@Composable
+fun LxDateBlock(parsed: LocalDateTime?, modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier.width(44.dp).padding(top = 1.dp),
+        horizontalAlignment = Alignment.Start,
+    ) {
+        Text(
+            text = parsed?.dayOfMonth?.toString()?.padStart(2, '0') ?: "—",
+            fontSize = 20.sp,
+            lineHeight = 24.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = LxTextSecondary,
+        )
+        Text(
+            text = parsed?.let { LxWeekLabels[it.dayOfWeek.value - 1] } ?: "",
+            fontSize = 10.5.sp,
+            lineHeight = 14.sp,
+            color = LxTextFaint,
+            modifier = Modifier.padding(top = 2.dp),
+        )
+    }
+}
+
+@Composable
+fun LxSegmentLegend(segments: List<LxSegment>, modifier: Modifier = Modifier) {
+    Column(modifier = modifier.fillMaxWidth()) {
+        segments.chunked(2).forEachIndexed { rowIndex, row ->
+            if (rowIndex > 0) Spacer(Modifier.height(10.dp))
+            Row(modifier = Modifier.fillMaxWidth()) {
+                row.forEach { segment ->
+                    LxSegmentLegendItem(segment = segment, modifier = Modifier.weight(1f))
+                }
+                if (row.size == 1) Spacer(Modifier.weight(1f))
+            }
+        }
+    }
+}
+
+@Composable
+private fun LxSegmentLegendItem(segment: LxSegment, modifier: Modifier = Modifier) {
+    val empty = segment.value <= 0.0
+    Row(
+        modifier = modifier.padding(end = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            modifier = Modifier
+                .size(6.dp)
+                .clip(CircleShape)
+                .background(if (empty) LxTextFaint else segment.color),
+        )
+        Spacer(Modifier.width(8.dp))
+        Text(
+            text = segment.label,
+            fontSize = 13.sp,
+            lineHeight = 18.sp,
+            color = if (empty) LxTextFaint else LxTextSecondary,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Spacer(Modifier.weight(1f))
+        Text(
+            text = "%.1f".format(segment.value),
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Medium,
+            color = if (empty) LxTextFaint else LxText,
+            style = TextStyle(fontFeatureSettings = "tnum"),
+        )
+    }
+}
+
+data class LxSegment(val label: String, val value: Double, val color: Color)
+
+/**
+ * 分段占比条：只画 value > 0 的段，宽度按占比分配，首段左侧 / 末段右侧圆角。
+ * [fill] 是入场填充进度 0..1（由调用方用计数动画驱动）。
+ */
+@Composable
+fun LxSegmentBar(
+    segments: List<LxSegment>,
+    modifier: Modifier = Modifier,
+    fill: Float = 1f,
+) {
+    val visible = remember(segments) { segments.filter { it.value > 0.0 } }
+    val total = visible.sumOf { it.value }
+    val emptyColor = LxTint
+    Canvas(modifier = modifier.fillMaxWidth().height(8.dp)) {
+        val radius = CornerRadius(4.dp.toPx())
+        val gap = 2.dp.toPx()
+        val progress = fill.coerceIn(0f, 1f)
+        if (total <= 0.0 || progress <= 0f) {
+            drawRoundRect(color = emptyColor, cornerRadius = radius)
+            return@Canvas
+        }
+        val usable = size.width - gap * (visible.size - 1)
+        var x = 0f
+        visible.forEachIndexed { index, segment ->
+            val width = usable * (segment.value / total).toFloat() * progress
+            if (width <= 0f) return@forEachIndexed
+            val first = index == 0
+            val last = index == visible.lastIndex
+            val roundRect = RoundRect(
+                left = x,
+                top = 0f,
+                right = x + width,
+                bottom = size.height,
+                topLeftCornerRadius = if (first) radius else CornerRadius.Zero,
+                topRightCornerRadius = if (last) radius else CornerRadius.Zero,
+                bottomRightCornerRadius = if (last) radius else CornerRadius.Zero,
+                bottomLeftCornerRadius = if (first) radius else CornerRadius.Zero,
+            )
+            drawPath(Path().apply { addRoundRect(roundRect) }, color = segment.color)
+            x += width + gap
+        }
+    }
 }
 
 @Composable

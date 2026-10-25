@@ -18,14 +18,16 @@ import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
-import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -33,10 +35,12 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.lightxin.core.designsystem.component.LxDateBlock
 import com.lightxin.core.designsystem.component.LxEmptyState
 import com.lightxin.core.designsystem.component.LxErrorState
 import com.lightxin.core.designsystem.component.LxFilterTabs
 import com.lightxin.core.designsystem.component.LxFloatingAction
+import com.lightxin.core.designsystem.component.LxMonthHeader
 import com.lightxin.core.designsystem.component.LxNavBar
 import com.lightxin.core.designsystem.component.LxPageHeader
 import com.lightxin.core.designsystem.component.LxLoadMoreFooter
@@ -44,17 +48,21 @@ import com.lightxin.core.designsystem.component.LxSkeletonList
 import com.lightxin.core.designsystem.component.LxStatusLine
 import com.lightxin.core.designsystem.component.LxTabItem
 import com.lightxin.core.designsystem.component.LxTone
+import com.lightxin.core.designsystem.component.rememberLxPullToRefreshState
 import com.lightxin.core.designsystem.component.rememberLxTabPagerSelection
 import com.lightxin.core.designsystem.component.LxTabPager
 import com.lightxin.core.designsystem.component.rememberLxTabPagerState
 import com.lightxin.core.designsystem.theme.LxCanvas
 import com.lightxin.core.designsystem.theme.LxAccent
+import com.lightxin.core.designsystem.theme.LxMotion
 import com.lightxin.core.designsystem.theme.LxSurface
 import com.lightxin.core.designsystem.theme.LxText
 import com.lightxin.core.designsystem.theme.LxTextFaint
 import com.lightxin.core.designsystem.theme.LxTextMuted
 import com.lightxin.core.designsystem.theme.LxTextSecondary
+import com.lightxin.core.designsystem.theme.lxStaggerEnter
 import com.lightxin.feature.leave.data.LeaveSummary
+import kotlinx.coroutines.delay
 import java.time.LocalDateTime
 import java.time.YearMonth
 
@@ -126,7 +134,15 @@ fun LeaveListScreen(
             LaunchedEffect(shouldLoadMore, pagerState.settledPage) {
                 if (shouldLoadMore && pagerState.settledPage == pageIndex) viewModel.loadMore(status)
             }
-            val refreshState = rememberPullToRefreshState()
+            val refreshState = rememberLxPullToRefreshState()
+            var staggerDone by rememberSaveable { mutableStateOf(false) }
+            LaunchedEffect(uiState.items.isNotEmpty()) {
+                if (uiState.items.isNotEmpty() && !staggerDone) {
+                    delay(LxMotion.StaggerWindowMs.toLong())
+                    staggerDone = true
+                }
+            }
+            val playStagger = !staggerDone
             PullToRefreshBox(
                 state = refreshState,
                 indicator = {
@@ -149,7 +165,13 @@ fun LeaveListScreen(
                 ) {
                     when {
                         uiState.isLoading -> item(key = "loading") {
-                            LxSkeletonList(count = 6)
+                            LxSkeletonList(
+                                count = 6,
+                                modifier = Modifier.animateItem(
+                                    fadeInSpec = LxMotion.enter(),
+                                    fadeOutSpec = LxMotion.exit(),
+                                ),
+                            )
                         }
                         uiState.error != null && uiState.items.isEmpty() -> item(key = "error") {
                             Box(
@@ -176,14 +198,24 @@ fun LeaveListScreen(
                         }
                         else -> {
                             var lastMonth: YearMonth? = null
-                            uiState.items.forEach { item ->
+                            uiState.items.forEachIndexed { index, item ->
                                 val month = parseLeaveTime(item.receiveTime)?.let { YearMonth.from(it) }
                                 if (month != null && month != lastMonth) {
-                                    item(key = "month-${month}") { MonthHeader(month) }
+                                    item(key = "month-${month}") { LxMonthHeader(month) }
                                     lastMonth = month
                                 }
                                 item(key = item.executionId) {
-                                    LeaveRow(item = item, onClick = { onOpenDetail(item.executionId) })
+                                    LeaveRow(
+                                        item = item,
+                                        onClick = { onOpenDetail(item.executionId) },
+                                        modifier = Modifier
+                                            .animateItem(
+                                                fadeInSpec = LxMotion.enter(),
+                                                placementSpec = LxMotion.placement(),
+                                                fadeOutSpec = LxMotion.exit(),
+                                            )
+                                            .lxStaggerEnter(index = index, play = playStagger),
+                                    )
                                 }
                             }
                         }
@@ -204,29 +236,23 @@ fun LeaveListScreen(
     }
 }
 
-@Composable
-private fun MonthHeader(month: YearMonth) {
-    Text(
-        text = "${month.year} 年 ${month.monthValue} 月",
-        fontSize = 12.5.sp,
-        lineHeight = 18.sp,
-        fontWeight = FontWeight.Medium,
-        color = LxTextMuted,
-        modifier = Modifier.fillMaxWidth().padding(start = 24.dp, end = 24.dp, top = 18.dp, bottom = 2.dp),
-    )
-}
+private fun leaveTitle(item: LeaveSummary): String = leaveDisplayTitle(item.flowTitle)
 
 @Composable
-private fun LeaveRow(item: LeaveSummary, onClick: () -> Unit) {
+private fun LeaveRow(
+    item: LeaveSummary,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     val parsed = parseLeaveTime(item.receiveTime)
     Row(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .lxPressable(onClick = onClick)
             .padding(horizontal = 24.dp, vertical = 14.dp),
         verticalAlignment = Alignment.Top,
     ) {
-        DateBlock(parsed)
+        LxDateBlock(parsed)
         Column(modifier = Modifier.weight(1f).padding(start = 14.dp)) {
             Text(
                 text = leaveTitle(item),
@@ -249,34 +275,6 @@ private fun LeaveRow(item: LeaveSummary, onClick: () -> Unit) {
         }
     }
 }
-
-/** 左侧日期块：日 + 周几；月份交给分组标题，避免“01 / 6 月”被读成序号。 */
-@Composable
-private fun DateBlock(parsed: LocalDateTime?) {
-    Column(
-        modifier = Modifier.width(44.dp).padding(top = 1.dp),
-        horizontalAlignment = Alignment.Start,
-    ) {
-        Text(
-            text = parsed?.dayOfMonth?.toString()?.padStart(2, '0') ?: "—",
-            fontSize = 20.sp,
-            lineHeight = 24.sp,
-            fontWeight = FontWeight.SemiBold,
-            color = LxTextSecondary,
-        )
-        Text(
-            text = parsed?.let { WeekLabels[it.dayOfWeek.value - 1] } ?: "",
-            fontSize = 10.5.sp,
-            lineHeight = 14.sp,
-            color = LxTextFaint,
-            modifier = Modifier.padding(top = 2.dp),
-        )
-    }
-}
-
-private val WeekLabels = listOf("周一", "周二", "周三", "周四", "周五", "周六", "周日")
-
-private fun leaveTitle(item: LeaveSummary): String = leaveDisplayTitle(item.flowTitle)
 
 internal fun leaveDisplayTitle(raw: String): String {
     val type = listOf("病假", "事假", "公假", "丧假", "婚假", "产假", "护理假", "探亲假")

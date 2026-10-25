@@ -3,6 +3,7 @@ package com.lightxin.core.designsystem.theme
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.SpringSpec
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
@@ -16,8 +17,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.animation.core.VisibilityThreshold
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -149,4 +153,40 @@ fun Modifier.lxEnterShift(visible: Boolean = true): Modifier {
     return this
         .offset(y = offset)
         .alpha(alpha)
+}
+
+/**
+ * 列表项首屏错峰入场：淡入 + 10dp 上浮，每项比上一项晚 [LxMotion.StaggerMs]。
+ * [play] 为 false 或序号超出 [LxMotion.StaggerMaxItems] 时直接落到终值，不参与错峰。
+ */
+@Composable
+fun Modifier.lxStaggerEnter(index: Int, play: Boolean): Modifier {
+    val start = play && index < LxMotion.StaggerMaxItems
+    val progress = remember { Animatable(if (start) 0f else 1f) }
+    LaunchedEffect(start) {
+        if (start && progress.value < 1f) {
+            progress.animateTo(1f, tween(LxMotion.EnterMs, index * LxMotion.StaggerMs, LxMotion.EaseEnter))
+        }
+    }
+    val shift = with(LocalDensity.current) { LxMotion.EnterShiftDp.toPx() }
+    return this.graphicsLayer {
+        alpha = progress.value
+        translationY = (1f - progress.value) * shift
+    }
+}
+
+/**
+ * 数值滚动：首次从 0 走到 [target] 用 [LxMotion.CountUpMs]，之后的变化用更短的 [LxMotion.StateMs]，
+ * 避免刷新时数字又从头跑一遍。
+ */
+@Composable
+fun rememberLxCountUp(target: Float): State<Float> {
+    val anim = remember { Animatable(0f) }
+    var first by remember { mutableStateOf(true) }
+    LaunchedEffect(target) {
+        val durationMs = if (first) LxMotion.CountUpMs else LxMotion.StateMs
+        anim.animateTo(target, tween(durationMs, easing = LxMotion.EaseEnter))
+        first = false
+    }
+    return remember(anim) { derivedStateOf { anim.value } }
 }

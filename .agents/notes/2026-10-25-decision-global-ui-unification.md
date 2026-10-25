@@ -26,7 +26,14 @@ tags: [designsystem, theme, recovery, ui]
 
 ## 后果
 
-全局主题会影响未重写的旧页面，需要后续浅/深色截图核对；不改 Typography。P2/P3 已通过 testDebugUnitTest、lintDebug、assembleDebug、assembleDebugAndroidTest；随后全量单元测试含数据库迁移共 185 项通过。已通过 adb install -r 覆盖安装，登录偏好哈希不变；首页、课表与学工在线完成浅色真机冒烟。测试 APK 仅编译，未在用户设备执行 instrumentation；深色和恢复卡片交互仍待真机核验。劳动教育/素质学分缓存保留与失效横幅属于 P4/T7，尚未实施。
+全局主题会影响未重写的旧页面，需要后续浅/深色截图核对；不改 Typography。P2/P3 已通过 testDebugUnitTest、lintDebug、assembleDebug、assembleDebugAndroidTest；随后全量单元测试含数据库迁移共 185 项通过。已通过 adb install -r 覆盖安装，登录偏好哈希不变；首页、课表与学工在线完成浅色真机冒烟。测试 APK 仅编译，未在用户设备执行 instrumentation；深色和恢复卡片交互仍待真机核验。
+
+## 劳动教育 / 素质学分改版与缓存
+
+- 两页骨架改为 `LxPageHeader` + `LxPanel` 总览 + 无卡片记录行，与请假列表一致；公共日期块、月份组头、分段条与图例抽到 `ClaudeComponents`，请假页改用公共版本。
+- 劳动教育总览改为累计时长、分段条和两列图例；记录按 `createDate` 年月分组，点击立即打开详情弹层并显示骨架。素质学分总览用接口给的模块占比，达标用 `LxStatus`，记录行显示状态与获得学分。
+- 两页接入通用快照缓存：先显示缓存并在标题下显示“更新于…”，网络成功后替换并去掉副标题；刷新失败保留数据并给一行重试，无缓存才整页错误；劳动教育登录失效时改挂 `LxSessionBanner`。设计见 [快照缓存](2026-10-25-decision-remote-snapshot-cache.md)。
+- 素质学分接口没有可靠的登录失效信号，暂不显示失效横幅，只显示“更新失败”；后续按实测响应补。
 
 ## 成绩与模板操作区补充
 
