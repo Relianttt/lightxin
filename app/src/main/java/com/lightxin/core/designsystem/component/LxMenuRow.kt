@@ -56,7 +56,7 @@ fun LxMenuRow(
     val pressed by interactionSource.collectIsPressedAsState()
     val scale by animateFloatAsState(
         targetValue = if (pressed) LxMotion.PressedScaleCard else 1f,
-        animationSpec = LxMotion.PressScale,
+        animationSpec = if (pressed) LxMotion.PressIn else LxMotion.PressRelease,
         label = "lxMenuScale",
     )
 

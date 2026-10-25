@@ -4,8 +4,7 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.scaleIn
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.padding
@@ -105,18 +104,11 @@ fun HomeScreen(
         AnimatedContent(
             targetState = selectedTab,
             transitionSpec = {
-                val fadeSpec = tween<Float>(LxMotion.TabMs, easing = LxMotion.EaseOut)
-                val slideSpec = tween<androidx.compose.ui.unit.IntOffset>(
-                    LxMotion.TabMs,
-                    easing = LxMotion.EaseOut,
-                )
-                if (targetState > initialState) {
-                    (slideInHorizontally(slideSpec) { (it * LxMotion.TabShiftFraction).toInt() } + fadeIn(fadeSpec))
-                        .togetherWith(fadeOut(fadeSpec))
-                } else {
-                    (slideInHorizontally(slideSpec) { (-it * LxMotion.TabShiftFraction).toInt() } + fadeIn(fadeSpec))
-                        .togetherWith(fadeOut(fadeSpec))
-                }
+                (fadeIn(tween(LxMotion.TabFadeInMs, LxMotion.TabFadeOutMs, LxMotion.EaseEnter)) +
+                    scaleIn(
+                        tween(LxMotion.TabFadeInMs, LxMotion.TabFadeOutMs, LxMotion.EaseEnter),
+                        initialScale = LxMotion.TabInitialScale,
+                    )).togetherWith(fadeOut(tween(LxMotion.TabFadeOutMs, easing = LxMotion.EaseExit)))
             },
             label = "tab_content",
         ) { tab ->

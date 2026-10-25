@@ -25,6 +25,10 @@ internal fun TimeTableResponse.toScheduleData(): ScheduleData {
         val dow = requireNotNull(day.xq?.toIntOrNull()?.takeIf { it in 1..7 }) { "课表星期无效" }
         day.rq?.let { dates[dow] = it }
         for (vo in requireNotNull(day.kcVoList) { "每日课程结构缺失" }) {
+            // 服务端用空字符串记录无课网格；缺字段或残缺课程仍须进入下面的校验。
+            if (vo.kcmc == "" && vo.ksjc == "" && vo.jsjc == "" &&
+                vo.jsmc.isNullOrBlank() && vo.teacherName.isNullOrBlank() && vo.kcbh.isNullOrBlank()
+            ) continue
             val start = requireNotNull(vo.ksjc?.toIntOrNull()?.takeIf { it >= 0 }) { "课程节次无效" }
             val end = requireNotNull(vo.jsjc?.toIntOrNull()?.takeIf { it >= start }) { "课程结束节次无效" }
             require(!vo.kcmc.isNullOrBlank()) { "课程名称缺失" }

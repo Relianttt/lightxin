@@ -59,24 +59,24 @@ fun LxDialog(
     dismissOnBackPress: Boolean = true,
     content: (@Composable ColumnScope.() -> Unit)? = null,
 ) {
-    // 出场：卡片 0.98→1 + 淡入；关闭时先反向播完再回调，避免“啪”地消失。
+    // 关闭时先播完退场再回调，进场与退场使用独立缩放幅度。
     // 用 Animatable 而不是 delay()：系统关闭动画时 animateTo 立即返回，不会白等固定时长。
     val progress = remember { Animatable(0f) }
     var closing by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
-        progress.animateTo(1f, tween(durationMillis = LxMotion.StateMs, easing = LxMotion.EaseOut))
+        progress.animateTo(1f, tween(LxMotion.OverlayEnterMs, easing = LxMotion.EaseEnter))
     }
     val scope = rememberCoroutineScope()
     fun animateOutThen(action: () -> Unit) {
         if (closing) return
         closing = true
         scope.launch {
-            progress.animateTo(0f, LxMotion.dialogExit())
+            progress.animateTo(0f, tween(LxMotion.OverlayExitMs, easing = LxMotion.EaseExit))
             action()
         }
     }
-    val cardScale = LxMotion.PressedScaleButton +
-        (1f - LxMotion.PressedScaleButton) * progress.value
+    val baseScale = if (closing) LxMotion.OverlayExitScale else LxMotion.OverlayInitialScale
+    val cardScale = baseScale + (1f - baseScale) * progress.value
 
     Dialog(
         onDismissRequest = { animateOutThen(onDismissRequest) },

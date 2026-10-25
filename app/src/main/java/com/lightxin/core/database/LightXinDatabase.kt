@@ -2,6 +2,7 @@ package com.lightxin.core.database
 
 import android.content.Context
 import androidx.room.Database
+import androidx.room.AutoMigration
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import com.lightxin.feature.schedule.data.local.ScheduleCacheDao
@@ -14,9 +15,15 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
 
-@Database(entities = [SemesterCacheEntity::class, ScheduleWeekCacheEntity::class], version = 1, exportSchema = true)
+@Database(
+    entities = [SemesterCacheEntity::class, ScheduleWeekCacheEntity::class, RemoteSnapshotEntity::class],
+    version = 2,
+    autoMigrations = [AutoMigration(from = 1, to = 2)],
+    exportSchema = true,
+)
 abstract class LightXinDatabase : RoomDatabase() {
     abstract fun scheduleCacheDao(): ScheduleCacheDao
+    abstract fun remoteSnapshotDao(): RemoteSnapshotDao
 }
 
 @Module

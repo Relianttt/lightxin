@@ -4,6 +4,7 @@ import com.lightxin.core.auth.TokenManager
 import com.lightxin.core.network.AuthExpiredException
 import com.lightxin.core.network.LaborRetrofit
 import com.lightxin.feature.labor.domain.ActivityDetail
+import com.lightxin.feature.labor.domain.ActivityPage
 import com.lightxin.feature.labor.domain.ActivityRecord
 import com.lightxin.feature.labor.domain.HoursSummary
 import dagger.Module
@@ -53,7 +54,7 @@ class LaborRepository @Inject constructor(
         }
     }
 
-    suspend fun getActivities(page: Int, pageSize: Int = 10): Result<List<ActivityRecord>> {
+    suspend fun getActivities(page: Int, pageSize: Int = 100): Result<ActivityPage> {
         return try {
             val (userCode, xh, token) = authParams()
             if (userCode.isBlank()) return Result.failure(Exception("登录信息已失效，请重新登录"))
@@ -65,16 +66,19 @@ class LaborRepository @Inject constructor(
             val list = response.rows.orEmpty()
 
             Result.success(
-                list.map { row ->
-                    ActivityRecord(
-                        id = row.id ?: "",
-                        projectTypeName = row.projectTypeName ?: "",
-                        type = row.type ?: "",
-                        activityName = row.activityName ?: "",
-                        serviceTimes = row.serviceTimes?.toDoubleOrNull() ?: 0.0,
-                        createDate = row.createDate ?: "",
-                    )
-                }
+                ActivityPage(
+                    records = list.map { row ->
+                        ActivityRecord(
+                            id = row.id ?: "",
+                            projectTypeName = row.projectTypeName ?: "",
+                            type = row.type ?: "",
+                            activityName = row.activityName ?: "",
+                            serviceTimes = row.serviceTimes?.toDoubleOrNull() ?: 0.0,
+                            createDate = row.createDate ?: "",
+                        )
+                    },
+                    total = response.total,
+                )
             )
         } catch (e: Exception) {
             Result.failure(Exception(mapErrorMessage("获取活动列表", e), e))

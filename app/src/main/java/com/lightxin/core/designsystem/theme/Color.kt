@@ -98,37 +98,37 @@ internal val LxCategoryColorsDark: List<Color> = listOf(
 
 // ── 羊皮纸暖色背景 ──
 val LxParchment: Color @Composable @ReadOnlyComposable get() =
-    if (isSystemInDarkTheme()) LxDarkBackgroundRaw else LxParchmentRaw
+    LxCanvas
 val LxCream: Color @Composable @ReadOnlyComposable get() =
-    if (isSystemInDarkTheme()) LxDarkCreamRaw else LxCreamRaw
+    LxTint
 val LxCard: Color @Composable @ReadOnlyComposable get() =
-    if (isSystemInDarkTheme()) LxDarkSurfaceRaw else LxCardRaw
+    LxSurface
 val LxSand: Color @Composable @ReadOnlyComposable get() =
-    if (isSystemInDarkTheme()) LxDarkSandRaw else LxSandRaw
+    LxTintStrong
 val LxSandDeep: Color @Composable @ReadOnlyComposable get() =
-    if (isSystemInDarkTheme()) LxDarkSandDeepRaw else LxSandDeepRaw
+    LxHairline
 val LxCardBorder: Color @Composable @ReadOnlyComposable get() =
-    if (isSystemInDarkTheme()) LxDarkCardBorderRaw else LxCardBorderRaw
+    LxHairline
 
 // ── 文本四级阶梯 ──
 val LxInk: Color @Composable @ReadOnlyComposable get() =
-    if (isSystemInDarkTheme()) LxDarkOnBackgroundRaw else LxInkRaw
+    LxText
 val LxInkSoft: Color @Composable @ReadOnlyComposable get() =
-    if (isSystemInDarkTheme()) LxDarkInkSoftRaw else LxInkSoftRaw
+    LxTextSecondary
 val LxInkMuted: Color @Composable @ReadOnlyComposable get() =
-    if (isSystemInDarkTheme()) LxDarkOnSurfaceVariantRaw else LxInkMutedRaw
+    LxTextMuted
 val LxInkFaint: Color @Composable @ReadOnlyComposable get() =
-    if (isSystemInDarkTheme()) LxDarkInkFaintRaw else LxInkFaintRaw
+    LxTextFaint
 val LxInkGhost: Color @Composable @ReadOnlyComposable get() =
-    if (isSystemInDarkTheme()) LxDarkInkGhostRaw else LxInkGhostRaw
+    LxTextFaint.copy(alpha = 0.6f)
 
 // ── 品牌语义色 ──
 val LxTerra: Color @Composable @ReadOnlyComposable get() =
-    if (isSystemInDarkTheme()) LxDarkPrimaryRaw else LxTerraRaw
+    LxAccent
 val LxTerraSoft: Color @Composable @ReadOnlyComposable get() =
-    if (isSystemInDarkTheme()) LxDarkTerraSoftRaw else LxTerraSoftRaw
+    LxAccent.copy(alpha = 0.12f)
 val LxTerraGlow: Color @Composable @ReadOnlyComposable get() =
-    if (isSystemInDarkTheme()) LxDarkTerraGlowRaw else LxTerraGlowRaw
+    LxAccent.copy(alpha = 0.10f)
 
 val LxSage: Color @Composable @ReadOnlyComposable get() =
     if (isSystemInDarkTheme()) LxDarkSecondaryRaw else LxSageRaw

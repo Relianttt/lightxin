@@ -4,7 +4,7 @@ import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import com.lightxin.core.designsystem.theme.lxPressable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -30,6 +30,8 @@ import androidx.compose.material.icons.outlined.Wifi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -40,7 +42,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -54,6 +55,7 @@ import com.lightxin.core.designsystem.component.LxFloatingAction
 import com.lightxin.core.designsystem.component.LxNavBar
 import com.lightxin.core.designsystem.component.LxPageHeader
 import com.lightxin.core.designsystem.component.LxSkeletonList
+import com.lightxin.core.designsystem.component.ServiceErrorCard
 import com.lightxin.core.designsystem.component.LxStatusLine
 import com.lightxin.core.designsystem.component.LxTabItem
 import com.lightxin.core.designsystem.component.LxTone
@@ -62,6 +64,8 @@ import com.lightxin.core.designsystem.component.LxTabPager
 import com.lightxin.core.designsystem.component.rememberLxTabPagerState
 import com.lightxin.core.designsystem.component.lxSharedBounds
 import com.lightxin.core.designsystem.theme.LxCanvas
+import com.lightxin.core.designsystem.theme.LxAccent
+import com.lightxin.core.designsystem.theme.LxSurface
 import com.lightxin.core.designsystem.theme.LxText
 import com.lightxin.core.designsystem.theme.LxTextSecondary
 import com.lightxin.core.designsystem.theme.LxTintStrong
@@ -75,6 +79,7 @@ fun RepairListScreen(
     onOpenDetail: (String) -> Unit,
     shouldRefresh: Boolean,
     onRefreshConsumed: () -> Unit,
+    onRelogin: () -> Unit = {},
     modifier: Modifier = Modifier,
     viewModel: RepairListViewModel = hiltViewModel(),
     sharedTransitionScope: SharedTransitionScope? = null,
@@ -94,6 +99,7 @@ fun RepairListScreen(
     }
 
     val active = uiState.items.filter { isRepairActive(it.dqzt) }
+    val hideCounts = uiState.error != null && uiState.items.isEmpty()
 
     Scaffold(
         modifier = modifier,
@@ -105,8 +111,8 @@ fun RepairListScreen(
                 LxPageHeader(title = "报修", modifier = Modifier.padding(horizontal = 24.dp))
                 LxFilterTabs(
                     items = listOf(
-                        LxTabItem("进行中", active.size),
-                        LxTabItem("全部", uiState.items.size),
+                        LxTabItem("进行中", active.size.takeUnless { hideCounts }),
+                        LxTabItem("全部", uiState.items.size.takeUnless { hideCounts }),
                     ),
                     selectedIndex = pagerState.currentPage,
                     indicatorFraction = pagerState.currentPage + pagerState.currentPageOffsetFraction,
@@ -126,7 +132,18 @@ fun RepairListScreen(
             modifier = Modifier.padding(padding).fillMaxSize(),
         ) { pageIndex ->
             val shown = if (pageIndex == 0) active else uiState.items
+            val refreshState = rememberPullToRefreshState()
             PullToRefreshBox(
+                state = refreshState,
+                indicator = {
+                    PullToRefreshDefaults.Indicator(
+                        state = refreshState,
+                        isRefreshing = uiState.isRefreshing,
+                        modifier = Modifier.align(Alignment.TopCenter),
+                        containerColor = LxSurface,
+                        color = LxAccent,
+                    )
+                },
                 isRefreshing = uiState.isRefreshing,
                 onRefresh = viewModel::refresh,
                 modifier = Modifier.fillMaxSize(),
@@ -138,6 +155,16 @@ fun RepairListScreen(
                 ) {
                     when {
                         uiState.isLoading -> item(key = "loading") { LxSkeletonList(count = 6) }
+                        uiState.authExpiredDetail != null -> item(key = "auth_error") {
+                            ServiceErrorCard(
+                                title = "暂时无法加载报修",
+                                message = "可能是登录已过期，先重试一次。",
+                                technicalDetail = uiState.authExpiredDetail.orEmpty(),
+                                isRetrying = uiState.isRefreshing,
+                                onRetry = viewModel::retry,
+                                onRelogin = onRelogin,
+                            )
+                        }
                         uiState.error != null && uiState.items.isEmpty() -> item(key = "error") {
                             Box(
                                 modifier = Modifier.fillParentMaxHeight(0.6f).fillMaxWidth().padding(24.dp),
@@ -184,7 +211,7 @@ private fun RepairRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(role = Role.Button, onClick = onClick)
+            .lxPressable(onClick = onClick)
             .padding(horizontal = 24.dp, vertical = 14.dp),
         verticalAlignment = Alignment.Top,
     ) {

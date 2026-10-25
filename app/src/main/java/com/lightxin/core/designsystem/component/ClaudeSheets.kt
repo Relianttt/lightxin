@@ -58,6 +58,8 @@ import com.lightxin.core.designsystem.theme.LxTextSecondary
 import com.lightxin.core.designsystem.theme.LxTextFaint
 import com.lightxin.core.designsystem.theme.LxTextMuted
 import com.lightxin.core.designsystem.theme.LxTint
+import com.lightxin.core.designsystem.theme.lxEnterShift
+import com.lightxin.core.designsystem.theme.lxPressable
 import com.lightxin.core.designsystem.theme.LxTintStrong
 import java.time.Duration
 import java.time.LocalDate
@@ -77,7 +79,7 @@ fun LxBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = state,
         containerColor = LxSurface,
-        scrimColor = Color.Black.copy(alpha = 0.38f),
+        scrimColor = Color.Black.copy(alpha = 0.32f),
         shape = RoundedCornerShape(topStart = LxRadiusSheet, topEnd = LxRadiusSheet),
         dragHandle = {
             Box(
@@ -89,7 +91,7 @@ fun LxBottomSheet(
             )
         },
     ) {
-        Column(modifier = Modifier.padding(horizontal = 24.dp).padding(bottom = 28.dp)) {
+        Column(modifier = Modifier.lxEnterShift().padding(horizontal = 24.dp).padding(bottom = 28.dp)) {
             content()
         }
     }
@@ -188,10 +190,14 @@ fun LxOptionSheet(
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(LxRadiusSm))
                             .background(if (selected) LxTint else Color.Transparent)
-                            .clickable(role = Role.RadioButton) {
-                                onSelect(label, value)
-                                onDismiss()
-                            }
+                            .lxPressable(
+                                role = Role.RadioButton,
+                                shape = RoundedCornerShape(LxRadiusSm),
+                                onClick = {
+                                    onSelect(label, value)
+                                    onDismiss()
+                                },
+                            )
                             .padding(horizontal = 14.dp, vertical = 14.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {

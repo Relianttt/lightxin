@@ -36,4 +36,39 @@ class ScheduleParserTest {
         assertTrue(runCatching { response("broken").toScheduleData() }.isFailure)
         assertEquals(0, response("0").toScheduleData().courses.single().startSection)
     }
+
+    @Test fun explicitBlankGridCellsProduceAKnownEmptyWeekWithDates() {
+        val blank = """{"kcmc":"","ksjc":"","jsjc":"","jsmc":"","id":"","kcdm":"","jxbh":"","kclbdm":"","mc":"","sksj":"","sort":1}"""
+        val rows = (1..7).joinToString(",") { day ->
+            """{"xq":"$day","rq":"10/${18 + day}","kcVoList":[${List(13) { blank }.joinToString(",")}]}"""
+        }
+        val data = gson.fromJson("""{"flag":true,"rows":[$rows]}""", TimeTableResponse::class.java).toScheduleData()
+        assertTrue(data.courses.isEmpty())
+        assertEquals(7, data.weekDates.size)
+        assertEquals("10/19", data.weekDates[1])
+    }
+
+    @Test fun blankCellsDoNotHideRealCourses() {
+        val blank = CourseVo("", "", "", "", null, null)
+        val course = CourseVo("课", "3", "4", "室", "师", "code")
+        val data = TimeTableResponse(listOf(DaySchedule("2", listOf(blank, course, blank), "10/20")), true)
+            .toScheduleData()
+        assertEquals(1, data.courses.size)
+        assertEquals("课", data.courses.single().name)
+        assertEquals(3, data.courses.single().startSection)
+    }
+
+    @Test fun incompleteCoursesAndMissingFieldsAreNotBlankGridCells() {
+        for (vo in listOf(
+            CourseVo("课", "", "", "", null, null),
+            CourseVo("", "1", "2", "", null, null),
+            CourseVo("", "", "", "室", null, null),
+            CourseVo("", "", "", "", "师", null),
+            CourseVo("", "", "", "", null, "code"),
+            CourseVo(null, null, null, null, null, null),
+        )) {
+            val response = TimeTableResponse(listOf(DaySchedule("1", listOf(vo), "10/19")), true)
+            assertTrue(runCatching { response.toScheduleData() }.isFailure)
+        }
+    }
 }

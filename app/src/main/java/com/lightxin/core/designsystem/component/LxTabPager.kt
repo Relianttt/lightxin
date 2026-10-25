@@ -29,7 +29,7 @@ fun rememberLxTabPagerSelection(state: PagerState): (Int) -> Unit {
         { target: Int ->
             job?.cancel()
             job = scope.launch {
-                state.animateScrollToPage(target, animationSpec = LxMotion.tab())
+                state.animateScrollToPage(target, animationSpec = LxMotion.pagerSnap())
             }
         }
     }
@@ -52,7 +52,7 @@ fun LxTabPager(
         snapPosition = SnapPosition.Start,
         flingBehavior = PagerDefaults.flingBehavior(
             state = state,
-            snapAnimationSpec = LxMotion.tab(),
+            snapAnimationSpec = LxMotion.pagerSnap(),
         ),
         key = { it },
     ) { page ->

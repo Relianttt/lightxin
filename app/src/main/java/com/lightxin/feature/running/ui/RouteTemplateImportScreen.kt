@@ -179,7 +179,7 @@ private fun ImportIntro(onPick: () -> Unit, modifier: Modifier = Modifier) {
             color = LxTextMuted,
             modifier = Modifier.padding(top = 24.dp),
         )
-        LxGhostButton(
+        LxPrimaryButton(
             text = "选择 JSON 文件",
             onClick = onPick,
             modifier = Modifier.padding(top = 24.dp),

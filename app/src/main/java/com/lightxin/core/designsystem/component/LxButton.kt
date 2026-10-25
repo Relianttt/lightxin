@@ -113,7 +113,7 @@ fun LxTextButton(
     )
     val scale by animateFloatAsState(
         targetValue = if (isPressed) LxMotion.PressedScaleButton else 1f,
-        animationSpec = LxMotion.PressScale,
+        animationSpec = if (isPressed) LxMotion.PressIn else LxMotion.PressRelease,
         label = "lxTextButtonScale",
     )
     Box(
@@ -166,7 +166,7 @@ private fun LxButtonFrame(
     )
     val scale by animateFloatAsState(
         targetValue = if (enabled && isPressed) LxMotion.PressedScaleButton else 1f,
-        animationSpec = LxMotion.PressScale,
+        animationSpec = if (isPressed) LxMotion.PressIn else LxMotion.PressRelease,
         label = "lxButtonScale",
     )
     val resolvedBorder = if (enabled) borderColor else disabledBorderColor

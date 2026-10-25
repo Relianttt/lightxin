@@ -19,7 +19,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
@@ -43,8 +42,11 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.lightxin.core.designsystem.component.LxCard
 import com.lightxin.core.designsystem.component.LxDetailRow
 import com.lightxin.core.designsystem.component.LxError
+import com.lightxin.core.designsystem.component.RecoveryPrimary
 import com.lightxin.core.designsystem.component.ServiceErrorCard
 import com.lightxin.core.designsystem.component.LxLoading
+import com.lightxin.core.designsystem.component.LxSkeletonBlock
+import com.lightxin.core.designsystem.component.LxLoadMoreFooter
 import com.lightxin.core.designsystem.component.LxTopBar
 import com.lightxin.core.designsystem.theme.LxCategoryColors
 import com.lightxin.feature.labor.domain.ActivityDetail
@@ -73,19 +75,16 @@ fun LaborSummaryScreen(
             // 登录态被拒走整张恢复卡片，与 AI课堂/查寝同一版式：一行红字说不清该重试还是重登
             authExpiredDetail != null -> Box(
                 modifier = Modifier.padding(padding).fillMaxSize()
-                    .verticalScroll(rememberScrollState()).padding(20.dp),
+                    .verticalScroll(rememberScrollState()),
             ) {
                 ServiceErrorCard(
-                    title = "暂时无法加载劳动教育",
-                    message = "学校服务端没有认可你的登录状态，所以读不到工时和活动。\n\n" +
-                        "只是网络抖动的话，重试一下就好；一直这样的话，重新登录通常能恢复。",
+                    title = "登录已失效",
+                    primary = RecoveryPrimary.Relogin,
+                    message = "重新登录后即可查看劳动教育。",
                     technicalDetail = authExpiredDetail,
                     isRetrying = uiState.isLoading,
                     onRetry = viewModel::retry,
                     onRelogin = onRelogin,
-                    retryLabel = "重新加载劳动教育",
-                    retryingLabel = "正在重新加载…",
-                    footer = "你仍可以返回首页，使用其他功能。",
                 )
             }
             error != null -> LxError(
@@ -136,8 +135,10 @@ private fun LaborContent(
         }
     }
 
-    LaunchedEffect(reachedBottom, uiState.hasMore, uiState.isLoadingMore) {
-        if (reachedBottom && uiState.hasMore && !uiState.isLoadingMore) onLoadMore()
+    LaunchedEffect(reachedBottom, uiState.hasMore, uiState.isLoadingMore, uiState.loadMoreError) {
+        if (reachedBottom && uiState.hasMore && !uiState.isLoadingMore && uiState.loadMoreError == null) {
+            onLoadMore()
+        }
     }
 
     LazyColumn(
@@ -169,7 +170,7 @@ private fun LaborContent(
         }
 
         // 活动列表
-        items(uiState.activities, key = { it.id }) { record ->
+        items(uiState.activities, key = { it.key }) { record ->
             ActivityCard(
                 record = record,
                 onClick = { onActivityClick(record) },
@@ -177,21 +178,14 @@ private fun LaborContent(
             )
         }
 
-        // 加载更多指示器
-        if (uiState.isLoadingMore) {
-            item(key = "loading_more") {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(24.dp),
-                        strokeWidth = 2.dp,
-                    )
-                }
-            }
+        item(key = "loading_more") {
+            LxLoadMoreFooter(
+                loading = uiState.isLoadingMore,
+                hasMore = uiState.hasMore,
+                error = uiState.loadMoreError,
+                onRetry = onLoadMore,
+                showEnd = uiState.activities.size >= 4,
+            )
         }
     }
 }
@@ -368,7 +362,9 @@ private fun DetailSheetContent(
             .padding(bottom = 32.dp),
     ) {
         if (isLoading) {
-            LxLoading()
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                repeat(3) { LxSkeletonBlock(height = 14.dp) }
+            }
         } else if (error != null) {
             Text(
                 text = error,

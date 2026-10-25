@@ -9,6 +9,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -76,6 +77,7 @@ import com.lightxin.core.designsystem.theme.LxCanvas
 import com.lightxin.core.designsystem.theme.LxDanger
 import com.lightxin.core.designsystem.theme.LxDangerFill
 import com.lightxin.core.designsystem.theme.LxHairline
+import com.lightxin.core.designsystem.theme.lxPressable
 import com.lightxin.core.designsystem.theme.LxMotion
 import com.lightxin.core.designsystem.theme.LxOnAccent
 import com.lightxin.core.designsystem.theme.LxRadiusLg
@@ -194,14 +196,23 @@ fun LxTextAction(
     color: Color = LxAccentText,
     enabled: Boolean = true,
 ) {
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+    val active = pressed && enabled
+    val textAlpha by animateFloatAsState(
+        targetValue = if (active) 0.6f else 1f,
+        animationSpec = tween(if (active) LxMotion.PressInMs else LxMotion.PressOutMs, easing = LxMotion.EaseInOut),
+        label = "lxTextActionAlpha",
+    )
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(LxRadiusSm))
-            .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
+            .clickable(interactionSource = interaction, indication = null, enabled = enabled, role = Role.Button, onClick = onClick)
             .padding(horizontal = 10.dp, vertical = 8.dp),
     ) {
         Text(
             text = text,
+            modifier = Modifier.alpha(textAlpha),
             fontSize = 13.5.sp,
             fontWeight = FontWeight.Medium,
             color = if (enabled) color else LxTextFaint,
@@ -733,7 +744,7 @@ fun LxPrimaryButton(
             .height(50.dp)
             .clip(RoundedCornerShape(LxRadiusSm))
             .background(if (enabled) LxAccent else LxAccent.copy(alpha = 0.4f))
-            .clickable(enabled = enabled, role = Role.Button, onClick = onClick),
+            .lxPressable(enabled = enabled, onClick = onClick, pressedScale = LxMotion.PressedScaleButton, shape = RoundedCornerShape(LxRadiusSm)),
         contentAlignment = Alignment.Center,
     ) {
         Text(
@@ -760,7 +771,7 @@ fun LxGhostButton(
             .clip(RoundedCornerShape(LxRadiusSm))
             .background(LxSurface)
             .border(0.5.dp, LxHairline, RoundedCornerShape(LxRadiusSm))
-            .clickable(enabled = enabled, role = Role.Button, onClick = onClick),
+            .lxPressable(enabled = enabled, onClick = onClick, pressedScale = LxMotion.PressedScaleButton, shape = RoundedCornerShape(LxRadiusSm)),
         contentAlignment = Alignment.Center,
     ) {
         Text(
@@ -814,7 +825,7 @@ fun LxFloatingAction(
             .shadow(8.dp, shape, ambientColor = LxAccent, spotColor = LxAccent)
             .clip(shape)
             .background(LxAccent)
-            .clickable(role = Role.Button, onClick = onClick)
+            .lxPressable(onClick = onClick, pressedScale = LxMotion.PressedScaleButton, shape = shape)
             .height(52.dp)
             .padding(start = 18.dp, end = 22.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -838,7 +849,7 @@ fun LxDangerButton(
             .height(50.dp)
             .clip(RoundedCornerShape(LxRadiusSm))
             .background(if (enabled) LxDangerFill else LxDangerFill.copy(alpha = 0.45f))
-            .clickable(enabled = enabled, role = Role.Button, onClick = onClick),
+            .lxPressable(enabled = enabled, onClick = onClick, pressedScale = LxMotion.PressedScaleButton, shape = RoundedCornerShape(LxRadiusSm)),
         contentAlignment = Alignment.Center,
     ) {
         Text(
@@ -959,7 +970,7 @@ fun LxSelectRow(
             .clip(shape)
             .background(if (enabled) LxSurface else LxTint)
             .border(0.5.dp, LxHairline, shape)
-            .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
+            .lxPressable(enabled = enabled, onClick = onClick, shape = shape)
             .padding(horizontal = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -1005,6 +1016,27 @@ fun LxGroupCard(modifier: Modifier = Modifier, content: @Composable ColumnScope.
 }
 
 @Composable
+fun LxActionRow(
+    icon: ImageVector,
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    tint: Color = Color.Unspecified,
+) {
+    Row(
+        modifier = modifier.fillMaxWidth().lxPressable(onClick = onClick)
+            .heightIn(min = 52.dp).padding(horizontal = 15.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(icon, null, Modifier.size(20.dp), tint = if (tint == Color.Unspecified) LxTextSecondary else tint)
+        Spacer(Modifier.width(12.dp))
+        Text(text, modifier = Modifier.weight(1f), fontSize = 15.sp,
+            color = if (tint == Color.Unspecified) LxText else tint)
+        Icon(Icons.Outlined.KeyboardArrowRight, null, Modifier.size(18.dp), tint = LxTextFaint)
+    }
+}
+
+@Composable
 fun LxGroupRow(
     label: String,
     value: String,
@@ -1016,7 +1048,7 @@ fun LxGroupRow(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .then(if (onClick != null) Modifier.clickable(enabled = enabled, role = Role.Button, onClick = onClick) else Modifier)
+            .then(if (onClick != null) Modifier.lxPressable(enabled = enabled, role = Role.Button, onClick = onClick) else Modifier)
             .heightIn(min = 52.dp)
             .padding(horizontal = 15.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -1148,5 +1180,30 @@ fun LxSkeletonList(
                 LxSkeletonBlock(height = 10.dp, widthFraction = 0.46f)
             }
         }
+    }
+}
+
+@Composable
+fun LxLoadMoreFooter(
+    loading: Boolean,
+    hasMore: Boolean,
+    error: String?,
+    onRetry: () -> Unit,
+    showEnd: Boolean,
+) {
+    val text = when {
+        error != null -> "加载失败，点此重试"
+        loading -> "正在加载…"
+        !hasMore && showEnd -> "没有更多了"
+        else -> return
+    }
+    val isEnd = error == null && !loading && !hasMore
+    Box(
+        modifier = Modifier.fillMaxWidth()
+            .then(if (error != null) Modifier.clickable(role = Role.Button, onClick = onRetry) else Modifier)
+            .padding(vertical = if (isEnd) 24.dp else 16.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(text, fontSize = if (isEnd) 11.5.sp else 12.sp, color = if (isEnd) LxTextFaint else LxTextMuted)
     }
 }

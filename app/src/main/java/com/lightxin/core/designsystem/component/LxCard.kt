@@ -1,5 +1,6 @@
 package com.lightxin.core.designsystem.component
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -15,6 +16,7 @@ import androidx.compose.ui.unit.dp
 import com.lightxin.core.designsystem.theme.LxCard
 import com.lightxin.core.designsystem.theme.LxCream
 import com.lightxin.core.designsystem.theme.LxMotion
+import com.lightxin.core.designsystem.theme.LxHairline
 import com.lightxin.core.designsystem.theme.animatedPressColor
 import com.lightxin.core.designsystem.theme.animatedPressScale
 
@@ -40,6 +42,7 @@ fun LxCard(
                 .fillMaxWidth()
                 .graphicsLayer { scaleX = scale; scaleY = scale },
             shape = shape,
+            border = BorderStroke(0.5.dp, LxHairline),
             colors = CardDefaults.cardColors(containerColor = bg),
             elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
             interactionSource = interactionSource,
@@ -49,6 +52,7 @@ fun LxCard(
         Card(
             modifier = modifier.fillMaxWidth(),
             shape = shape,
+            border = BorderStroke(0.5.dp, LxHairline),
             colors = CardDefaults.cardColors(containerColor = LxCard),
             elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
             content = content,

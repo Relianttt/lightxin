@@ -34,7 +34,7 @@ class RecoveryUiInstrumentedTest {
         }
         compose.onNodeWithText("暂时无法连接 AI 课堂").assertIsDisplayed()
         compose.onNodeWithText(failure.technicalDetail).assertDoesNotExist()
-        compose.onNodeWithText("重新尝试连接").performScrollTo().performClick()
+        compose.onNodeWithText("重试").performScrollTo().performClick()
         compose.onNodeWithText("重新登录").performScrollTo().performClick()
         compose.onNodeWithText("查看错误详情").performScrollTo().performClick()
         compose.onNodeWithText(failure.technicalDetail).assertIsDisplayed()
@@ -57,7 +57,7 @@ class RecoveryUiInstrumentedTest {
                 LightXinTheme(darkTheme = true) { FifMappingErrorPage(failure, true, {}, {}) }
             }
         }
-        compose.onNodeWithText("正在重新连接…").performScrollTo().assertIsNotEnabled()
+        compose.onNodeWithText("正在重试…").performScrollTo().assertIsNotEnabled()
         compose.onNodeWithText("重新登录").performScrollTo().assertIsNotEnabled()
         compose.onNodeWithText("查看错误详情").performScrollTo().performClick()
         compose.onNodeWithText(failure.technicalDetail).assertIsDisplayed()
@@ -70,4 +70,25 @@ class RecoveryUiInstrumentedTest {
         compose.onNodeWithText("重新登录").performClick()
         compose.runOnIdle { assertEquals(1, clicks) }
     }
+    @Test fun reloginPrimaryKeepsBothCallbacks() {
+        var retries = 0
+        var logins = 0
+        compose.setContent {
+            LightXinTheme {
+                ServiceErrorCard(
+                    title = "登录已失效",
+                    message = "重新登录后即可查看劳动教育。",
+                    technicalDetail = "LABOR_REJECTED",
+                    isRetrying = false,
+                    onRetry = { retries++ },
+                    onRelogin = { logins++ },
+                    primary = RecoveryPrimary.Relogin,
+                )
+            }
+        }
+        compose.onNodeWithText("重新登录").assertIsDisplayed().performClick()
+        compose.onNodeWithText("重试").assertIsDisplayed().performClick()
+        compose.runOnIdle { assertEquals(1, retries); assertEquals(1, logins) }
+    }
+
 }

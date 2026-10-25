@@ -62,7 +62,7 @@ fun LxChoiceChip(
     val textColor by animateColorAsState(targetTextColor, LxMotion.ColorSpring, label = "lxChipText")
     val scale by animateFloatAsState(
         targetValue = if (enabled && isPressed) LxMotion.PressedScaleButton else 1f,
-        animationSpec = LxMotion.PressScale,
+        animationSpec = if (isPressed) LxMotion.PressIn else LxMotion.PressRelease,
         label = "lxChipScale",
     )
 

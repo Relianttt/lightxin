@@ -1,7 +1,7 @@
 package com.lightxin.feature.leave.ui
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import com.lightxin.core.designsystem.theme.lxPressable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -17,6 +17,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -26,9 +28,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -39,6 +39,7 @@ import com.lightxin.core.designsystem.component.LxFilterTabs
 import com.lightxin.core.designsystem.component.LxFloatingAction
 import com.lightxin.core.designsystem.component.LxNavBar
 import com.lightxin.core.designsystem.component.LxPageHeader
+import com.lightxin.core.designsystem.component.LxLoadMoreFooter
 import com.lightxin.core.designsystem.component.LxSkeletonList
 import com.lightxin.core.designsystem.component.LxStatusLine
 import com.lightxin.core.designsystem.component.LxTabItem
@@ -47,6 +48,8 @@ import com.lightxin.core.designsystem.component.rememberLxTabPagerSelection
 import com.lightxin.core.designsystem.component.LxTabPager
 import com.lightxin.core.designsystem.component.rememberLxTabPagerState
 import com.lightxin.core.designsystem.theme.LxCanvas
+import com.lightxin.core.designsystem.theme.LxAccent
+import com.lightxin.core.designsystem.theme.LxSurface
 import com.lightxin.core.designsystem.theme.LxText
 import com.lightxin.core.designsystem.theme.LxTextFaint
 import com.lightxin.core.designsystem.theme.LxTextMuted
@@ -123,7 +126,18 @@ fun LeaveListScreen(
             LaunchedEffect(shouldLoadMore, pagerState.settledPage) {
                 if (shouldLoadMore && pagerState.settledPage == pageIndex) viewModel.loadMore(status)
             }
+            val refreshState = rememberPullToRefreshState()
             PullToRefreshBox(
+                state = refreshState,
+                indicator = {
+                    PullToRefreshDefaults.Indicator(
+                        state = refreshState,
+                        isRefreshing = uiState.isRefreshing,
+                        modifier = Modifier.align(Alignment.TopCenter),
+                        containerColor = LxSurface,
+                        color = LxAccent,
+                    )
+                },
                 isRefreshing = uiState.isRefreshing,
                 onRefresh = viewModel::refresh,
                 modifier = Modifier.fillMaxSize(),
@@ -175,25 +189,14 @@ fun LeaveListScreen(
                         }
                     }
 
-                    if (uiState.isLoadingMore) {
-                        item(key = "more") {
-                            Box(
-                                modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                Text(text = "正在加载…", fontSize = 12.sp, color = LxTextMuted)
-                            }
-                        }
-                    } else if (!uiState.hasMore && uiState.items.size >= 4) {
-                        item(key = "end") {
-                            Text(
-                                text = "没有更多了",
-                                fontSize = 11.5.sp,
-                                color = LxTextFaint,
-                                modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp),
-                                textAlign = TextAlign.Center,
-                            )
-                        }
+                    item(key = "more") {
+                        LxLoadMoreFooter(
+                            loading = uiState.isLoadingMore,
+                            hasMore = uiState.hasMore,
+                            error = uiState.error.takeIf { uiState.items.isNotEmpty() },
+                            onRetry = { viewModel.retry(status) },
+                            showEnd = uiState.items.size >= 4,
+                        )
                     }
                 }
             }
@@ -219,7 +222,7 @@ private fun LeaveRow(item: LeaveSummary, onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(role = Role.Button, onClick = onClick)
+            .lxPressable(onClick = onClick)
             .padding(horizontal = 24.dp, vertical = 14.dp),
         verticalAlignment = Alignment.Top,
     ) {

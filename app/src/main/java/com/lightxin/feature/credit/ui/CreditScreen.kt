@@ -37,6 +37,7 @@ import com.lightxin.core.designsystem.component.LxCard
 import com.lightxin.core.designsystem.component.LxDetailRow
 import com.lightxin.core.designsystem.component.LxError
 import com.lightxin.core.designsystem.component.LxLoading
+import com.lightxin.core.designsystem.component.LxSkeletonBlock
 import com.lightxin.core.designsystem.component.LxTopBar
 import com.lightxin.core.designsystem.theme.LxCategoryColors
 import com.lightxin.core.designsystem.theme.LxSuccess
@@ -291,7 +292,9 @@ private fun DetailSheetContent(
             .padding(bottom = 32.dp),
     ) {
         if (isLoading) {
-            LxLoading()
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                repeat(3) { LxSkeletonBlock(height = 14.dp) }
+            }
         } else if (error != null) {
             Text(
                 text = error,

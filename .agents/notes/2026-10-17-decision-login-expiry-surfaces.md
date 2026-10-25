@@ -114,6 +114,10 @@ tags: [auth, session, fif, aiclass, home, login, keystore]
 
 ## 相关文档
 
+- 2026-10-25 UI 修订：[全局 UI 统一](2026-10-25-decision-global-ui-unification.md)。§6 劳动教育卡片现为“登录已失效 / 重新登录后即可查看劳动教育。”，重新登录为主操作；§7 查寝现为“暂时无法加载查寝 / 可能是登录已过期，先重试一次。”，重试为主。统一删除图标、脚注与长段解释，技术详情及重登边界不变。本轮视觉/设备验证待执行。
+
+- 报修身份拒绝（不直接断言 token 过期）：[手机端报修协议与鉴权](2026-10-18-decision-repair-mobile-family-auth.md#响应拒绝判定2026-10-25)。
+
 - 同源 fork 的对应实现与结论：`SDX8/lightxin` 提交 `706fd1e`、`622f097`
 - FIF 会话与映射失败恢复：[`2026-10-17-decision-fif-mapping-recovery.md`](2026-10-17-decision-fif-mapping-recovery.md)
 - 跑步上传的同类教训（成功信号要回读、不要相信第一层返回）：[`2026-10-17-decision-running-route-plaintext.md`](2026-10-17-decision-running-route-plaintext.md)

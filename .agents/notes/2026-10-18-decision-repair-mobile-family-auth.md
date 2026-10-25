@@ -46,3 +46,17 @@ tags: [repair, bxjl, auth, notification]
 
 - `codestable/architecture/repair-overview.md`
 - 代码：`feature/repair/data/RepairApi.kt`、`feature/repair/data/RepairRepository.kt`
+
+## 响应拒绝判定（2026-10-25）
+
+使用虚构 `userCode/xh/userName`、`userType=1` 与无效 `accessToken`，保留上述三个请求头，POST 只读 `bxjlSjd/getWdbxListForSjd.do`，实测 HTTP 200，完整响应：
+
+```json
+{"code":"非法访问","data":null,"flag":false,"msg":"","rows":null,"total":null}
+```
+
+这只证明身份校验拒绝，不能区分 token 过期与身份字段无效。严格匹配 `flag=false` 且 `code="非法访问"`，使用独立 `RepairRejectedException` 原样透传，不转成 `AuthExpiredException`，避免把不确定的报修失败升级为全局登录失效。普通失败和缺字段响应不进入该分类。
+
+列表接入公共 `ServiceErrorCard`，使用“暂时无法加载报修 / 可能是登录已过期，先重试一次。”，保留重试、重新登录与错误详情；原文只进详情。重登复用 `onSessionRelogin`，不清 FIF。空列表加载失败不显示 tab 的 0 计数。统一卡片的新布局已按 [全局 UI 统一](2026-10-25-decision-global-ui-unification.md) 修改，尚未进行本轮构建与视觉验证。
+
+分类原则与 [登录失效处理](2026-10-17-decision-login-expiry-surfaces.md) 一致；`RepairAuthRejectionTest` 固定上述实测形态，普通失败样本为合成反例，并非服务端实测。

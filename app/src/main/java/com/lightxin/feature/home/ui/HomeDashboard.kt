@@ -1,5 +1,7 @@
 package com.lightxin.feature.home.ui
 
+import com.lightxin.core.designsystem.theme.LxAccent
+import com.lightxin.core.designsystem.theme.LxSurface
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.RepeatMode
@@ -13,7 +15,6 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -31,12 +32,13 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.SyncProblem
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -60,11 +62,11 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.navigation.NavHostController
+import com.lightxin.core.designsystem.component.LxSessionBanner
 import com.lightxin.core.designsystem.component.LxCard
 import com.lightxin.core.designsystem.component.LxEmptyHint
 import com.lightxin.core.designsystem.component.LxErrorHint
 import com.lightxin.core.designsystem.component.LxShimmerCard
-import com.lightxin.core.designsystem.theme.LxAmberSoft
 import com.lightxin.core.designsystem.theme.LxCategoryColors
 import com.lightxin.core.designsystem.theme.LxInk
 import com.lightxin.core.designsystem.theme.LxInkMuted
@@ -72,7 +74,6 @@ import com.lightxin.core.designsystem.theme.LxMotion
 import com.lightxin.core.designsystem.theme.LxSage
 import com.lightxin.core.designsystem.theme.LxSand
 import com.lightxin.core.designsystem.theme.LxTerra
-import com.lightxin.core.designsystem.theme.LxWarning
 import com.lightxin.core.designsystem.theme.NewsreaderLarge
 import com.lightxin.feature.checkin.domain.CheckinTask
 import com.lightxin.feature.holiday.domain.HolidayTask
@@ -119,7 +120,18 @@ fun HomeDashboard(
         }
     }
 
+    val refreshState = rememberPullToRefreshState()
     PullToRefreshBox(
+        state = refreshState,
+        indicator = {
+            PullToRefreshDefaults.Indicator(
+                state = refreshState,
+                isRefreshing = uiState.isRefreshing,
+                modifier = Modifier.align(Alignment.TopCenter),
+                containerColor = LxSurface,
+                color = LxAccent,
+            )
+        },
         isRefreshing = uiState.isRefreshing,
         onRefresh = viewModel::refresh,
         modifier = modifier.fillMaxSize(),
@@ -147,8 +159,10 @@ fun HomeDashboard(
                 }
                 SessionAlert.AiClassBlocked -> {
                     Spacer(modifier = Modifier.height(16.dp))
-                    AiClassBlockedBanner(
-                        onRelogin = onRelogin,
+                    LxSessionBanner(
+                        title = "AI 课堂已在其他设备登录",
+                        body = "AI 课堂签到暂不可用",
+                        onAction = onRelogin,
                         modifier = Modifier.padding(horizontal = 24.dp),
                     )
                 }
@@ -249,43 +263,6 @@ fun HomeDashboard(
 }
 
 // ═══════════════ 登录态降级横幅 ═══════════════
-
-/** AI课堂映射被顶：只宣告签到不可用，不阻断课表/查寝/跑步。样式对齐课表页的离线快照横幅。 */
-@Composable
-private fun AiClassBlockedBanner(onRelogin: () -> Unit, modifier: Modifier = Modifier) {
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(10.dp))
-            .background(LxAmberSoft)
-            .padding(start = 12.dp, end = 2.dp, top = 8.dp, bottom = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Icon(
-            imageVector = Icons.Outlined.SyncProblem,
-            contentDescription = null,
-            modifier = Modifier.size(15.dp),
-            tint = LxWarning,
-        )
-        Spacer(modifier = Modifier.width(8.dp))
-        Text(
-            text = "账号已在其他设备登录，AI课堂签到不可用",
-            fontSize = 12.sp,
-            color = LxInkMuted,
-            modifier = Modifier.weight(1f),
-        )
-        Text(
-            text = "重新登录",
-            fontSize = 12.sp,
-            fontWeight = FontWeight.SemiBold,
-            color = LxTerra,
-            modifier = Modifier
-                .clip(RoundedCornerShape(8.dp))
-                .clickable(onClick = onRelogin)
-                .padding(horizontal = 10.dp, vertical = 6.dp),
-        )
-    }
-}
 
 @Composable
 private fun GreetingSection(
@@ -427,8 +404,8 @@ private fun StaggeredCard(index: Int, content: @Composable () -> Unit) {
         delay(index * LxMotion.CardStaggerMs.toLong())
         visible = true
     }
-    val fadeSpec = tween<Float>(LxMotion.CardEnterMs, easing = LxMotion.EaseOut)
-    val slideSpec = tween<IntOffset>(LxMotion.CardEnterMs, easing = LxMotion.EaseOut)
+    val fadeSpec = tween<Float>(LxMotion.CardEnterMs, easing = LxMotion.EaseEnter)
+    val slideSpec = tween<IntOffset>(LxMotion.CardEnterMs, easing = LxMotion.EaseEnter)
     AnimatedVisibility(
         visible = visible,
         enter = fadeIn(fadeSpec) +

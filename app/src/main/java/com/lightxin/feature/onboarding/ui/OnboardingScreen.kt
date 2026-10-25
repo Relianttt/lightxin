@@ -98,8 +98,8 @@ private fun StaggerItem(index: Int, content: @Composable () -> Unit) {
         )
         visible = true
     }
-    val fadeSpec = tween<Float>(LxMotion.OnboardingEnterMs, easing = LxMotion.EaseOut)
-    val slideSpec = tween<IntOffset>(LxMotion.OnboardingEnterMs, easing = LxMotion.EaseOut)
+    val fadeSpec = tween<Float>(LxMotion.OnboardingEnterMs, easing = LxMotion.EaseEnter)
+    val slideSpec = tween<IntOffset>(LxMotion.OnboardingEnterMs, easing = LxMotion.EaseEnter)
     AnimatedVisibility(
         visible = visible,
         enter = fadeIn(fadeSpec) +

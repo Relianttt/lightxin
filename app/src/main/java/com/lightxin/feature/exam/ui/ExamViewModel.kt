@@ -7,6 +7,7 @@ import com.lightxin.feature.exam.domain.ExamScore
 import com.lightxin.feature.exam.domain.SchoolYear
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.async
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
@@ -30,6 +31,8 @@ class ExamViewModel @Inject constructor(
 
     private val _uiState = MutableStateFlow(ExamUiState())
     val uiState: StateFlow<ExamUiState> = _uiState
+    private var scoresJob: Job? = null
+    private var scoresGeneration = 0
 
     init {
         loadInitial()
@@ -70,24 +73,23 @@ class ExamViewModel @Inject constructor(
         }
     }
 
-    fun onYearSelected(year: String) {
-        _uiState.update { it.copy(selectedYear = year) }
-        loadScores(year, _uiState.value.selectedSemester)
-    }
-
-    fun onSemesterSelected(semester: String) {
-        _uiState.update { it.copy(selectedSemester = semester) }
-        loadScores(_uiState.value.selectedYear, semester)
+    fun onTermSelected(year: String, semester: String) {
+        _uiState.update { it.copy(selectedYear = year, selectedSemester = semester) }
+        loadScores(year, semester)
     }
 
     fun retry() {
-        loadInitial()
+        if (_uiState.value.selectedYear.isBlank()) loadInitial()
+        else loadScores(_uiState.value.selectedYear, _uiState.value.selectedSemester)
     }
 
     private fun loadScores(year: String, semester: String) {
-        viewModelScope.launch {
-            _uiState.update { it.copy(isScoresLoading = true, error = null) }
+        val generation = ++scoresGeneration
+        scoresJob?.cancel()
+        scoresJob = viewModelScope.launch {
+            _uiState.update { it.copy(isScoresLoading = true, scores = emptyList(), error = null) }
             val result = repository.getExamScores(year, semester)
+            if (generation != scoresGeneration) return@launch
             _uiState.update {
                 it.copy(
                     scores = result.getOrDefault(emptyList()),

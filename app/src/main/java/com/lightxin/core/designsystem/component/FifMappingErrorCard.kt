@@ -19,7 +19,7 @@ import com.lightxin.core.network.FifOperation
 /**
  * AI课堂的映射失败卡片。版式来自 [ServiceErrorCard]，这里只提供文案。
  *
- * 文案与动作保持不变：`RecoveryUiInstrumentedTest` 依赖这些字符串与 3 个动作的语义。
+ * 保留恢复动作语义：`RecoveryUiInstrumentedTest` 依赖这些字符串与 3 个动作的语义。
  */
 @Composable
 fun FifMappingErrorCard(
@@ -39,11 +39,6 @@ fun FifMappingErrorCard(
         onRetry = onRetry,
         onRelogin = onRelogin,
         modifier = modifier,
-        retryLabel = "重新尝试连接",
-        retryingLabel = "正在重新连接…",
-        reloginLabel = "重新登录",
-        detailDialogTitle = "错误详情",
-        footer = "你仍可以返回首页，尝试使用其他校园功能。",
     )
 }
 
@@ -55,7 +50,7 @@ fun FifMappingErrorPage(
     onRelogin: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp)) {
+    Column(modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
         FifMappingErrorCard(failure.message, failure.technicalDetail, isRetrying, onRetry, onRelogin)
         Spacer(Modifier.height(16.dp))
     }

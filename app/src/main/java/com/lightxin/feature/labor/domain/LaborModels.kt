@@ -18,6 +18,13 @@ data class ActivityRecord(
     val activityName: String,
     val serviceTimes: Double,
     val createDate: String,
+) {
+    val key: String get() = "$type:$id"
+}
+
+data class ActivityPage(
+    val records: List<ActivityRecord>,
+    val total: Int?,
 )
 
 data class ActivityDetail(

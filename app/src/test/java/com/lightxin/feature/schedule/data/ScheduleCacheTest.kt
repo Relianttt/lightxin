@@ -82,6 +82,24 @@ class ScheduleCacheTest {
         assertNull(dao.week("A", "2025", "2", 1))
     }
 
+    @Test fun blankGridIsCachedButMalformedCourseCannotOverwriteIt() = runBlocking {
+        val repo = ScheduleRepository(api, tokens, session, db)
+        val account = repo.account()
+        val info = repo.refreshSemester(account).getOrThrow().info
+        val blank = CourseVo("", "", "", "", null, null)
+        response = TimeTableResponse(listOf(DaySchedule("1", List(13) { blank }, "10/19")), true)
+        val saved = repo.refreshWeek(account, info, 1).getOrThrow()
+        assertTrue(saved.data.courses.isEmpty())
+        assertEquals("10/19", repo.cachedWeek(account, info, 1)!!.data.weekDates[1])
+        assertTrue(1 in repo.cachedWeekNumbers(account, info))
+
+        response = TimeTableResponse(listOf(DaySchedule("1", listOf(
+            blank, CourseVo("课", "", "", "", null, null),
+        ), "10/20")), true)
+        assertTrue(repo.refreshWeek(account, info, 1).isFailure)
+        assertEquals(saved, repo.cachedWeek(account, info, 1))
+    }
+
     @Test fun databaseCloseAndReopenKeepsSemesterAndValidEmptyWeek() = runBlocking {
         val name = "schedule-reopen-test.db"
         context.deleteDatabase(name)

@@ -64,10 +64,8 @@ fun LxProgressIndicator(
 
 @Composable
 fun LxLoading(modifier: Modifier = Modifier) {
-    Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        LxProgressIndicator(
-            modifier = Modifier.size(40.dp),
-        )
+    Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
+        LxSkeletonList(count = 5)
     }
 }
 
@@ -80,8 +78,8 @@ fun LxEmpty(
     val enterShiftPx = with(LocalDensity.current) { LxMotion.EnterShiftDp.roundToPx() }
     AnimatedVisibility(
         visible = true,
-        enter = fadeIn(tween(LxMotion.StateMs, easing = LxMotion.EaseOut)) +
-            slideInVertically(tween(LxMotion.StateMs, easing = LxMotion.EaseOut)) { enterShiftPx },
+        enter = fadeIn(tween(LxMotion.StateMs, easing = LxMotion.EaseEnter)) +
+            slideInVertically(tween(LxMotion.StateMs, easing = LxMotion.EaseEnter)) { enterShiftPx },
         modifier = modifier.fillMaxSize(),
     ) {
         Column(

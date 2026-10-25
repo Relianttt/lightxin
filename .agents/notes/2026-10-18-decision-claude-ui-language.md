@@ -72,6 +72,8 @@ tags: [designsystem, ui, claude, tokens, components, leave, repair, running]
 
 ## 后续修订
 
+2026-10-25：[全局 UI 统一](2026-10-25-decision-global-ui-unification.md) 修订决定 1/11 的并行隔离范围：旧语义 token 改为别名，ColorScheme 全局使用新色板，LxCard 加 0.5dp 细边，splash 与 LxCanvas 一致。Raw 常量与分类色不变。代码已修改，尚未执行本轮构建与视觉验证。
+
 2026-10-18 真机走查后，以下几条被 `.agents/notes/2026-10-18-decision-mobile-first-ui-revision.md` 取代：
 
 - 决定 3：导航栏不再“无标题”，滚动后显示小标题。

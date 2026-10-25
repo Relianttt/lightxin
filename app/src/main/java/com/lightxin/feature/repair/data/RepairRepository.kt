@@ -7,6 +7,7 @@ import com.google.gson.JsonArray
 import com.google.gson.JsonElement
 import com.google.gson.JsonObject
 import com.lightxin.core.auth.TokenManager
+import com.lightxin.core.network.AuthExpiredException
 import com.lightxin.feature.repair.domain.RepairDraft
 import com.lightxin.feature.repair.domain.RepairNode
 import com.lightxin.feature.repair.domain.RepairSubmitBuilder
@@ -224,6 +225,7 @@ class RepairRepository @Inject constructor(
     }
 
     private fun ensureSuccess(response: JsonObject, fallback: String) {
+        if (isRepairAuthRejection(response)) throw repairAuthRejected(fallback, response)
         if (!RepairJson.isSuccess(response)) {
             throw IllegalStateException(RepairJson.message(response, fallback))
         }
@@ -231,6 +233,10 @@ class RepairRepository @Inject constructor(
 
     private suspend fun <T> runCatchingApi(action: String, block: suspend () -> T): Result<T> = try {
         Result.success(block())
+    } catch (e: RepairRejectedException) {
+        Result.failure(e)
+    } catch (e: AuthExpiredException) {
+        Result.failure(e)
     } catch (e: Exception) {
         Result.failure(Exception(mapError(action, e), e))
     }
@@ -387,6 +393,19 @@ internal fun JsonObject.string(vararg keys: String): String =
     keys.firstNotNullOfOrNull { key ->
         get(key)?.takeIf { it.isJsonPrimitive }?.asString?.takeIf { it.isNotBlank() }
     }.orEmpty()
+
+// 无效身份探测只证实请求被拒，不能把这一形态等同于校内 token 过期。
+internal class RepairRejectedException(val technicalDetail: String) : Exception("报修请求被拒绝")
+
+internal fun isRepairAuthRejection(root: JsonObject): Boolean =
+    root.get("flag")?.takeIf { it.isJsonPrimitive }?.asJsonPrimitive
+        ?.takeIf { it.isBoolean }?.asBoolean == false && root.string("code") == "非法访问"
+
+internal fun repairAuthRejected(action: String, root: JsonObject): RepairRejectedException =
+    RepairRejectedException(
+        technicalDetail = "REPAIR_REJECTED\n操作：$action\n阶段：repair 身份校验\n" +
+            "响应：flag=false / code=${root.string("code")} / msg=${root.string("msg").ifBlank { "无" }}",
+    )
 
 /** 已结束的 dqzt：4 维修完成、5 已取消、6 废单审核中、7 已废单、8 已延单、10 已登记耗材。 */
 internal val REPAIR_ENDED_CODES = setOf("4", "5", "6", "7", "8", "10")

@@ -2,7 +2,7 @@ package com.lightxin.feature.checkin.ui
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import com.lightxin.core.designsystem.theme.lxPressable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -27,7 +26,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -38,6 +36,7 @@ import com.lightxin.core.designsystem.component.LxErrorState
 import com.lightxin.core.designsystem.component.LxFilterTabs
 import com.lightxin.core.designsystem.component.LxNavBar
 import com.lightxin.core.designsystem.component.LxPageHeader
+import com.lightxin.core.designsystem.component.LxLoadMoreFooter
 import com.lightxin.core.designsystem.component.LxSkeletonList
 import com.lightxin.core.designsystem.component.LxStatusLine
 import com.lightxin.core.designsystem.component.LxTabItem
@@ -150,18 +149,14 @@ private fun androidx.compose.foundation.lazy.LazyListScope.checkinContent(
     when {
         uiState.isLoading -> item(key = "checkin_loading") { LxSkeletonList(count = 5) }
         uiState.rejectedDetail != null -> item(key = "checkin_rejected") {
-            Box(modifier = Modifier.fillMaxWidth().padding(20.dp)) {
+            Box(modifier = Modifier.fillMaxWidth()) {
                 ServiceErrorCard(
-                    title = "暂时无法加载查寝信息",
-                    message = "服务端这次没有认可你的身份信息。常见原因是登录已过期；也可能只是这一下没对上。\n\n" +
-                        "可以先重试一次；如果一直这样，重新登录通常能恢复。",
+                    title = "暂时无法加载查寝",
+                    message = "可能是登录已过期，先重试一次。",
                     technicalDetail = uiState.rejectedDetail,
                     isRetrying = uiState.isLoading,
                     onRetry = onRetry,
                     onRelogin = onRelogin,
-                    retryLabel = "重新加载查寝",
-                    retryingLabel = "正在重新加载…",
-                    footer = "离校登记仍可使用。",
                 )
             }
         }
@@ -178,15 +173,14 @@ private fun androidx.compose.foundation.lazy.LazyListScope.checkinContent(
             items(uiState.tasks, key = { "c_${it.taskDateId}" }) { task ->
                 CheckinRow(task = task, onClick = { if (!task.isSigned) onTaskClick(task.taskDateId) })
             }
-            if (uiState.isLoadingMore) {
-                item(key = "checkin_more") {
-                    Box(
-                        modifier = Modifier.fillMaxWidth().padding(16.dp),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
-                    }
-                }
+            item(key = "checkin_more") {
+                LxLoadMoreFooter(
+                    loading = uiState.isLoadingMore,
+                    hasMore = uiState.hasMore,
+                    error = null,
+                    onRetry = onRetry,
+                    showEnd = uiState.tasks.size >= 4,
+                )
             }
         }
     }
@@ -239,7 +233,7 @@ private fun CheckinRow(task: CheckinTask, onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(enabled = !task.isSigned, role = Role.Button, onClick = onClick)
+            .lxPressable(enabled = !task.isSigned, onClick = onClick)
             .padding(horizontal = 24.dp, vertical = 14.dp),
         verticalAlignment = Alignment.Top,
     ) {
@@ -270,7 +264,7 @@ private fun HolidayRow(task: HolidayTask, onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(role = Role.Button, onClick = onClick)
+            .lxPressable(onClick = onClick)
             .padding(horizontal = 24.dp, vertical = 14.dp),
         verticalAlignment = Alignment.Top,
     ) {

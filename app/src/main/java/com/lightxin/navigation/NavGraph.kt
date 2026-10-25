@@ -202,34 +202,37 @@ fun LightXinNavHost(
         startDestination = resolvedStartRoute,
         enterTransition = {
             if (suppressTransitions) EnterTransition.None
-            else fadeIn(tween(LxMotion.PageMs, easing = LxMotion.EaseOut)) +
-                slideInHorizontally(tween(LxMotion.PageMs, easing = LxMotion.EaseOut)) {
+            else fadeIn(tween(LxMotion.PageFadeInMs, LxMotion.PageFadeDelayMs, LxMotion.EaseEnter)) +
+                slideInHorizontally(tween(LxMotion.PageEnterMs, easing = LxMotion.EaseEnter)) {
                     (it * LxMotion.PageShiftFraction).toInt()
                 }
         },
         exitTransition = {
             if (suppressTransitions) ExitTransition.None
-            else fadeOut(tween(LxMotion.StateMs, easing = LxMotion.EaseOut))
+            else fadeOut(tween(LxMotion.PageFadeOutMs, easing = LxMotion.EaseExit)) +
+                slideOutHorizontally(tween(LxMotion.PageEnterMs, easing = LxMotion.EaseEnter)) {
+                    -(it * LxMotion.PageExitShiftFraction).toInt()
+                }
         },
         popEnterTransition = {
             if (suppressTransitions) EnterTransition.None
-            else fadeIn(tween(LxMotion.StateMs + 40, easing = LxMotion.EaseOut)) +
-                slideInHorizontally(tween(LxMotion.PageMs, easing = LxMotion.EaseOut)) {
-                    (-it * LxMotion.PagePopShiftFraction).toInt()
+            else fadeIn(tween(LxMotion.PageFadeInMs, LxMotion.PageFadeDelayMs, LxMotion.EaseEnter)) +
+                slideInHorizontally(tween(LxMotion.PageEnterMs, easing = LxMotion.EaseEnter)) {
+                    -(it * LxMotion.PageExitShiftFraction).toInt()
                 }
         },
         popExitTransition = {
             if (suppressTransitions) ExitTransition.None
-            else fadeOut(tween(LxMotion.PagePopExitMs, easing = LxMotion.EaseOut)) +
-                slideOutHorizontally(tween(LxMotion.PagePopExitMs, easing = LxMotion.EaseOut)) {
-                    (it * LxMotion.PagePopShiftFraction).toInt()
+            else fadeOut(tween(LxMotion.PageFadeOutMs, easing = LxMotion.EaseExit)) +
+                slideOutHorizontally(tween(LxMotion.PageExitMs, easing = LxMotion.EaseExit)) {
+                    (it * LxMotion.PageShiftFraction).toInt()
                 }
         },
     ) {
         composable(
             Routes.ONBOARDING,
-            enterTransition = { fadeIn(tween(LxMotion.PageMs, easing = LxMotion.EaseOut)) },
-            exitTransition = { fadeOut(tween(LxMotion.StateMs, easing = LxMotion.EaseOut)) },
+            enterTransition = { fadeIn(LxMotion.enter()) },
+            exitTransition = { fadeOut(LxMotion.exit()) },
         ) {
             val context = LocalContext.current
             OnboardingScreen(
@@ -255,8 +258,8 @@ fun LightXinNavHost(
 
         composable(
             Routes.LOGIN,
-            enterTransition = { fadeIn(tween(LxMotion.PageMs, easing = LxMotion.EaseOut)) },
-            exitTransition = { fadeOut(tween(LxMotion.StateMs, easing = LxMotion.EaseOut)) },
+            enterTransition = { fadeIn(LxMotion.enter()) },
+            exitTransition = { fadeOut(LxMotion.exit()) },
         ) {
             LoginScreen(
                 onLoginSuccess = {
@@ -270,8 +273,8 @@ fun LightXinNavHost(
 
         composable(
             Routes.HOME,
-            enterTransition = { fadeIn(tween(LxMotion.PageMs, easing = LxMotion.EaseOut)) },
-            exitTransition = { fadeOut(tween(LxMotion.StateMs, easing = LxMotion.EaseOut)) },
+            enterTransition = { fadeIn(LxMotion.enter()) },
+            exitTransition = { fadeOut(LxMotion.exit()) },
         ) {
             HomeScreen(navController = navController, onRelogin = onFifRelogin)
         }
@@ -654,6 +657,7 @@ fun LightXinNavHost(
                 .collectAsState()
             RepairListScreen(
                 onBack = { navController.popBackStack() },
+                onRelogin = onSessionRelogin,
                 onCreate = {
                     navController.navigate(Routes.REPAIR_CREATE) { launchSingleTop = true }
                 },

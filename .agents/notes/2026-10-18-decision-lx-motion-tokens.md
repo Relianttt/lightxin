@@ -52,3 +52,5 @@ tags: [designsystem, motion, animation, compose]
 ## 后续动效修订
 
 本篇的“快、短”和时长上限由用户要求放慢，参见 [舒缓分页动效](2026-10-18-decision-gentle-tab-paging.md)。无回弹、统一 token、无装饰动画及系统动画缩放约束继续有效。
+
+2026-10-25：进一步由 [动效 v3](2026-10-25-decision-motion-v3.md) 部分取代：不再使用单一曲线，允许首屏错峰；按压松开是唯一轻回弹点；共享容器/圆角过渡不再一概禁止，但必须遵守可选项确认流程。转场无 overshoot、统一 token、系统动画缩放约束保留。

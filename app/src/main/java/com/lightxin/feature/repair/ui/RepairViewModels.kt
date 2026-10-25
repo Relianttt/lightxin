@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.lightxin.feature.repair.data.REPAIR_ENDED_CODES
 import com.lightxin.feature.repair.data.RepairDetail
 import com.lightxin.feature.repair.data.RepairRepository
+import com.lightxin.feature.repair.data.RepairRejectedException
 import com.lightxin.feature.repair.data.RepairSummary
 import com.lightxin.feature.repair.domain.RepairCascade
 import com.lightxin.feature.repair.domain.RepairDraft
@@ -27,6 +28,7 @@ data class RepairListUiState(
     val isLoading: Boolean = true,
     val isRefreshing: Boolean = false,
     val error: String? = null,
+    val authExpiredDetail: String? = null,
 )
 
 @HiltViewModel
@@ -59,6 +61,7 @@ class RepairListViewModel @Inject constructor(
                     isLoading = !refresh && it.items.isEmpty(),
                     isRefreshing = refresh,
                     error = null,
+                    authExpiredDetail = null,
                 )
             }
             repository.list().fold(
@@ -69,6 +72,7 @@ class RepairListViewModel @Inject constructor(
                             isLoading = false,
                             isRefreshing = false,
                             error = null,
+                            authExpiredDetail = null,
                         )
                     }
                 },
@@ -78,6 +82,7 @@ class RepairListViewModel @Inject constructor(
                             isLoading = false,
                             isRefreshing = false,
                             error = error.message ?: "获取报修列表失败",
+                            authExpiredDetail = (error as? RepairRejectedException)?.technicalDetail,
                         )
                     }
                 },
