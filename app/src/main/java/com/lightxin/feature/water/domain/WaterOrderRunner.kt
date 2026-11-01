@@ -56,10 +56,15 @@ class WaterOrderRunner(
     private val store: WaterOrderStore,
 ) {
 
-    suspend fun start(device: WaterDevice): Result<StartOutcome> {
+    /** [onConnected] 在蓝牙连上后立即回调，供 UI 从「连接中」切到「开阀中」。 */
+    suspend fun start(
+        device: WaterDevice,
+        onConnected: () -> Unit = {},
+    ): Result<StartOutcome> {
         var keepOpen = false
         return try {
             transport.connect(device.macWithColon)
+            onConnected()
             val status = statusOf(transport.request(QzxyFrame.CMD_STATUS, byteArrayOf(0)))
 
             if (status.isIdle) {
@@ -112,6 +117,10 @@ class WaterOrderRunner(
                 mac = device.macWithColon,
                 deviceName = device.deviceName,
                 bigTypeId = device.bigTypeId,
+                roomName = device.roomName,
+                areaName = device.areaName,
+                buildingName = device.buildingName,
+                floorName = device.floorName,
             ),
         )
         Result.success(result)

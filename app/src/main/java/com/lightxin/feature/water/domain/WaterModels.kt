@@ -91,11 +91,15 @@ data class SettleResult(
     val orderNo: String,
 )
 
-/** 最近使用的设备。 */
+/** 最近使用的设备。位置字段只用于列表展示，缺失时列表退化为只显示设备名。 */
 data class RecentDevice(
     val mac: String = "",
     val deviceName: String = "",
     val bigTypeId: Int = 0,
+    val roomName: String = "",
+    val areaName: String = "",
+    val buildingName: String = "",
+    val floorName: String = "",
 )
 
 /** 设备状态帧不是已知布局（v1 只支持 ≥31 字节布局）。 */
