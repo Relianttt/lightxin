@@ -82,14 +82,13 @@ token 故意分两层：
 
 ### 2.4 系统级反色滤镜独立关闭
 
-资源层两套主题都显式声明 `android:forceDarkAllowed=false`：
-
-- `res/values-v29/themes.xml:2-5` — Light 资源主题在 API 29+ 关闭 force dark
-- `res/values-night-v29/themes.xml:2-4` — Dark 资源主题在 API 29+ 关闭 force dark
+主题**只有两份**：`res/values/themes.xml` 与 `res/values-night/themes.xml`，两份都写全 item 并显式声明 `android:forceDarkAllowed=false`（`tools:targetApi="29"` 标注）。
 
 这**不是**为了禁用 Compose Dark，而是拦截厂商（MIUI / HyperOS 等）对 Light 应用强加的反色滤镜。暖色 token 一旦被反色就失去设计意图（`LxParchment` 羊皮纸会变成深蓝黑），所以在资源层关掉这条路。
 
-`android:forceDarkAllowed` 只在 API 29 引入；minSdk 仍为 26，因此通用 `values/` 与 `values-night/` 只保留基础主题，force dark 开关放在 `values-v29/` 与 `values-night-v29/` 覆盖主题里。这样 API 26-28 不会解析到高版本属性，API 29+ 仍保持厂商反色滤镜关闭。
+**style 的限定符变体之间不继承也不合并**——任何变体都会整份覆盖，少写一个 item 就在对应配置下丢失。2026-11-02 之前为了加 `forceDarkAllowed` / 31 的 splash 属性拆成过 5 份（`values-v29` / `values-v31` / `values-night-v29` …），结果 `values-v29` 只写了一个 item，Android 10/11 浅色下把窗口背景与启动画面全丢了。现在统一在 `values/` + `values-night/` 里写全，新 API 属性用 `tools:targetApi` 标注，低版本系统忽略未知属性。
+
+启动画面：API 26–30 用 `android:windowSplashscreenContent`（26 引入、31 废弃，26–30 上有效），31+ 用 `windowSplashScreenBackground / AnimatedIcon / AnimationDuration`，两者写在同一个 style 里互不干扰。
 
 Compose Dark Scheme 与资源层 `forceDarkAllowed` 是**两层正交机制**——前者是应用自己的视觉语言切换，后者是"防系统插手"。同时打开 MIUI 全局深色 + 系统 Dark 模式时，应用内会走 Compose Dark，而不是被滤镜强改的 Light。
 
@@ -145,6 +144,7 @@ RPill = 20dp  → 胶囊（Badge / 周选择器 chip）   → shapes.extraLarge
 | `LxAnimatedNumber.kt` | `LxAnimatedNumber` | Float 插值 + 800ms tween；跑步里程等数字计量场景 |
 | `LxMenuRow.kt` | `LxMenuRow` / `LxMenuDivider` | 设置/更多页统一菜单行；按压配色 + 0.99 缩放，各页只描述内容 |
 | `LxSharedTransition.kt` | `Modifier.lxSharedBounds` / `LxSharedBoundsTransform` | 共享元素只做位置+尺寸连续性（临界阻尼 `spring<Rect>`）；无 scope 时退化为普通 Modifier |
+| `QrCodeScanner.kt` | `QrCodeScanner(onDetected, modifier)` | 通用扫码：相机权限请求、预览、取景框遮罩、ML Kit 识别与官方 zoom 建议全在内部；业务（AI 课堂 token 解析、趣智设备码解析）由调用方处理 |
 
 所有可点击组件（Card / Button / IconButton / FAB / ChoiceChip / TextButton / MenuRow）都**绕开 Material3 默认 ripple**，用 `indication = null` + 自管 `MutableInteractionSource` 做按压态。按压反馈统一走 `LxMotion`：颜色用 `ColorSpring`（临界阻尼），缩放为 0.98（按钮）/0.99（卡片与菜单行）。
 

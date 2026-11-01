@@ -2,7 +2,7 @@
 doc_type: architecture
 slug: network-overview
 scope: 项目的网络层架构，含多域名 Retrofit 分发、AuthInterceptor 按 host 注入身份、401 自动刷新、以及 AI 课堂 FIF 的独立 SSO 会话
-summary: 共享 OkHttpClient + 9 个默认栈 Retrofit + 独立 FIF 栈；身份注入由 AuthInterceptor 按 host 六档路由（含请假 ywlz 与报修 repair），并通过 TokenManager snapshot 保证单请求内身份字段一致；补充到各 feature 的消费映射与 FIF 扫码直连链路
+summary: 共享 OkHttpClient + 10 个默认栈 Retrofit + 独立 FIF 栈 + 独立趣智栈；身份注入由 AuthInterceptor 按 host 六档路由（含请假 ywlz 与报修 repair），并通过 TokenManager snapshot 保证单请求内身份字段一致；补充到各 feature 的消费映射与 FIF 扫码直连链路
 status: current
 last_reviewed: 2026-10-18
 tags: [network, auth, fif, retrofit, okhttp, leave, repair]
@@ -32,22 +32,25 @@ depends_on: []
 
 ## 2. 结构与交互
 
-### 2.1 两条独立的 OkHttp 栈
+### 2.1 三套独立的 OkHttp 栈
 
-项目里有**两个** `OkHttpClient` 单例，**不共享拦截器、不共享 CookieJar**：
+项目里有**三个** `OkHttpClient` 单例，**不共享拦截器、不共享 CookieJar**：
 
 | 客户端 | 拦截器 | CookieJar | 使用者 |
 |---|---|---|---|
 | 默认（`provideOkHttpClient`） | `AuthInterceptor` → `TokenRefreshInterceptor` → `HttpLoggingInterceptor` | 无 | 校内默认栈 4 个域名，共 6 个 Retrofit |
 | `@FifOkHttpClient`（`provideFifOkHttpClient`） | 只有 Logging | 内存 CookieJar（`ConcurrentHashMap<host, List<Cookie>>`） | AI 课堂 |
+| `@QzxyOkHttpClient`（`provideQzxyOkHttpClient`） | 只有 `QzxyInterceptor` | 无 | 趣智校园（饮水 / 热水） |
 
-锚点：`core/network/NetworkModule.kt:32-50`（默认 client）/ `core/network/NetworkModule.kt:99-110`（FIF client）。
+锚点：`core/network/NetworkModule.kt`。
 
-两条栈不共享的原因：
+趣智栈不共享的原因：主 client 的 `AuthInterceptor` 会往 Form 里注入校内 `access_token / userCode` 等字段，污染趣智请求；趣智的公共参数（`loginCode / userId / accountId / projectId / telephone / telPhone / phoneSystem / version`）与 `Config-Project` / `Config-Keys` 头由 `QzxyInterceptor` 独立注入。
+
+三条栈不共享的原因：
 - FIF 身份是 `authorization: Basic <token>` + `SESSION` Cookie，和校内默认栈的 `access_token` 字段体系不互通；若共用 `AuthInterceptor`，会把校内参数错误注入到 FIF 请求里（§2.4 第 4 档默认行为）
 - FIF SSO 必须手动处理 302 Location 来提取 token，需要在调用时 `followRedirects(false)` 局部覆盖（`core/network/FifSessionManager.kt:129-133`）
 
-### 2.2 12 个 `@Qualifier`（11 Retrofit + 1 OkHttpClient）
+### 2.2 14 个 `@Qualifier`（12 Retrofit + 2 OkHttpClient）
 
 ```
 AuthRetrofit       → in.aiit.edu.cn/zhxy-information  (登录 + token 刷新)
@@ -61,10 +64,12 @@ LeaveRetrofit      → ywlz.aiit.edu.cn/zhxy-bfc        (请假工作流)
 RepairRetrofit     → repair.aiit.edu.cn:8081          (报修手机端)
 FifRetrofit        → sttp.fifedu.com                  (AI 课堂)
 IzuoyeRetrofit     → izuoye.fifedu.com                (爱作业平台)
+QzxyRetrofit       → v3-api.china-qzxy.cn             (趣智校园：饮水 / 热水)
 FifOkHttpClient    → 区分 FIF 与默认两个 OkHttpClient 实例
+QzxyOkHttpClient   → 区分趣智与默认两个 OkHttpClient 实例
 ```
 
-前 9 个 Retrofit（Auth ~ Repair）共享默认 `OkHttpClient`；`FifRetrofit` 和 `IzuoyeRetrofit` 注入 `@FifOkHttpClient` 的独立 client。锚点：`core/network/NetworkModule.kt`。
+前 9 个 Retrofit（Auth ~ Repair）共享默认 `OkHttpClient`；`FifRetrofit` 和 `IzuoyeRetrofit` 注入 `@FifOkHttpClient`；`QzxyRetrofit` 注入 `@QzxyOkHttpClient`（不复用、不走 `AuthInterceptor`）。锚点：`core/network/NetworkModule.kt`。
 
 CreditRetrofit 复用主 OkHttpClient，AuthInterceptor 默认分支会注入多余参数到 FormBody，服务端忽略。IzuoyeRetrofit 复用 FifOkHttpClient，认证通过各接口方法显式传入 `@Header("jtzy")`。
 
@@ -86,6 +91,7 @@ CreditRetrofit 复用主 OkHttpClient，AuthInterceptor 默认分支会注入多
 | `@RepairRetrofit` | `RepairApi` | 报修手机端：列表、详情、地址/类型级联、提交、图片、撤回 |
 | `@FifRetrofit` | `AiClassApi` | AI 课堂课程、签到、课堂状态 |
 | `@FifOkHttpClient` | `FifSessionManager` / `AiClassRepository` | 前者做 SSO，会话建立；后者做扫码签到的原始 OkHttp 请求 |
+| `@QzxyRetrofit` / `@QzxyOkHttpClient` | `QzxyRepository` | 趣智校园：登录、余额、设备信息、`bluetooth/*` 订单；公共参数由 `QzxyInterceptor` 注入 |
 
 锚点：`feature/login/data/LoginRepository.kt:16-19,78-79` / `feature/schedule/data/ScheduleRepository.kt:108-109` / `feature/checkin/data/CheckinRepository.kt:189-195` / `feature/holiday/data/HolidayRepository.kt:204-209` / `feature/running/data/RunningApi.kt:52-55` / `feature/labor/data/LaborRepository.kt:118-121` / `feature/aiclass/data/AiClassRepository.kt:33-38,305-306`。
 
@@ -195,7 +201,8 @@ FIF 多一层 Cookie 检查的原因是 token 本身不含过期时间，但 `SE
 ## 5. 代码锚点
 
 - `core/network/NetworkModule.kt` — 所有 Hilt provider + 8 个 `@Qualifier` 声明
-- `core/network/ApiConstants.kt` — 9 个域名常量（含 FIF SSO / FIF）+ `APP_ID`
+- `core/network/ApiConstants.kt` — 11 个域名常量（含 FIF SSO / FIF / 趣智）+ 趣智 `QZXY_VERSION` / `QZXY_CONFIG_KEYS` + `APP_ID`
+- `core/network/QzxyInterceptor.kt` — 趣智公共参数与 `Config-Project` / `Config-Keys` 注入（登录三接口不注入）
 - `core/network/AuthInterceptor.kt:30-105` — 按 host 四档路由
 - `core/network/TokenRefreshInterceptor.kt:21-29` — 401 重试逻辑
 - `core/auth/TokenRefresher.kt:3-5` — token 刷新抽象，避免 `core/network` 直接依赖 login feature

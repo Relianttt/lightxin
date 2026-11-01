@@ -7,10 +7,10 @@
 
 轻小信是基于「爱信校园」(cn.edu.aiit.axx) 接口协议开发的轻量 Android 原生客户端，使用 Kotlin + Jetpack Compose 实现。目标是替代原 H5 + WebView 壳的笨重体验，提供精致、克制、Anthropic / iOS 18 风格的校园工具 UI。
 
-**当前实现状态**（截至 2026-05-31）：
+**当前实现状态**（截至 2026-11-02）：
 
 - MVP 五大模块（登录 / 课程表 / 查寝 / 跑步 / 劳教）已全部上线
-- 在 MVP 之上还叠加：AI 课堂（FIF 独立会话 + 数字码 / 扫码签到 / 作业详情）、首启欢迎页、关于页 + 调试开关、更多功能页（劳动教育 / 考试成绩 / 素质学分 / 实况通知权限引导）、首页"此刻我该做什么"叙事场景（7 类场景 + 副标题动态轮换 + 启动预加载）、跑步路线模板系统（录制 / 列表 / 详情 / 质量校验 / 模板驱动模拟）、大一大二智慧运动年级分流（俱乐部详情 / 锻炼考勤 / 课外跑步进度）、节假日离返校登记（首页卡片 + 查寝列表双 section + 独立登记表单）、Flyme / Android 16 / 普通三分支实况通知
+- 在 MVP 之上还叠加：AI 课堂（FIF 独立会话 + 数字码 / 扫码签到 / 作业详情）、首启欢迎页、关于页 + 调试开关、更多功能页（劳动教育 / 考试成绩 / 素质学分 / 实况通知权限引导）、首页"此刻我该做什么"叙事场景（7 类场景 + 副标题动态轮换 + 启动预加载）、跑步路线模板系统（录制 / 列表 / 详情 / 质量校验 / 模板驱动模拟）、大一大二智慧运动年级分流（俱乐部详情 / 锻炼考勤 / 课外跑步进度）、节假日离返校登记（首页卡片 + 查寝列表双 section + 独立登记表单）、Flyme / Android 16 / 普通三分支实况通知、趣智校园（饮水机 / 公寓热水表，独立趣智账号 + 经典蓝牙 SPP 开关阀与结算）
 
 `docs/` 下多份规划文档是这些阶段当时的蓝本，多数已是"完成记录"而非未来方向；接口协议文档（`docs/接口分析/`）仍是长期有效的参考与踩坑实录。
 
@@ -27,7 +27,9 @@
 | `RouteTemplate` | 跑步模拟提交用的路线模板资产；以 JSON 文件落地（非 Room），由 `RouteTemplateStore` 管理、`TrajectoryGenerator` 消费、`RouteQualityChecker` 校验 |
 | `HolidayTask` | 节假日离返校登记任务；入口在首页卡片和查寝列表页双 section，表单页由 `feature/holiday/` 独立承载 |
 | `LiveActivityNotifier` | 跨 feature 的实况通知统一门面；根据设备能力选择 Flyme 私有 / Android 16 promoted / 普通通知 backend |
-| `MoreFeaturesScreen` | 更多功能聚合页；承载劳动教育、考试成绩、素质学分，以及实况通知权限引导开关 |
+| `MoreFeaturesScreen` | 更多功能聚合页；承载劳动教育、考试成绩、素质学分、趣智校园，以及实况通知权限引导开关 |
+| `QzxySession` | 趣智账号会话（`loginCode / userId / accountId / projectId / telephone`），落 `qzxy_session` DataStore，与校内 token 体系完全独立；见 `water-overview.md` |
+| `ActiveOrder` | 趣智已开阀未结算订单，落 `qzxy_water` DataStore，用于 App 被杀/断连后恢复结算 |
 | `轻小信 / LightXin` | 本项目名；包名 `com.lightxin` |
 
 ## 3. 子系统 / 模块索引
@@ -36,8 +38,8 @@
 
 ### 3.1 core/（跨功能基础设施）
 
-- `network/` — 多域名 Retrofit（**12 个 `@Qualifier`** = 11 Retrofit [Auth / Main / Csh / Checkin / Sports / Labor / Credit / **Leave** / **Repair** / **Fif** / Izuoye] + 1 OkHttpClient [**FifOkHttpClient**]）、`AuthInterceptor`（按 host 六档）、`TokenRefreshInterceptor`、**`FifSessionManager`**（AI 课堂独立 SSO + CookieJar）；详见 [`network-overview.md`](network-overview.md)
-- `auth/` — `RSAUtils`（两组公钥）、`TokenManager`、`SessionManager`、`TokenRefresher`；详见 [`auth-overview.md`](auth-overview.md)
+- `network/` — 多域名 Retrofit（**14 个 `@Qualifier`** = 12 Retrofit [Auth / Main / Csh / Checkin / Sports / Labor / Credit / Leave / Repair / Fif / Izuoye / **Qzxy**] + 2 OkHttpClient [**FifOkHttpClient** / **QzxyOkHttpClient**]）、`AuthInterceptor`（按 host 六档，趣智不走它）、`TokenRefreshInterceptor`、**`FifSessionManager`**（AI 课堂独立 SSO + CookieJar）、**`QzxyInterceptor`**（趣智公共参数 + `Config-Project/Config-Keys`）；详见 [`network-overview.md`](network-overview.md)
+- `auth/` — `RSAUtils`（两组公钥）、`TokenManager`、`SessionManager`、`TokenRefresher`、**`QzxySessionStore`**（趣智独立会话）；详见 [`auth-overview.md`](auth-overview.md)
 - `location/` — `LocationProvider`（原生 `LocationManager` 封装）、`CoordinateConverter`（WGS-84 → GCJ-02 → BD-09 全链路，无地图 SDK）；详见 [`location-overview.md`](location-overview.md)
 - `notification/` — `LiveActivityNotifier` + Flyme / Android16 / Normal backend + 课程倒计时调度；详见 [`notification-overview.md`](notification-overview.md)
 - `designsystem/` — 旧暖色层（`Theme / Color / Type / Shape / LxMotion` + 15 个组件文件）+ 2026-10-18 新增的 Claude 并行层（`ClaudeTokens` / `ClaudeComponents` / `ClaudeSheets`，请假/报修/模板已迁移）；详见 [`designsystem-overview.md`](designsystem-overview.md)
@@ -59,11 +61,12 @@
 | `aiclass` | AI 课堂：FIF SSO + 课程列表 + 数字码签到 + **ML Kit** 扫码签到 |
 | `onboarding` | 首启欢迎页（含插画动效） |
 | `about` | 关于页 + 调试开关入口 |
-| `more` | 更多功能聚合页，包含劳动教育 / 考试成绩 / 素质学分入口与实况通知权限引导 |
+| `more` | 更多功能聚合页，包含劳动教育 / 考试成绩 / 素质学分 / 趣智校园入口与实况通知权限引导 |
+| `water` | 趣智校园：独立账号登录 / 余额 / 扫码或手输找设备 / 经典蓝牙 SPP 开关阀 / 结算 / 未结算恢复；详见 [`water-overview.md`](water-overview.md) |
 
 ### 3.3 navigation/
 
-`Routes.kt` 集中声明上述 feature 的所有入口与子页，包含跑步主链、跑步路线模板（含导入）、跑步俱乐部/锻炼考勤、AI 课堂、查寝、节假日、劳动教育、**请假、报修**、更多功能、考试成绩、素质学分、关于页等路由。详见 [`navigation-overview.md`](navigation-overview.md)。
+`Routes.kt` 集中声明上述 feature 的所有入口与子页，包含跑步主链、跑步路线模板（含导入）、跑步俱乐部/锻炼考勤、AI 课堂、查寝、节假日、劳动教育、请假、报修、**趣智校园（4 条）**、更多功能、考试成绩、素质学分、关于页等路由。详见 [`navigation-overview.md`](navigation-overview.md)。
 
 > 模块级专项架构文档持续补齐（2026-05-31 同步 notification / running / schedule 最新现状）。当前已有：
 > - [`network-overview.md`](network-overview.md) — 多域名层 + FIF 独立会话
@@ -82,6 +85,7 @@
 > - [`labor-overview.md`](labor-overview.md) — 工时总览 + 活动记录（只读）
 > - [`aiclass-overview.md`](aiclass-overview.md) — FIF SSO + 数字码/扫码签到
 > - [`onboarding-overview.md`](onboarding-overview.md) — 首启欢迎页 + Canvas 插画动效
+> - [`water-overview.md`](water-overview.md) — 趣智校园独立会话 + 帧协议 + 蓝牙开关阀与结算编排
 > - [`about-overview.md`](about-overview.md) — 品牌展示 + 调试开关
 > - [`navigation-overview.md`](navigation-overview.md) — 32 条路由常量 + 起始页决策 + ViewModel 共享 + 共享元素
 
@@ -91,7 +95,7 @@
 
 - **全 Compose 原生重写**，不保留任何 WebView 壳（与原 APP 的 H5 + 原生壳模式做根本区别）→ [`decision-compose-native-rewrite`](compound/2026-04-22-decision-compose-native-rewrite.md)
 - **Clean Architecture 三层（`data / domain / ui`）按 feature 分包**，不按层分包 → [`decision-feature-tri-layer-package`](compound/2026-04-22-decision-feature-tri-layer-package.md)
-- **多域名网络层** — Hilt `@Qualifier` 区分 7 个 Retrofit 实例，共享同一个 `OkHttpClient`；**FIF 除外**：独立 `OkHttpClient` + `CookieJar`（SSO + SESSION 管理必须独立）；认证方式差异由 `AuthInterceptor` 按 URL 路由 → [`decision-fif-independent-okhttp-stack`](compound/2026-04-22-decision-fif-independent-okhttp-stack.md)
+- **多域名网络层** — Hilt `@Qualifier` 区分多个 Retrofit 实例，校内默认栈共享同一个 `OkHttpClient`；**FIF / 趣智除外**：各自独立 `OkHttpClient`（FIF 另有 CookieJar；趣智用 `QzxyInterceptor` 注入自己的公共参数）；校内认证方式差异由 `AuthInterceptor` 按 URL 路由 → [`decision-fif-independent-okhttp-stack`](compound/2026-04-22-decision-fif-independent-okhttp-stack.md)
 - **不引入任何地图 SDK** — 定位走原生 `LocationManager`；跑步仪表盘不展示地图轨迹；坐标转换手写 → [`decision-no-map-sdk`](compound/2026-04-22-decision-no-map-sdk.md)
 - **路线模板用 JSON 文件存储而非 Room** — 保持轻量、避免 DB schema 迁移成本 → [`decision-route-template-json-not-room`](compound/2026-04-22-decision-route-template-json-not-room.md)
 - **扫码用官方 ML Kit**，不用 ZXing → [`decision-ml-kit-barcode`](compound/2026-04-22-decision-ml-kit-barcode.md)
@@ -112,4 +116,4 @@
 
 ---
 
-> 本文档反映 2026-05-31 真实代码状态。`docs/项目规划/` 下五份文档（`项目规划.md` / `AI课堂开发规划.md` / `路线模拟实现文档.md` / `正式版预期功能.md` / `homepage-design-spec.md`）多数已是"完成记录"而非未来方向；`docs/接口分析/` 下文档仍是长期有效的协议参考与踩坑实录。
+> 本文档反映 2026-11-02 真实代码状态（主题合并为 `values/` + `values-night/` 两份；新增趣智校园）。`docs/项目规划/` 下五份文档（`项目规划.md` / `AI课堂开发规划.md` / `路线模拟实现文档.md` / `正式版预期功能.md` / `homepage-design-spec.md`）多数已是"完成记录"而非未来方向；`docs/接口分析/` 下文档仍是长期有效的协议参考与踩坑实录。

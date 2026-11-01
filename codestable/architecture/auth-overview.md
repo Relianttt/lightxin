@@ -42,7 +42,7 @@ depends_on: [login-overview, network-overview]
 
 ## 2. 结构与交互
 
-### 2.1 四个文件分工
+### 2.1 文件分工
 
 | 文件 | 职责 |
 |---|---|
@@ -50,6 +50,7 @@ depends_on: [login-overview, network-overview]
 | `TokenManager.kt` | `lightxin_auth` DataStore、登录凭据读写、首启态、登录态 Flow、会话清除。锚点：`app/src/main/java/com/lightxin/core/auth/TokenManager.kt:17-117` |
 | `SessionManager.kt` | 面向 UI / navigation 的窄门面：`isLoggedIn / isOnboarded / markOnboarded() / logout()`。锚点：`app/src/main/java/com/lightxin/core/auth/SessionManager.kt:7-21` |
 | `TokenRefresher.kt` | 401 自动刷新用接口，隔离 network 和 login 之间的方向依赖。锚点：`app/src/main/java/com/lightxin/core/auth/TokenRefresher.kt:3-5` |
+| `QzxySessionStore.kt` | 趣智校园独立会话：`qzxy_session` DataStore 读写 `telephone / loginCode / userId / accountId / projectId / name`，暴露 `sessionFlow / current() / save() / clear()`。与校内身份完全隔离 |
 
 ### 2.2 TokenManager 是唯一校内身份持有者
 
@@ -151,6 +152,21 @@ depends_on: [login-overview, network-overview]
 | `HomeBootstrap` | `getAccessToken()/getUserName()` | 未登录跳过冷启动预加载、首页首帧用户名。锚点：`app/src/main/java/com/lightxin/feature/home/domain/HomeBootstrap.kt:49-53` |
 | `ProfileViewModel` | `getUserCode()/getUserName()` | “我的”页展示用户身份。锚点：`app/src/main/java/com/lightxin/feature/home/ui/ProfileViewModel.kt:33-40` |
 | feature 仓库 | 单字段读取 | 课表、劳教、跑步、节假日等接口所需业务参数。锚点：`app/src/main/java/com/lightxin/feature/schedule/data/ScheduleRepository.kt:51` / `app/src/main/java/com/lightxin/feature/labor/data/LaborRepository.kt:24-25` / `app/src/main/java/com/lightxin/feature/running/data/RunningRepository.kt:205-208` / `app/src/main/java/com/lightxin/feature/holiday/data/HolidayRepository.kt:165-166` |
+
+### 3.4 第二套会话：趣智校园（`qzxy_session`）
+
+趣智账号（`v3-api.china-qzxy.cn`）与校内 token 体系**不共享任何字段**，由 `QzxySessionStore` 独立持有：
+
+| DataStore | 字段 | 写入时机 | 谁能清 |
+|---|---|---|---|
+| `qzxy_session` | `telephone / loginCode / userId / accountId / projectId / name` | 趣智登录（密码 / 短信）成功 | 退出趣智校园；或 `QzxyRepository` 检测到会话失效 |
+
+- 退出学校账号**不**清 `qzxy_session`（`TokenManager.clear()` 的 `SESSION_KEYS` 只管 `lightxin_auth`）
+- 趣智侧失效判定：`errorCode 8`，或 `errorMessage` 含「登录 / 失效 / 过期 / 请重新」→ 清会话 + 抛 `QzxySessionExpired`，UI 回趣智登录页
+- 账号顶号是常态：官方趣智 App 登录会顶掉本 App 的会话，反之亦然（协议层单会话），所以"回登录页"是常规路径而非异常
+- 注意 `projectId` 决定账户：同一手机号在不同项目下是**不同账户**，余额与服务端 `wallet` 返回为准
+
+锚点：`app/src/main/java/com/lightxin/core/auth/QzxySessionStore.kt`；细节见 [`water-overview.md`](water-overview.md)。
 
 ## 4. 关键决策
 

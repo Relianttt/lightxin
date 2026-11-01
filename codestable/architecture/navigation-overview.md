@@ -53,9 +53,10 @@ depends_on: [home-overview, login-overview, checkin-overview, running-overview, 
 | 考试成绩 | 1 | EXAM_SCORES |
 | 素质学分 | 1 | CREDIT_OVERVIEW |
 | 节假日 | 1 | HOLIDAY_REGISTER（含参数 `holidayId`） |
+| 趣智校园 | 4 | WATER_HOME / WATER_LOGIN / WATER_SCAN / WATER_DEVICE（含参数 `mac`） |
 | 关于 | 1 | ABOUT |
 
-合计 **32 条路由常量**。
+合计 **36 条路由常量**。
 
 参数化路由使用 `fun` 构造完整路径字符串：
 ```kotlin
@@ -126,7 +127,7 @@ AI 课堂页面（AICLASS_HOME / AICLASS_SCAN / AICLASS_DETAIL）共享 `AiClass
 2. 列表页通过 `backStackEntry.savedStateHandle.getStateFlow("checkin_refresh", false)` 订阅
 3. 消费后置回 false
 
-请假列表与报修列表沿用同一套路：创建/详情页写 `leave_refresh` / `repair_refresh`，列表页订阅并消费。
+请假列表、报修列表与趣智首页沿用同一套路：创建/详情页写 `leave_refresh` / `repair_refresh` / `water_refresh`，列表页订阅并消费（趣智设备页返回时置 `water_refresh`，首页据此重拉余额与未结算卡片）。
 
 这是 Jetpack Navigation 推荐的"页面间通信"模式，避免了 ViewModel 级别的耦合。
 
@@ -135,6 +136,8 @@ AI 课堂页面（AICLASS_HOME / AICLASS_SCAN / AICLASS_DETAIL）共享 `AiClass
 - **登录成功**：`navigate(HOME) { popUpTo(LOGIN) { inclusive = true } }` — 移除登录页
 - **退出登录**：由 `SessionManager.clearSession()` 触发 → `sessionManager.isLoggedIn` Flow 变为 false → `startStateFlow` 重新计算 → 自动跳转到 LOGIN
 - **onboarding 确认**：`navigate(LOGIN) { popUpTo(ONBOARDING) { inclusive = true } }` — 移除欢迎页
+- **趣智校园与校内登录解耦**：趣智入口 `WATER_HOME` 启动时自查 `qzxy_session`，无会话或收到 `QzxySessionExpired` → `navigate(WATER_LOGIN) { popUpTo(WATER_HOME) { inclusive = true } }`；登录成功反向 pop 掉登录页。退出学校账号**不会**退出趣智会话
+- **扫码页转场**：扫码/手输成功后 `navigate(waterDevice(mac)) { popUpTo(WATER_SCAN) { inclusive = true } }`，返回直接回首页而不是相机
 
 ## 3. 数据与状态
 
