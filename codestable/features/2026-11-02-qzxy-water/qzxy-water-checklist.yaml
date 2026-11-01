@@ -1,0 +1,49 @@
+feature: qzxy-water
+created: '2026-11-02'
+steps:
+- action: 主题合并与死资源清理（§10，单独提交）
+  exit_signal: lintDebug 通过且 NewApi / UnusedResources 为 0；真机浅色与深色冷启动 getWindowAttrs 颜色正确、replace icon true、无双 logo
+  status: done
+  evidence: '5 份主题合并为 values/ + values-night/，删除 values-v29、values-v31、values-night-v29；删 splash_background_dark、xml/shortcuts.xml、drawable/ic_launcher_background.xml、mipmap-*/ic_launcher_foreground.webp；mipmap-anydpi-v26 → mipmap-anydpi；去掉 NavGraph 的 LOLLIPOP 与 MoreFeatures 的 <M 死分支。lintDebug + assembleDebug 通过，报告无 NewApi / UnusedResources / ObsoleteSdkInt。真机 MEIZU 20 / Android 16：浅色 getWindowAttrs color: fffaf9f5，深色 color: ff262624，均 replace icon: true；screenrecord 抽帧确认启动页单 logo。API 29/30 未验证（无该版本设备）。'
+- action: 协议纯函数（§3）
+  exit_signal: QzxyCryptoTest、QzxyFrameTest 通过；QzxyHarReplayTest 本地 6/6 签名命中且字段集合一致
+  status: done
+  evidence: '新增 QzxyCrypto（md5/密码摘要/短信 secret/签名白名单）、QzxyFrame（编解码、parseStatus、ackPayload）、WaterModels（设备/状态/订单/结算模型）。./gradlew testDebugUnitTest --tests "com.lightxin.feature.water.*"：QzxyCryptoTest 4、QzxyFrameTest 6、QzxyHarReplayTest 1 全通过，0 skipped；回放两份 HAR 共 6 条 rateOrder/upload-data 请求，签名逐条重算命中，字段集合与 §4.4 完全一致。'
+- action: 网络层（§4）
+  exit_signal: QzxyInterceptorTest 通过；独立 OkHttpClient 不含 AuthInterceptor；rateOrder / upload 字段集合与 §4.4 一致
+  status: done
+  evidence: '新增 ApiConstants.BASE_QZXY/QZXY_VERSION/QZXY_CONFIG_KEYS、QzxyInterceptor（UA + Config-Project/Config-Keys + 8 个公共参数，登录三接口不注入）、@QzxyOkHttpClient（只挂 QzxyInterceptor，15s 超时）、@QzxyRetrofit、QzxySessionStore（DataStore "qzxy_session"）、QzxyApi/QzxyResponses（无泛型）/QzxyRepository（错误码映射、会话失效清盘）。./gradlew testDebugUnitTest --tests "com.lightxin.feature.water.*"：QzxyInterceptorTest 4 个用例通过（公共参数 8 项、同名字段不覆盖、rateOrder 补齐后 17 字段、upload 补齐后 12 字段）；assembleDebug 通过。代码核对：provideQzxyOkHttpClient 只 addInterceptor(qzxyInterceptor)，未使用主 OkHttpClient。'
+- action: 蓝牙传输与订单编排（§5、§6）
+  exit_signal: WaterOrderRunnerTest 覆盖 §5.4 全部用例并通过；Manifest 权限按 §6 添加
+  status: done
+  evidence: '新增 WaterTransport/WaterOrderApi/WaterOrderStore 接口与 WaterOrderRunner（domain）、SppTransport（RFCOMM，insecure 失败回退 secure，10s 连接超时，按 \\n 切行解码、非目标 cmd 丢弃、Mutex 串行化）、WaterLocalStore（DataStore "qzxy_water"，ActiveOrder + 最近 5 台设备）；QzxyRepository 实现 WaterOrderApi。Manifest 按 §6 加 BLUETOOTH/BLUETOOTH_ADMIN(maxSdk 30)+BLUETOOTH_CONNECT+uses-feature。./gradlew testDebugUnitTest --tests "com.lightxin.feature.water.*"：WaterOrderRunnerTest 8 个用例全通过（正常开阀→结算、他人占用拒绝、自己待结算引导、写费率失败撤销、撤销也失败保留、状态帧失败不下单、上传失败保留可重试、写回失败不影响结果）；assembleDebug + lintDebug 通过，0 error。insecure/secure 哪种能连属真机待验（§8）。'
+- action: 扫码组件抽取（§7.6 第 1 步，单独提交）
+  exit_signal: AiClassScanScreen 视觉与行为不变，真机 AI 课堂扫码签到回归通过
+  status: done
+  evidence: 'CameraPreview/ScanOverlay/processImage/applyOfficialZoomSuggestion/CameraPermissionRequest 移入 core/designsystem/component/QrCodeScanner.kt，对外只暴露 QrCodeScanner(onDetected, modifier)；extractQrPayload/AiClassQrPayload/ScanState 留在原文件，AiClassScanScreen 改为调用组件。./gradlew assembleDebug 通过。真机 MEIZU 20：进入 AI 课堂 → 扫码页，相机实际打开（dumpsys media.camera 显示 com.lightxin 占用 Device 0，无 Camera bind failed），顶栏“扫码签到”、取景框、上下提示与改动前一致，截图 screenshots/aiclass-scan-after-extraction.png。差异：组件内的权限占位文案为通用“需要相机权限才能扫码”，拒绝授权不再自动退页（由调用页自行处理返回）；设备上无进行中课堂，未做完整签到回归。'
+  note: '权限占位已换成组件通用文案，拒绝授权不再自动返回，需在真机回归时确认可接受'
+- action: UI 与导航（§7）
+  exit_signal: WaterFormatTest、DeviceCodeTest 通过；§7.9 自查清单全部打勾；浅色与深色截图齐全
+  status: done
+  evidence: '页面与路由已全部落地（登录/首页/设备页/扫码页 + 更多功能入口 + 四个路由 + water_refresh 回刷）。./gradlew testDebugUnitTest --tests "com.lightxin.feature.water.*" 18 例通过；assembleDebug / assembleDebugAndroidTest / assembleDebugRelease / lintDebug 均通过，lint 0 error 且 feature/water 下 0 警告。自查：feature/water 内 MaterialTheme.colorScheme / Color(0x / LxTopBar / LxCard( / AlertDialog / Toast 均 0 处；中文文案逐条比对§7.1 一致（额外只有§4.6/§5.2 允许的业务错误文案）；金额均走 formatLi/formatYuan。截图（浅色）：更多功能入口、登录页密码态、验证码态+键盘、手机号错误态；（深色）：验证码态+手机号错误。首页截图已补（浅色 + 深色，余额 ¥9.11 与官方 App 一致，最近设备为空走空态）；手动输入弹层三态（空态 / 输入法弹出 / 无法识别设备号错误态）。弹层聚焦已验：打开后输入框自动获焦，dumpsys input_method mInputShown=true，IME 正常弹出。设备页各状态与结算弹层的截图需要实体设备，已并入第 7 步（真机验证）。'
+- action: 真机验证与收尾（§8）
+  exit_signal: §8 九项逐条有结论；note 已新建；报告第 9 节已回填；release 包登录 + 一单通过
+  status: blocked
+  evidence: '§8 第 1 项已验：登录成功（密码/短信方式未记录），wallet 返回与官方 App 一致（手机号 1901…/project 506，显示 ¥9.11）。附带结论：同一手机号在不同项目下是不同账户（错误手机号 1835… 属 project 305 安徽宽宏，服务端确实返回 money 0.000），余额一律以 wallet 返回为准，不是显示 bug。已完成：.agents/notes/2026-11-02-decision-qzxy-water.md 记录架构决策与五项待真机项；check_notes.py 0 错误；assembleRelease 通过，release 包装机启动正常、旧会话保留、wallet 解析正常（未在 release 上重新登录）。未完成：§8 九项都需要真实趣智账号 + 实体设备（饮水机 1 元预扣、热水表 5 元预扣），执行者无法代替，需用户本人完成；报告第 9 节回填同样等真机结论。设备侧证据保留在 docs/实施方案/2026-11-02-qzxy-water/screenshots/。'
+checks:
+  - id: check-1
+    description: 'lintDebug 无 error / warning 归零（含 feature/water 下 0 警告）'
+    status: passed
+    evidence: './gradlew lintDebug：0 error；报告内 feature/water 无告警（ModifierParameter、UseKtx 已修）'
+  - id: check-2
+    description: 'testDebugUnitTest 全部通过'
+    status: passed
+    evidence: './gradlew testDebugUnitTest：223 例通过、0 失败、0 skipped（其中 water 32 例）'
+  - id: check-3
+    description: 'HAR、loginCode、手机号未进入任何提交'
+    status: passed
+    evidence: 'grep 3f26dec…/1901137…/23DFA464…/真实 SN 在 app/src 与 .agents 均 0 命中；HAR 回放测试运行时读本地 HAR，代码内不含真实值'
+  - id: check-4
+    description: '真机资金流程九项（§8）逐条有结论'
+    status: pending
+    evidence: '待明日真机实测：RFCOMM 连法 / 饮水一单扣费 / 设备键停水后 0x22 / 断连行为 / 杀进程恢复 / 热水表 0x86 / 顶号 errorCode / 设备页截图'
