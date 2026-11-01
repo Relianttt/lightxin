@@ -44,7 +44,7 @@ class QzxyInterceptorTest {
     fun `rateOrder 补齐公共字段后等于协议字段集合`() {
         val business = listOf(
             "deviceId" to "915",
-            "macAddress" to "C47F0E269CB1",
+            "macAddress" to "AABBCCDDEEFF",
             "macType" to "0039",
             "bigTypeId" to "4",
             "smallTypeId" to "57",
