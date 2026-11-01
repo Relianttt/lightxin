@@ -34,7 +34,7 @@ tags: [designsystem, motion, pager, leave, repair, checkin]
 
 ## 验证入口
 
-2026-10-25 后续修订：[动效 v3](2026-10-25-decision-motion-v3.md) 将 420ms tween 吸附改为临界阻尼弹簧，首页 tab 改为淡出淡入；对话框改为独立进退曲线与时长。分页跟手、默认 tab、独立位置、缓存与请求隔离规则不变。新手感尚未真机验收。
+2026-10-25 后续修订：[动效 v3](2026-10-25-decision-motion-v3.md) 将 420ms tween 吸附改为临界阻尼弹簧；对话框改为独立进退曲线与时长。首页底部 tab 转场见 [覆盖式页面转场](2026-11-01-decision-cover-page-transition.md)。分页跟手、默认 tab、独立位置、缓存与请求隔离规则不变。新手感尚未真机验收。
 
 - `LeaveListStoreTest`：双页并发、缓存读取不重拉、分页含撤回计数、刷新保留、失败隔离、过期响应。
 - `TabPagerInstrumentedTest`：松手前内容移动、短拖回位、双向滑动与边界、点 tab、独立滚动位置。

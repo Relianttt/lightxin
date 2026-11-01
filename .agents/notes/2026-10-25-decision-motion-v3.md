@@ -8,7 +8,7 @@ tags: [motion, compose, designsystem]
 
 ## 背景
 
-用户确认 UI 与动效 v3 报告，目标是细腻而非更快。单一曲线、同速进退与固定 tween 分页无法满足这次要求。本篇部分修订 [动效 token](2026-10-18-decision-lx-motion-tokens.md) 与 [跟手分页](2026-10-18-decision-gentle-tab-paging.md)。
+用户确认 UI 与动效 v3 报告，目标是细腻而非更快。单一曲线、同速进退与固定 tween 分页无法满足这次要求。本篇部分修订 [动效 token](2026-10-18-decision-lx-motion-tokens.md) 与 [跟手分页](2026-10-18-decision-gentle-tab-paging.md)；页面转场与首页底部 tab 由 [覆盖式页面转场](2026-11-01-decision-cover-page-transition.md) 取代。
 
 ## 决定
 
@@ -18,7 +18,7 @@ tags: [motion, compose, designsystem]
 - 转场不 overshoot；唯一轻回弹点为按压松开，`PressRelease` 阻尼 0.75，可独立回退为 1。
 - 固定时长除计数外不超过 450ms；手势驱动物理动画不受此限。系统边缘拉伸保留，不自定义 overscroll，不手写底部弹层运动。
 - 所有参数归 `LxMotion`；Compose durationScale 关闭动画时直接落终值，不用固定 delay 代替动画结束。
-- 底部 tab 淡出后淡入并轻缩放，不横移；跟手 Pager 使用临界阻尼弹簧吸附。列表行只变暗，按钮变暗并轻缩放，文字动作仅降低文字 alpha。
+- 页面转场与首页底部 tab 见 [覆盖式页面转场](2026-11-01-decision-cover-page-transition.md)；跟手 Pager 使用临界阻尼弹簧吸附。列表行只变暗，按钮变暗并轻缩放，文字动作仅降低文字 alpha。
 
 ### Token 表
 
@@ -27,8 +27,7 @@ tags: [motion, compose, designsystem]
 | 曲线 | Enter=(0.22,1,0.36,1)，Exit=(0.4,0,1,1)，InOut=(0.4,0,0.2,1) |
 | 按压 | In=90ms，Out=200ms，Button=0.97，Card=0.985，OverlayAlpha=0.05 |
 | 状态 / 内容 | State=220ms，StateExit=160ms，Enter=400ms，Shift=10dp，ContentDelay=60ms |
-| 页面 | Enter=400ms，FadeIn=280ms，FadeDelay=80ms，FadeOut=120ms，Exit=240ms，Shift=8%，反向退=4% |
-| tab | FadeOut=90ms，FadeIn=220ms，InitialScale=0.98 |
+| 页面 / 首页 tab | 见 [覆盖式页面转场](2026-11-01-decision-cover-page-transition.md) |
 | 浮层 | Enter=320ms，Exit=180ms，InitialScale=0.96，ExitScale=0.98 |
 | 首屏编排预留 | Stagger=30ms，MaxItems=5，Window=600ms，CountUp=700ms |
 | 首页卡片 | Enter=350ms，Stagger=60ms，Shift=0.3333（保留用户指定数值） |

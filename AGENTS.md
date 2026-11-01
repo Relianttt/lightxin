@@ -42,6 +42,8 @@ These constraints are non-negotiable. Changing any of them requires consulting t
 - 改了行为/架构/协议/格式：按 dsh-workflow 同步或新建 note。
 - 同一错误第二次出现：按 dsh-workflow 沉淀为 pitfall note 或门禁。
 
+## UIdesign
+Avoid unnecessary secondary labels and descriptions. Let the layout do the explaining.
 
 ## 项目碎片知识
 
