@@ -5,7 +5,6 @@ import android.net.Uri
 import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
-import android.os.Build
 import android.widget.Toast
 import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.EnterTransition
@@ -242,13 +241,7 @@ fun LightXinNavHost(
                     }
                 },
                 onDismiss = {
-                    context.findActivity()?.let { activity ->
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                            activity.finishAndRemoveTask()
-                        } else {
-                            activity.finishAffinity()
-                        }
-                    }
+                    context.findActivity()?.finishAndRemoveTask()
                 },
             )
         }

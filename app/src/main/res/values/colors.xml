@@ -2,6 +2,4 @@
 <resources>
     <!-- Splash 背景：与 LxCanvas 一致 -->
     <color name="splash_background">#FFFAF9F5</color>
-    <!-- 深色模式下 splash 背景：与 LxCanvas 深色一致 -->
-    <color name="splash_background_dark">#FF262624</color>
 </resources>

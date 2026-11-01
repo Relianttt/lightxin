@@ -1,11 +1,19 @@
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- 主题只有 values/ 与 values-night/ 两份，两份都写全。
+         style 的限定符变体之间不继承也不合并：任何变体都会整份覆盖，少写一个 item 就会在对应配置下丢失。
+         新 API 属性用 tools:targetApi 标注，低版本系统忽略未知属性，不会崩。 -->
     <style name="Theme.LightXin" parent="android:Theme.Material.Light.NoActionBar">
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <!-- StatusBar 图标明暗由 MainActivity 的 SystemBarStyle 在运行时决定，此处不再硬编码 -->
-        <!-- 窗口兜底背景与 splash/首页底色一致（night 变体自动生效），避免首帧前后闪白 -->
+        <!-- 窗口兜底背景与 splash/首页底色一致，避免首帧前后闪白 -->
         <item name="android:windowBackground">@color/splash_background</item>
-        <!-- API 26-30 的启动画面；31+ 由 values-v31 的 windowSplashScreen* 接管，此项被系统忽略 -->
+        <!-- API 26-30 的启动画面（31 起废弃，由下面的 windowSplashScreen* 接管） -->
         <item name="android:windowSplashscreenContent">@drawable/splash_content</item>
+        <!-- 禁止 ROM 强制反色，保证暖色 token 不被反色 -->
+        <item name="android:forceDarkAllowed" tools:targetApi="29">false</item>
+        <item name="android:windowSplashScreenBackground" tools:targetApi="31">@color/splash_background</item>
+        <item name="android:windowSplashScreenAnimatedIcon" tools:targetApi="31">@drawable/splash_logo</item>
+        <item name="android:windowSplashScreenAnimationDuration" tools:targetApi="31">500</item>
     </style>
 </resources>

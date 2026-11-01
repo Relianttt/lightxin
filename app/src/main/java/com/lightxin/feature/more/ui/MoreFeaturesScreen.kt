@@ -253,7 +253,6 @@ private fun Context.canScheduleExactAlarmsCompat(): Boolean {
 }
 
 private fun Context.isIgnoringBatteryOptimizationsCompat(): Boolean {
-    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return true
     val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
     return powerManager.isIgnoringBatteryOptimizations(packageName)
 }
@@ -269,7 +268,6 @@ private fun Context.openExactAlarmSettings() {
 }
 
 private fun Context.openBatteryOptimizationSettings(alreadyIgnored: Boolean) {
-    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return
     val intent = if (alreadyIgnored) {
         Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
     } else {
