@@ -25,5 +25,11 @@ object ApiConstants {
     // 爱作业平台
     const val BASE_IZUOYE = "https://izuoye.fifedu.com"
 
+    // 趣智校园（饮水 / 热水，独立会话，独立 OkHttpClient）
+    const val BASE_QZXY = "https://v3-api.china-qzxy.cn"
+    const val QZXY_VERSION = "6.5.28"
+    const val QZXY_CONFIG_KEYS =
+        "module_list,advertise_type,question_list,service_phone_list,banner_list_app,activity_list_app,aliCard_popup_config"
+
     const val APP_ID = "11111111111111111111111111111111"
 }

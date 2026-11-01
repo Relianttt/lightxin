@@ -24,6 +24,8 @@ import javax.inject.Singleton
 @Qualifier @Retention(AnnotationRetention.BINARY) annotation class FifRetrofit
 @Qualifier @Retention(AnnotationRetention.BINARY) annotation class FifOkHttpClient
 @Qualifier @Retention(AnnotationRetention.BINARY) annotation class IzuoyeRetrofit
+@Qualifier @Retention(AnnotationRetention.BINARY) annotation class QzxyOkHttpClient
+@Qualifier @Retention(AnnotationRetention.BINARY) annotation class QzxyRetrofit
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -113,4 +115,22 @@ object NetworkModule {
     @Provides @Singleton @IzuoyeRetrofit
     fun provideIzuoyeRetrofit(@FifOkHttpClient client: OkHttpClient): Retrofit =
         buildRetrofit(client, ApiConstants.BASE_IZUOYE + "/")
+
+    // ─── 趣智校园 ───
+
+    // 独立 client：主 client 的 AuthInterceptor 会注入学校接口的 access_token 等字段，
+    // 污染趣智请求。这里只挂 QzxyInterceptor。
+    @Provides @Singleton @QzxyOkHttpClient
+    fun provideQzxyOkHttpClient(qzxyInterceptor: QzxyInterceptor): OkHttpClient {
+        return OkHttpClient.Builder()
+            .addInterceptor(qzxyInterceptor)
+            .connectTimeout(15, TimeUnit.SECONDS)
+            .readTimeout(15, TimeUnit.SECONDS)
+            .writeTimeout(15, TimeUnit.SECONDS)
+            .build()
+    }
+
+    @Provides @Singleton @QzxyRetrofit
+    fun provideQzxyRetrofit(@QzxyOkHttpClient client: OkHttpClient): Retrofit =
+        buildRetrofit(client, ApiConstants.BASE_QZXY + "/")
 }

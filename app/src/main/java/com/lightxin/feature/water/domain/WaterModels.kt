@@ -74,6 +74,16 @@ data class ActiveOrder(
     val startedAt: Long = 0,
 )
 
+/** `rateOrder` 的返回：开阀要 [downData]，撤销要 [consumeDate]。 */
+data class RateOrderInfo(
+    /** 96 位 hex，原样转小写写进 0x21。 */
+    val downData: String,
+    /** yyyyMMddHHmmss。 */
+    val consumeDate: String,
+    /** 厘。 */
+    val rateLi: Long,
+)
+
 /** 结算结果，金额单位均为厘。 */
 data class SettleResult(
     val consumeMoneyLi: Long,
