@@ -13,7 +13,6 @@ import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.animation.core.FiniteAnimationSpec
-import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -721,13 +720,13 @@ fun LightXinNavHost(
 
 /**
  * 返回手势期间 NavHost 按手势进度 seek 这段转场，此时返回栈尚未出栈（被返回页仍在栈顶）：
- * 用线性曲线让页面位置等于手指进度；按钮/系统返回已出栈，走弹簧。
+ * 用跟手曲线（前段 1:1，松手后加速再减速）；按钮/系统返回已出栈，走弹簧。
  */
 private fun AnimatedContentTransitionScope<NavBackStackEntry>.popSlideSpec(
     navController: NavHostController,
 ): FiniteAnimationSpec<IntOffset> =
     if (navController.currentBackStackEntry?.id == initialState.id) {
-        tween(LxMotion.PageGestureMs, easing = LinearEasing)
+        tween(LxMotion.PageGestureMs, easing = LxMotion.PageGestureEasing)
     } else {
         LxMotion.pageSlide()
     }

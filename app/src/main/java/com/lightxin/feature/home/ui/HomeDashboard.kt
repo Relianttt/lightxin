@@ -40,6 +40,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -105,8 +106,12 @@ fun HomeDashboard(
     navController: NavHostController,
     onTabSelected: (Int) -> Unit,
     onRelogin: () -> Unit = {},
+    playEntrance: Boolean = true,
+    onEntranceLeft: () -> Unit = {},
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    // 首页内容被切走（换 Tab / 进二级页）即视为入场已播，回来时卡片直接就位
+    DisposableEffect(Unit) { onDispose(onEntranceLeft) }
 
     // 生命周期：ON_PAUSE 记录时间戳，ON_RESUME 触发副标题轮换判定 + 重算场景
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { viewModel.onResumed() }
@@ -199,7 +204,7 @@ fun HomeDashboard(
                 val errors = uiState.errors
 
                 // ── "下一节" headline（非卡片，叙事主角）──
-                StaggeredCard(index = 0) {
+                StaggeredCard(play = playEntrance, index = 0) {
                     NextClassHeadline(
                         courses = data.todayCourses,
                         tomorrowFirstSection = data.tomorrowFirstSection,
@@ -214,7 +219,7 @@ fun HomeDashboard(
                     modifier = Modifier.padding(horizontal = 20.dp),
                     verticalArrangement = Arrangement.spacedBy(14.dp),
                 ) {
-                    StaggeredCard(index = 1) {
+                    StaggeredCard(play = playEntrance, index = 1) {
                         TodayCourseCard(
                             courses = data.todayCourses,
                             currentWeek = data.currentWeek,
@@ -225,7 +230,7 @@ fun HomeDashboard(
                         )
                     }
 
-                    StaggeredCard(index = 2) {
+                    StaggeredCard(play = playEntrance, index = 2) {
                         RunningCard(
                             dashboard = data.runningProgress,
                             error = errors["running"],
@@ -236,7 +241,7 @@ fun HomeDashboard(
                     }
 
                     data.nextCheckin?.takeIf(::shouldShowCheckin)?.let { task ->
-                        StaggeredCard(index = 3) {
+                        StaggeredCard(play = playEntrance, index = 3) {
                             CheckinCard(
                                 task = task,
                                 onClick = {
@@ -247,7 +252,7 @@ fun HomeDashboard(
                     }
 
                     data.holidayTask?.takeIf(::shouldShowHoliday)?.let { task ->
-                        StaggeredCard(index = 4) {
+                        StaggeredCard(play = playEntrance, index = 4) {
                             HolidayCard(
                                 task = task,
                                 onClick = {
@@ -397,10 +402,11 @@ private fun buildNextClassHeadline(
 // ═══════════════ 通用 stagger 动画 ═══════════════
 
 @Composable
-private fun StaggeredCard(index: Int, content: @Composable () -> Unit) {
+private fun StaggeredCard(play: Boolean, index: Int, content: @Composable () -> Unit) {
     // 只在首次进入时播；7 月手感：350ms 上移 1/3 卡高，每档 60ms 错峰。
-    var visible by remember { mutableStateOf(false) }
+    var visible by remember { mutableStateOf(!play) }
     LaunchedEffect(Unit) {
+        if (visible) return@LaunchedEffect
         delay(index * LxMotion.CardStaggerMs.toLong())
         visible = true
     }

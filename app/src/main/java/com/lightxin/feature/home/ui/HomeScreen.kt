@@ -1,10 +1,8 @@
 package com.lightxin.feature.home.ui
 
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.padding
@@ -24,6 +22,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -36,8 +35,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import com.lightxin.core.designsystem.component.LxDialog
 import com.lightxin.core.designsystem.component.LxDialogConfirmTone
-import com.lightxin.core.designsystem.theme.LxInkFaint
 import com.lightxin.core.designsystem.theme.LxMotion
+import com.lightxin.core.designsystem.theme.LxInkFaint
 import com.lightxin.core.designsystem.theme.LxSand
 import com.lightxin.core.designsystem.theme.LxInkMuted
 import com.lightxin.core.designsystem.theme.LxParchment
@@ -66,6 +65,7 @@ fun HomeScreen(
     onRelogin: () -> Unit = {},
 ) {
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
+    var cardsEntered by rememberSaveable { mutableStateOf(false) }
 
     // ── 更新弹窗 ──
     UpdateDialog(updatePromptViewModel)
@@ -101,14 +101,13 @@ fun HomeScreen(
             }
         },
     ) { padding ->
+        // 底部 Tab：按顺序左右整屏推移，两页并排不重叠、不改透明度
         AnimatedContent(
             targetState = selectedTab,
             transitionSpec = {
-                (fadeIn(tween(LxMotion.TabFadeInMs, LxMotion.TabFadeOutMs, LxMotion.EaseEnter)) +
-                    scaleIn(
-                        tween(LxMotion.TabFadeInMs, LxMotion.TabFadeOutMs, LxMotion.EaseEnter),
-                        initialScale = LxMotion.TabInitialScale,
-                    )).togetherWith(fadeOut(tween(LxMotion.TabFadeOutMs, easing = LxMotion.EaseExit)))
+                val direction = if (targetState > initialState) 1 else -1
+                slideInHorizontally(LxMotion.pageSlide()) { it * direction }
+                    .togetherWith(slideOutHorizontally(LxMotion.pageSlide()) { -it * direction })
             },
             label = "tab_content",
         ) { tab ->
@@ -119,6 +118,8 @@ fun HomeScreen(
                     navController = navController,
                     onTabSelected = { selectedTab = it },
                     onRelogin = onRelogin,
+                    playEntrance = !cardsEntered,
+                    onEntranceLeft = { cardsEntered = true },
                 )
                 1 -> ScheduleScreen(modifier = Modifier.padding(padding))
                 2 -> ProfileScreen(

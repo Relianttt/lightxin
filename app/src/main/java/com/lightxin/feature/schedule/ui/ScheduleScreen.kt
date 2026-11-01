@@ -147,9 +147,14 @@ private fun WeekSelector(
     onWeekSelected: (Int) -> Unit,
 ) {
     val listState = rememberLazyListState()
+    // 首次直接落到选中周，之后点选周次才滚动过去
+    var positioned by remember { mutableStateOf(false) }
     LaunchedEffect(selectedWeek, weeks) {
         val index = weeks.indexOf(selectedWeek)
-        if (index >= 0) listState.animateScrollToItem((index - 2).coerceAtLeast(0))
+        if (index < 0) return@LaunchedEffect
+        val target = (index - 2).coerceAtLeast(0)
+        if (positioned) listState.animateScrollToItem(target) else listState.scrollToItem(target)
+        positioned = true
     }
     val currentWeekHint by remember(listState, currentWeek, weeks) {
         derivedStateOf {

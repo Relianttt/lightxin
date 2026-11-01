@@ -1,6 +1,7 @@
 package com.lightxin.core.designsystem.theme
 
 import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.Easing
 import androidx.compose.animation.core.SpringSpec
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
@@ -37,6 +38,19 @@ object LxMotion {
     val EaseExit = CubicBezierEasing(0.4f, 0f, 1f, 1f)
     /** 屏内往返（展开 / 收起、颜色）。 */
     val EaseInOut = CubicBezierEasing(0.4f, 0f, 0.2f, 1f)
+    /**
+     * 返回手势：前 20% 与手指 1:1；之后接三次 Hermite（起点斜率 1、终点斜率 0，最大斜率 4/3）。
+     * NavHost 松手后沿这条曲线按剩余比例实时播完，所以松手后是先加速、再减速落定，而不是匀速。
+     */
+    val PageGestureEasing = Easing { x ->
+        val track = 0.2f
+        if (x <= track) {
+            x
+        } else {
+            val s = (x - track) / (1f - track)
+            track + (1f - track) * (s + s * s - s * s * s)
+        }
+    }
 
     // ── 时长 ──
     const val PressInMs = 90
@@ -46,10 +60,8 @@ object LxMotion {
     const val EnterMs = 400          // 内容 / 列表项入场
     const val OverlayEnterMs = 320   // 对话框、菜单
     const val OverlayExitMs = 180
-    /** 返回手势期间页面按进度线性跟手；松手后按剩余比例走完这段时长。 */
+    /** 返回手势转场总时长；松手后按剩余比例走完，见 [PageGestureEasing]。 */
     const val PageGestureMs = 350
-    const val TabFadeOutMs = 90      // 底部 tab 淡出淡入
-    const val TabFadeInMs = 220
     const val ContentDelayMs = 60
     const val StaggerMs = 30
     const val StaggerMaxItems = 5
@@ -76,7 +88,6 @@ object LxMotion {
     // ── 位移 / 缩放 ──
     val EnterShiftDp = 10.dp
     const val PageUnderShiftFraction = 0.25f  // 覆盖式转场：下层页视差位移
-    const val TabInitialScale = 0.98f
     const val OverlayInitialScale = 0.96f
     const val OverlayExitScale = 0.98f
     const val PressedScaleButton = 0.97f
