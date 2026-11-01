@@ -46,11 +46,8 @@ object LxMotion {
     const val EnterMs = 400          // 内容 / 列表项入场
     const val OverlayEnterMs = 320   // 对话框、菜单
     const val OverlayExitMs = 180
-    const val PageEnterMs = 400
-    const val PageFadeInMs = 280
-    const val PageFadeDelayMs = 80
-    const val PageFadeOutMs = 120
-    const val PageExitMs = 240
+    /** 返回手势期间页面按进度线性跟手；松手后按剩余比例走完这段时长。 */
+    const val PageGestureMs = 350
     const val TabFadeOutMs = 90      // 底部 tab 淡出淡入
     const val TabFadeInMs = 220
     const val ContentDelayMs = 60
@@ -78,8 +75,7 @@ object LxMotion {
 
     // ── 位移 / 缩放 ──
     val EnterShiftDp = 10.dp
-    const val PageShiftFraction = 0.08f       // 新页面从 8% 处滑入
-    const val PageExitShiftFraction = 0.04f   // 旧页面反向退 4%
+    const val PageUnderShiftFraction = 0.25f  // 覆盖式转场：下层页视差位移
     const val TabInitialScale = 0.98f
     const val OverlayInitialScale = 0.96f
     const val OverlayExitScale = 0.98f
@@ -90,6 +86,8 @@ object LxMotion {
     // ── 弹簧 ──
     const val MoveStiffness = 380f
     const val SharedBoundsStiffness = 300f
+    /** 页面覆盖转场：临界阻尼，整屏位移约 400ms 视觉落定。 */
+    const val PageStiffness = 380f
     val PressIn: SpringSpec<Float> = spring(dampingRatio = 1f, stiffness = 1500f)
     /** 唯一允许的极轻回弹：按压松开。觉得多余时把 dampingRatio 改回 1f 即可整体回退。 */
     val PressRelease: SpringSpec<Float> = spring(dampingRatio = 0.75f, stiffness = 500f)
@@ -97,6 +95,8 @@ object LxMotion {
     fun pagerSnap(): SpringSpec<Float> = spring(dampingRatio = 1f, stiffness = MoveStiffness)
     fun placement(): SpringSpec<IntOffset> =
         spring(dampingRatio = 1f, stiffness = MoveStiffness, visibilityThreshold = IntOffset.VisibilityThreshold)
+    fun pageSlide(): SpringSpec<IntOffset> =
+        spring(dampingRatio = 1f, stiffness = PageStiffness, visibilityThreshold = IntOffset.VisibilityThreshold)
 
     // ── 常用 tween ──
     fun <T> enter(durationMs: Int = EnterMs, delayMs: Int = 0) = tween<T>(durationMs, delayMs, EaseEnter)

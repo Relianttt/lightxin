@@ -7,10 +7,13 @@ import android.content.Context
 import android.content.ContextWrapper
 import android.os.Build
 import android.widget.Toast
+import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionLayout
+import androidx.compose.animation.core.FiniteAnimationSpec
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -26,7 +29,9 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.IntOffset
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -200,33 +205,26 @@ fun LightXinNavHost(
     NavHost(
         navController = navController,
         startDestination = resolvedStartRoute,
+        // 覆盖式转场：上层页不透明、整屏宽滑入滑出，下层页同向视差；全程不改透明度，杜绝两页叠印。
         enterTransition = {
             if (suppressTransitions) EnterTransition.None
-            else fadeIn(tween(LxMotion.PageFadeInMs, LxMotion.PageFadeDelayMs, LxMotion.EaseEnter)) +
-                slideInHorizontally(tween(LxMotion.PageEnterMs, easing = LxMotion.EaseEnter)) {
-                    (it * LxMotion.PageShiftFraction).toInt()
-                }
+            else slideInHorizontally(LxMotion.pageSlide()) { it }
         },
         exitTransition = {
-            if (suppressTransitions) ExitTransition.None
-            else fadeOut(tween(LxMotion.PageFadeOutMs, easing = LxMotion.EaseExit)) +
-                slideOutHorizontally(tween(LxMotion.PageEnterMs, easing = LxMotion.EaseEnter)) {
-                    -(it * LxMotion.PageExitShiftFraction).toInt()
-                }
+            when {
+                suppressTransitions -> ExitTransition.None
+                // 掉登录是根切换：旧页原地不动，登录页淡入盖上
+                targetState.destination.route == Routes.LOGIN -> ExitTransition.KeepUntilTransitionsFinished
+                else -> slideOutHorizontally(LxMotion.pageSlide()) { -(it * LxMotion.PageUnderShiftFraction).toInt() }
+            }
         },
         popEnterTransition = {
             if (suppressTransitions) EnterTransition.None
-            else fadeIn(tween(LxMotion.PageFadeInMs, LxMotion.PageFadeDelayMs, LxMotion.EaseEnter)) +
-                slideInHorizontally(tween(LxMotion.PageEnterMs, easing = LxMotion.EaseEnter)) {
-                    -(it * LxMotion.PageExitShiftFraction).toInt()
-                }
+            else slideInHorizontally(popSlideSpec(navController)) { -(it * LxMotion.PageUnderShiftFraction).toInt() }
         },
         popExitTransition = {
             if (suppressTransitions) ExitTransition.None
-            else fadeOut(tween(LxMotion.PageFadeOutMs, easing = LxMotion.EaseExit)) +
-                slideOutHorizontally(tween(LxMotion.PageExitMs, easing = LxMotion.EaseExit)) {
-                    (it * LxMotion.PageShiftFraction).toInt()
-                }
+            else slideOutHorizontally(popSlideSpec(navController)) { it }
         },
     ) {
         composable(
@@ -273,8 +271,10 @@ fun LightXinNavHost(
 
         composable(
             Routes.HOME,
-            enterTransition = { fadeIn(LxMotion.enter()) },
-            exitTransition = { fadeOut(LxMotion.exit()) },
+            // 只有登录后进首页是根切换用淡入；返回 null 时其余进出回落到全局覆盖式转场
+            enterTransition = {
+                if (initialState.destination.route == Routes.LOGIN) fadeIn(LxMotion.enter()) else null
+            },
         ) {
             HomeScreen(navController = navController, onRelogin = onFifRelogin)
         }
@@ -718,6 +718,19 @@ fun LightXinNavHost(
     }
     }
 }
+
+/**
+ * 返回手势期间 NavHost 按手势进度 seek 这段转场，此时返回栈尚未出栈（被返回页仍在栈顶）：
+ * 用线性曲线让页面位置等于手指进度；按钮/系统返回已出栈，走弹簧。
+ */
+private fun AnimatedContentTransitionScope<NavBackStackEntry>.popSlideSpec(
+    navController: NavHostController,
+): FiniteAnimationSpec<IntOffset> =
+    if (navController.currentBackStackEntry?.id == initialState.id) {
+        tween(LxMotion.PageGestureMs, easing = LinearEasing)
+    } else {
+        LxMotion.pageSlide()
+    }
 
 private tailrec fun Context.findActivity(): Activity? = when (this) {
     is Activity -> this
