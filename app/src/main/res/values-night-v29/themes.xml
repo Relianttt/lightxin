@@ -1,5 +1,13 @@
 <resources>
+    <!-- 深色模式 + API 29+：此变体优先级高于 values-v31（night 限定符先于版本号比较），
+         因此 splash 相关 item 必须在这里写全，否则深色下会被覆盖成空白启动框。 -->
     <style name="Theme.LightXin" parent="android:Theme.Material.NoActionBar">
         <item name="android:forceDarkAllowed">false</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowBackground">@color/splash_background</item>
+        <item name="android:windowSplashScreenBackground">@color/splash_background</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/splash_logo</item>
+        <item name="android:windowSplashScreenAnimationDuration">500</item>
     </style>
 </resources>
