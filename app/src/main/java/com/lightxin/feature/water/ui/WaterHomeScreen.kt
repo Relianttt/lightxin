@@ -81,7 +81,6 @@ import com.lightxin.feature.water.domain.deviceSubtitle
 import com.lightxin.feature.water.domain.deviceTitle
 import com.lightxin.feature.water.domain.formatYuan
 import com.lightxin.feature.water.domain.parseDeviceCode
-import com.lightxin.feature.water.domain.waterTypeName
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.rememberCoroutineScope
 
