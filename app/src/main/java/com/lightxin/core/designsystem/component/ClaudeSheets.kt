@@ -26,12 +26,14 @@ import androidx.compose.material.icons.outlined.Remove
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.SheetState
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -61,6 +63,8 @@ import com.lightxin.core.designsystem.theme.LxTint
 import com.lightxin.core.designsystem.theme.lxEnterShift
 import com.lightxin.core.designsystem.theme.lxPressable
 import com.lightxin.core.designsystem.theme.LxTintStrong
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 import java.time.Duration
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -72,9 +76,11 @@ import java.time.format.DateTimeFormatter
 @Composable
 fun LxBottomSheet(
     onDismiss: () -> Unit,
-    content: @Composable () -> Unit,
+    content: @Composable LxSheetScope.() -> Unit,
 ) {
     val state = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val coroutineScope = rememberCoroutineScope()
+    val sheetScope = remember(state) { LxSheetScope(coroutineScope, state) }
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = state,
@@ -92,7 +98,20 @@ fun LxBottomSheet(
         },
     ) {
         Column(modifier = Modifier.lxEnterShift().padding(horizontal = 24.dp).padding(bottom = 28.dp)) {
-            content()
+            sheetScope.content()
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+class LxSheetScope internal constructor(
+    private val coroutineScope: CoroutineScope,
+    private val state: SheetState,
+) {
+    /** 先播完收起动画再执行 [then]：按钮关闭弹窗后要离开页面时用，避免页面先退出、弹窗后消失。 */
+    fun hide(then: () -> Unit) {
+        coroutineScope.launch { state.hide() }.invokeOnCompletion {
+            if (!state.isVisible) then()
         }
     }
 }

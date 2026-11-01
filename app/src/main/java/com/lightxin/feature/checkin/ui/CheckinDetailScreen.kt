@@ -84,9 +84,13 @@ fun CheckinDetailScreen(
     val uiState by viewModel.uiState.collectAsState()
     val error = uiState.error
     var photoFile by remember { mutableStateOf<File?>(null) }
+    var finished by remember { mutableStateOf(false) }
     val finish = {
-        onSubmitSuccess()
-        onBack()
+        if (!finished) {
+            finished = true
+            onSubmitSuccess()
+            onBack()
+        }
     }
 
     Scaffold(
@@ -147,6 +151,7 @@ private fun SuccessSheet(
     androidx.compose.runtime.LaunchedEffect(Unit) {
         haptic.performHapticFeedback(HapticFeedbackType.Confirm)
     }
+    // 滑动/点遮罩关闭时 ModalBottomSheet 自己会先收起再回调 onDismiss；按钮需要手动先收起
     LxBottomSheet(onDismiss = onDismiss) {
         androidx.compose.foundation.layout.Column(
             modifier = Modifier.fillMaxWidth(),
@@ -178,7 +183,7 @@ private fun SuccessSheet(
                 if (place.isNotBlank()) LxMetaRow(label = "地点", value = place)
             }
             androidx.compose.foundation.layout.Spacer(Modifier.height(20.dp))
-            LxPrimaryButton(text = "完成", onClick = onFinish)
+            LxPrimaryButton(text = "完成", onClick = { hide(onFinish) })
         }
     }
 }
