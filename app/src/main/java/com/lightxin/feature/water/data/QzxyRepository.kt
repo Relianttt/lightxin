@@ -8,6 +8,7 @@ import com.lightxin.feature.water.domain.DeviceUseTime
 import com.lightxin.feature.water.domain.RateOrderInfo
 import com.lightxin.feature.water.domain.SettleResult
 import com.lightxin.feature.water.domain.WaterDevice
+import com.lightxin.feature.water.domain.WaterOrderApi
 import java.io.IOException
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -22,7 +23,7 @@ class QzxySessionExpired(message: String) : QzxyException(message)
 class QzxyRepository @Inject constructor(
     private val api: QzxyApi,
     private val sessionStore: QzxySessionStore,
-) {
+) : WaterOrderApi {
 
     suspend fun session(): QzxySession? = sessionStore.current()
 
@@ -98,7 +99,10 @@ class QzxyRepository @Inject constructor(
 
     // ─── 订单（抛异常，供 WaterOrderRunner 编排） ───
 
-    suspend fun rateOrder(device: WaterDevice, status: DeviceStatus): RateOrderInfo {
+    override suspend fun localAccountId(): Int? =
+        sessionStore.current()?.accountId?.toIntOrNull()?.and(0xFFFF)
+
+    override suspend fun rateOrder(device: WaterDevice, status: DeviceStatus): RateOrderInfo {
         val session = requireSession()
         val signature = QzxyCrypto.sign(
             session.loginCode,
@@ -130,7 +134,7 @@ class QzxyRepository @Inject constructor(
         )
     }
 
-    suspend fun uploadData(status: DeviceStatus, xfDataLower: String): SettleResult {
+    override suspend fun uploadData(status: DeviceStatus, xfDataLower: String): SettleResult {
         val session = requireSession()
         val signature = QzxyCrypto.sign(
             session.loginCode,
@@ -156,7 +160,7 @@ class QzxyRepository @Inject constructor(
         )
     }
 
-    suspend fun uploadFail(consumeDate: String) {
+    override suspend fun uploadFail(consumeDate: String) {
         val session = requireSession()
         val signature = QzxyCrypto.sign(
             session.loginCode,
