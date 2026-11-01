@@ -92,9 +92,9 @@ fun WaterHomeScreen(
     onRequireLogin: () -> Unit,
     onScan: () -> Unit,
     onOpenDevice: (String) -> Unit,
+    modifier: Modifier = Modifier,
     shouldRefresh: Boolean = false,
     onRefreshConsumed: () -> Unit = {},
-    modifier: Modifier = Modifier,
     viewModel: WaterHomeViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
