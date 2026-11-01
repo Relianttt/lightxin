@@ -70,6 +70,13 @@ object Routes {
     const val REPAIR_DETAIL = "repair/detail/{bxdh}"
     fun repairDetail(bxdh: String) = "repair/detail/${Uri.encode(bxdh)}"
 
+    // Water (趣智校园)
+    const val WATER_HOME = "water/home"
+    const val WATER_LOGIN = "water/login"
+    const val WATER_SCAN = "water/scan"
+    const val WATER_DEVICE = "water/device/{mac}"
+    fun waterDevice(mac: String) = "water/device/${Uri.encode(mac)}"
+
     // About
     const val ABOUT = "about"
 }

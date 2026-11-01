@@ -58,6 +58,10 @@ import com.lightxin.feature.repair.ui.RepairDetailScreen
 import com.lightxin.feature.repair.ui.RepairListScreen
 import com.lightxin.feature.login.ui.LoginScreen
 import com.lightxin.feature.more.ui.MoreFeaturesScreen
+import com.lightxin.feature.water.ui.QzxyLoginScreen
+import com.lightxin.feature.water.ui.WaterDeviceScreen
+import com.lightxin.feature.water.ui.WaterHomeScreen
+import com.lightxin.feature.water.ui.WaterScanScreen
 import com.lightxin.feature.onboarding.ui.OnboardingScreen
 import com.lightxin.feature.running.ui.RouteSimulationSettingsScreen
 import com.lightxin.feature.running.ui.RouteTemplateImportScreen
@@ -594,6 +598,9 @@ fun LightXinNavHost(
                 onNavigateRepair = {
                     navController.navigate(Routes.REPAIR_LIST) { launchSingleTop = true }
                 },
+                onNavigateWater = {
+                    navController.navigate(Routes.WATER_HOME) { launchSingleTop = true }
+                },
             )
         }
 
@@ -701,6 +708,69 @@ fun LightXinNavHost(
         // Credit
         composable(Routes.CREDIT_OVERVIEW) {
             CreditScreen(onBack = { navController.popBackStack() })
+        }
+
+        // Water (趣智校园)
+        composable(Routes.WATER_HOME) { backStackEntry ->
+            val shouldRefresh by backStackEntry.savedStateHandle
+                .getStateFlow("water_refresh", false)
+                .collectAsState()
+            WaterHomeScreen(
+                onBack = { navController.popBackStack() },
+                onRequireLogin = {
+                    navController.navigate(Routes.WATER_LOGIN) {
+                        popUpTo(Routes.WATER_HOME) { inclusive = true }
+                    }
+                },
+                onScan = {
+                    navController.navigate(Routes.WATER_SCAN) { launchSingleTop = true }
+                },
+                onOpenDevice = { mac ->
+                    navController.navigate(Routes.waterDevice(mac)) { launchSingleTop = true }
+                },
+                shouldRefresh = shouldRefresh,
+                onRefreshConsumed = {
+                    backStackEntry.savedStateHandle["water_refresh"] = false
+                },
+            )
+        }
+        composable(Routes.WATER_LOGIN) {
+            QzxyLoginScreen(
+                onBack = { navController.popBackStack() },
+                onLoggedIn = {
+                    navController.navigate(Routes.WATER_HOME) {
+                        popUpTo(Routes.WATER_LOGIN) { inclusive = true }
+                    }
+                },
+            )
+        }
+        composable(Routes.WATER_SCAN) {
+            WaterScanScreen(
+                onBack = { navController.popBackStack() },
+                onOpenDevice = { mac ->
+                    navController.navigate(Routes.waterDevice(mac)) {
+                        popUpTo(Routes.WATER_SCAN) { inclusive = true }
+                    }
+                },
+            )
+        }
+        composable(
+            route = Routes.WATER_DEVICE,
+            arguments = listOf(navArgument("mac") { type = NavType.StringType }),
+        ) {
+            WaterDeviceScreen(
+                onBack = {
+                    navController.previousBackStackEntry
+                        ?.savedStateHandle
+                        ?.set("water_refresh", true)
+                    navController.popBackStack()
+                },
+                onRequireLogin = {
+                    navController.navigate(Routes.WATER_LOGIN) {
+                        popUpTo(Routes.WATER_HOME) { inclusive = true }
+                    }
+                },
+            )
         }
 
         // About

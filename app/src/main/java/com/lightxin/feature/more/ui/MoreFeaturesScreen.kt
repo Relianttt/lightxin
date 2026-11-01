@@ -28,6 +28,7 @@ import androidx.compose.material.icons.outlined.EventNote
 import androidx.compose.material.icons.outlined.Grading
 import androidx.compose.material.icons.outlined.HomeRepairService
 import androidx.compose.material.icons.outlined.NotificationsActive
+import androidx.compose.material.icons.outlined.WaterDrop
 import androidx.compose.material.icons.outlined.WorkHistory
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -70,6 +71,7 @@ fun MoreFeaturesScreen(
     onNavigateCredit: () -> Unit,
     onNavigateLeave: () -> Unit,
     onNavigateRepair: () -> Unit,
+    onNavigateWater: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -129,6 +131,12 @@ fun MoreFeaturesScreen(
                         icon = Icons.Outlined.HomeRepairService,
                         title = "报修",
                         onClick = onNavigateRepair,
+                    )
+                    MoreMenuDivider()
+                    MoreMenuRow(
+                        icon = Icons.Outlined.WaterDrop,
+                        title = "趣智校园",
+                        onClick = onNavigateWater,
                     )
                 }
             }
