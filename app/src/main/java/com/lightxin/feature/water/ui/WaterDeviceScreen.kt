@@ -1,18 +1,6 @@
 package com.lightxin.feature.water.ui
 
-import android.Manifest
-import android.annotation.SuppressLint
-import android.app.Activity
-import android.bluetooth.BluetoothAdapter
-import android.bluetooth.BluetoothManager
-import android.content.Context
-import android.content.Intent
-import android.content.pm.PackageManager
-import android.os.Build
-import android.provider.Settings
 import androidx.activity.compose.BackHandler
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -33,7 +21,6 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -46,14 +33,11 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.core.content.ContextCompat
-import androidx.core.net.toUri
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lightxin.core.designsystem.component.LxBottomBar
@@ -100,10 +84,8 @@ fun WaterDeviceScreen(
     val listState = rememberLazyListState()
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
-    val context = LocalContext.current
 
     var showLeaveSheet by remember { mutableStateOf(false) }
-    var pendingAction by remember { mutableStateOf<(() -> Unit)?>(null) }
 
     LaunchedEffect(Unit) {
         viewModel.events.collect { event ->
@@ -125,57 +107,7 @@ fun WaterDeviceScreen(
     }
     BackHandler(enabled = true, onBack = backAction)
 
-    // 权限 / 蓝牙前置检查：全都通过后才跑业务动作
-    fun showPermissionSnackbar() {
-        scope.launch {
-            val result = snackbarHostState.showSnackbar(
-                message = "需要“附近的设备”权限才能连接",
-                actionLabel = "设置",
-            )
-            if (result == SnackbarResult.ActionPerformed) {
-                context.startActivity(
-                    Intent(
-                        Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-                        "package:${context.packageName}".toUri(),
-                    ),
-                )
-            }
-        }
-    }
-
-    val permissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission(),
-    ) { granted ->
-        if (granted) pendingAction?.invoke() else showPermissionSnackbar()
-        pendingAction = null
-    }
-    val enableBluetoothLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.StartActivityForResult(),
-    ) { result ->
-        if (result.resultCode == Activity.RESULT_OK) pendingAction?.invoke()
-        pendingAction = null
-    }
-
-    val ensureBluetoothThen: (() -> Unit) -> Unit = { action ->
-        val needsPermission = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
-            ContextCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_CONNECT) !=
-            PackageManager.PERMISSION_GRANTED
-        if (needsPermission) {
-            pendingAction = action
-            permissionLauncher.launch(Manifest.permission.BLUETOOTH_CONNECT)
-        } else {
-            val adapter = bluetoothAdapter(context)
-            when {
-                adapter == null -> scope.launch { snackbarHostState.showSnackbar("此手机不支持蓝牙") }
-                !isBluetoothEnabled(adapter) -> {
-                    pendingAction = action
-                    enableBluetoothLauncher.launch(Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE))
-                }
-
-                else -> action()
-            }
-        }
-    }
+    val ensureBluetoothThen = rememberBluetoothGate(BluetoothUse.Connect, snackbarHostState)
 
     // Running 期间屏幕常亮
     val view = LocalView.current
@@ -417,10 +349,3 @@ internal fun formatElapsed(millis: Long): String {
         "%02d:%02d".format(minutes, seconds)
     }
 }
-
-@SuppressLint("MissingPermission")
-private fun bluetoothAdapter(context: Context): BluetoothAdapter? =
-    (context.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager)?.adapter
-
-@SuppressLint("MissingPermission")
-private fun isBluetoothEnabled(adapter: BluetoothAdapter): Boolean = adapter.isEnabled

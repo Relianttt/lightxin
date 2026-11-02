@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -112,6 +113,11 @@ fun WaterHomeScreen(
         staggerDone = true
     }
     val playStagger = !staggerDone
+    val ensureScan = rememberBluetoothGate(BluetoothUse.Scan, snackbarHostState)
+    val openDevice: (String) -> Unit = { mac ->
+        viewModel.stopScan()
+        onOpenDevice(mac)
+    }
 
     LaunchedEffect(shouldRefresh) {
         if (shouldRefresh) {
@@ -187,8 +193,45 @@ fun WaterHomeScreen(
                         Spacer(Modifier.height(12.dp))
                         PendingPanel(
                             title = order.deviceName,
-                            onClick = { onOpenDevice(order.mac) },
+                            onClick = { openDevice(order.mac) },
                             modifier = Modifier.lxStaggerEnter(index = 1, play = playStagger),
+                        )
+                    }
+                }
+                item(key = "nearbyLabel") {
+                    Row(
+                        modifier = Modifier
+                            .padding(top = 24.dp, bottom = 4.dp)
+                            .lxStaggerEnter(index = 2, play = playStagger),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        LxSectionLabel(text = "附近设备", modifier = Modifier.weight(1f))
+                        val scanning = uiState.nearbyScan == NearbyScan.Scanning
+                        LxTextAction(
+                            text = if (scanning) "搜索中…" else "搜索",
+                            onClick = { ensureScan(viewModel::scanNearby) },
+                            enabled = !scanning,
+                        )
+                    }
+                }
+                items(uiState.nearby, key = { "nearby:" + it.device.mac }) { entry ->
+                    RecentDeviceRow(
+                        device = entry.device,
+                        onClick = { openDevice(entry.device.mac) },
+                        modifier = Modifier.animateItem(
+                            fadeInSpec = LxMotion.enter(),
+                            placementSpec = LxMotion.placement(),
+                            fadeOutSpec = LxMotion.exit(),
+                        ),
+                    )
+                }
+                if (uiState.nearbyScan == NearbyScan.Done && uiState.nearby.isEmpty()) {
+                    item(key = "nearbyEmpty") {
+                        Text(
+                            text = "附近没有发现设备",
+                            fontSize = 13.sp,
+                            color = LxTextMuted,
+                            modifier = Modifier.padding(vertical = 12.dp),
                         )
                     }
                 }
@@ -198,24 +241,24 @@ fun WaterHomeScreen(
                             text = "最近使用",
                             modifier = Modifier
                                 .padding(top = 24.dp, bottom = 4.dp)
-                                .lxStaggerEnter(index = 2, play = playStagger),
+                                .lxStaggerEnter(index = 3, play = playStagger),
                         )
                     }
                     itemsIndexed(uiState.recentDevices, key = { _, device -> device.mac }) { index, device ->
                         RecentDeviceRow(
                             device = device,
-                            onClick = { onOpenDevice(device.mac) },
-                            modifier = Modifier.lxStaggerEnter(index = 3 + index, play = playStagger),
+                            onClick = { openDevice(device.mac) },
+                            modifier = Modifier.lxStaggerEnter(index = 4 + index, play = playStagger),
                         )
                     }
                 }
-                if (uiState.recentDevices.isEmpty() && uiState.activeOrder == null) {
+                if (uiState.recentDevices.isEmpty() && uiState.activeOrder == null && uiState.nearby.isEmpty()) {
                     item(key = "empty") {
                         Box(
                             modifier = Modifier
                                 .fillParentMaxHeight(0.45f)
                                 .fillMaxWidth()
-                                .lxStaggerEnter(index = 2, play = playStagger),
+                                .lxStaggerEnter(index = 3, play = playStagger),
                             contentAlignment = Alignment.Center,
                         ) {
                             LxEmptyState(
@@ -234,7 +277,7 @@ fun WaterHomeScreen(
             onDismiss = { showInputSheet = false },
             onConfirm = { mac ->
                 showInputSheet = false
-                onOpenDevice(mac)
+                openDevice(mac)
             },
         )
     }

@@ -54,5 +54,6 @@ tags: [qzxy, water, bluetooth, network]
 
 - 新增 `feature/water/{data,domain,ui}`、`core/network/QzxyInterceptor.kt`、`core/auth/QzxySessionStore.kt`、
   `core/designsystem/component/QrCodeScanner.kt`（从 AI 课堂抽出）。
-- Manifest 增加 `BLUETOOTH` / `BLUETOOTH_ADMIN`（maxSdk 30）与 `BLUETOOTH_CONNECT`；只连已知 MAC，不需要 `BLUETOOTH_SCAN` 与定位权限；因此 API 31+ 不能调 `cancelDiscovery()`（它要求 `BLUETOOTH_SCAN`，会抛 SecurityException），仅在 31 以下调用。
+- Manifest 增加 `BLUETOOTH` / `BLUETOOTH_ADMIN`（maxSdk 30）与 `BLUETOOTH_CONNECT`；连接已知 MAC 不需要扫描权限，所以 `SppTransport` 在 API 31+ 不调 `cancelDiscovery()`（它要求 `BLUETOOTH_SCAN`，未授权会抛 SecurityException）。
+- 首页「附近设备」按需搜索（点了才申请权限，扫 8 秒）：`NearbyScanner` 同时做 BLE 扫描（热水表）与经典查询（饮水机），按广播名前缀 `KLCXKJ` 或 BLE 服务 `FEE7` 识别；设备全部同名，逐个 `deviceByMac` 查到名称才展示。API 31+ 申请 `BLUETOOTH_SCAN`（`neverForLocation`）+ `BLUETOOTH_CONNECT`，30 及以下用已声明的定位权限并要求系统定位开启。饮水机能否被经典查询搜到未实测。
 - 账号被官方 App 顶号时会话失效，`QzxyRepository` 会清会话并跳登录页；登录页不额外解释。

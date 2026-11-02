@@ -4,9 +4,12 @@ import android.net.Uri
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.lightxin.feature.water.data.QzxyException
 import com.lightxin.feature.water.data.QzxyRepository
 import com.lightxin.feature.water.data.QzxySessionExpired
 import com.lightxin.feature.water.data.WaterLocalStore
+import com.lightxin.feature.water.data.bt.NearbyDevice
+import com.lightxin.feature.water.data.bt.NearbyScanner
 import com.lightxin.feature.water.domain.ActiveOrder
 import com.lightxin.feature.water.domain.RecentDevice
 import com.lightxin.feature.water.domain.SettleResult
@@ -17,6 +20,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -24,6 +28,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import javax.inject.Inject
 
 /** 一次性事件：snackbar 文案与「回登录页」。 */
@@ -148,13 +153,23 @@ data class WaterHomeUiState(
     val activeOrder: ActiveOrder? = null,
     // 仅下拉刷新时为 true；首次加载只显示骨架，不出刷新圈
     val isRefreshing: Boolean = false,
+    val nearby: List<NearbyEntry> = emptyList(),
+    val nearbyScan: NearbyScan = NearbyScan.Idle,
 )
+
+enum class NearbyScan { Idle, Scanning, Done }
+
+/** 搜到且查到设备信息的附近设备，按信号强弱排序。 */
+data class NearbyEntry(val device: RecentDevice, val rssi: Int?)
 
 @HiltViewModel
 class WaterHomeViewModel @Inject constructor(
     private val repository: QzxyRepository,
     private val store: WaterLocalStore,
+    private val scanner: NearbyScanner,
 ) : ViewModel() {
+
+    private var scanJob: Job? = null
 
     private val _uiState = MutableStateFlow(WaterHomeUiState())
     val uiState: StateFlow<WaterHomeUiState> = _uiState.asStateFlow()
@@ -180,6 +195,68 @@ class WaterHomeViewModel @Inject constructor(
             _uiState.update { it.copy(isRefreshing = false) }
         }
     }
+
+    /** 搜索 [SCAN_MS] 毫秒；每个新 MAC 查一次设备信息，查不到的不展示。 */
+    fun scanNearby() {
+        if (scanJob?.isActive == true) return
+        _uiState.update { it.copy(nearby = emptyList(), nearbyScan = NearbyScan.Scanning) }
+        scanJob = viewModelScope.launch {
+            val seen = mutableSetOf<String>()
+            val lookups = mutableListOf<Job>()
+            try {
+                withTimeoutOrNull(SCAN_MS) {
+                    scanner.scan().collect { found ->
+                        if (seen.add(found.mac)) {
+                            // 挂在外层协程上，扫描超时不打断进行中的查询
+                            lookups += this@launch.launch { resolveNearby(found) }
+                        } else {
+                            updateRssi(found)
+                        }
+                    }
+                }
+                lookups.joinAll()
+            } catch (e: QzxyException) {
+                _events.send(WaterEvent.Message(e.message.orEmpty()))
+            } finally {
+                _uiState.update { it.copy(nearbyScan = NearbyScan.Done) }
+            }
+        }
+    }
+
+    /** 连接设备前停止搜索：经典蓝牙查询会拖慢连接。 */
+    fun stopScan() {
+        scanJob?.cancel()
+    }
+
+    private suspend fun resolveNearby(found: NearbyDevice) {
+        val device = repository.deviceByMac(found.mac).getOrNull() ?: return
+        val entry = NearbyEntry(
+            device = RecentDevice(
+                mac = device.macWithColon,
+                deviceName = device.deviceName,
+                bigTypeId = device.bigTypeId,
+                roomName = device.roomName,
+                areaName = device.areaName,
+                buildingName = device.buildingName,
+                floorName = device.floorName,
+            ),
+            rssi = found.rssi,
+        )
+        _uiState.update { state -> state.copy(nearby = (state.nearby + entry).sortedByRssi()) }
+    }
+
+    private fun updateRssi(found: NearbyDevice) {
+        val rssi = found.rssi ?: return
+        _uiState.update { state ->
+            state.copy(
+                nearby = state.nearby
+                    .map { if (it.device.mac == found.mac) it.copy(rssi = rssi) else it }
+                    .sortedByRssi(),
+            )
+        }
+    }
+
+    private fun List<NearbyEntry>.sortedByRssi() = sortedByDescending { it.rssi ?: Int.MIN_VALUE }
 
     fun logout() {
         viewModelScope.launch {
@@ -209,6 +286,10 @@ class WaterHomeViewModel @Inject constructor(
                 }
             }
         _uiState.update { it.copy(balanceLoading = false) }
+    }
+
+    private companion object {
+        const val SCAN_MS = 8_000L
     }
 }
 
