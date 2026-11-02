@@ -43,7 +43,8 @@ These constraints are non-negotiable. Changing any of them requires consulting t
 - 同一错误第二次出现：按 dsh-workflow 沉淀为 pitfall note 或门禁。
 
 ## UIdesign
-Avoid unnecessary secondary labels and descriptions. Let the layout do the explaining.
+1. Avoid unnecessary secondary labels and descriptions. Let the layout do the explaining.
+2. 动画节奏应该统一，但动画行为不必完全一致。
 
 ## 项目碎片知识
 
