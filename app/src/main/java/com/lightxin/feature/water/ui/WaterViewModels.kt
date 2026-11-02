@@ -146,9 +146,9 @@ data class WaterHomeUiState(
     val balanceLoading: Boolean = false,
     val recentDevices: List<RecentDevice> = emptyList(),
     val activeOrder: ActiveOrder? = null,
-) {
-    val isRefreshing: Boolean get() = balanceLoading
-}
+    // 仅下拉刷新时为 true；首次加载只显示骨架，不出刷新圈
+    val isRefreshing: Boolean = false,
+)
 
 @HiltViewModel
 class WaterHomeViewModel @Inject constructor(
@@ -174,7 +174,11 @@ class WaterHomeViewModel @Inject constructor(
     }
 
     fun refresh() {
-        viewModelScope.launch { loadBalance() }
+        viewModelScope.launch {
+            _uiState.update { it.copy(isRefreshing = true) }
+            loadBalance()
+            _uiState.update { it.copy(isRefreshing = false) }
+        }
     }
 
     fun logout() {

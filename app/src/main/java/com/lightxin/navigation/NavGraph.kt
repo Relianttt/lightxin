@@ -14,7 +14,6 @@ import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.animation.core.FiniteAnimationSpec
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.runtime.Composable
@@ -109,6 +108,9 @@ fun LightXinNavHost(
         LxLoading()
         return
     }
+    // 起始页只取首次结果：startDestination 变化会让 NavHost setGraph 清栈重建，
+    // 登录成功后会再压一个首页，与已在淡入的首页叠在一起。
+    val startDestination = remember { resolvedStartRoute }
 
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
@@ -206,7 +208,7 @@ fun LightXinNavHost(
     SharedTransitionLayout {
     NavHost(
         navController = navController,
-        startDestination = resolvedStartRoute,
+        startDestination = startDestination,
         // 覆盖式转场：上层页不透明、整屏宽滑入滑出，下层页同向视差；全程不改透明度，杜绝两页叠印。
         enterTransition = {
             if (suppressTransitions) EnterTransition.None
@@ -232,7 +234,8 @@ fun LightXinNavHost(
         composable(
             Routes.ONBOARDING,
             enterTransition = { fadeIn(LxMotion.enter()) },
-            exitTransition = { fadeOut(LxMotion.exit()) },
+            // 根切换：旧页原地不动，新页淡入盖上；两页同时淡会叠印
+            exitTransition = { ExitTransition.KeepUntilTransitionsFinished },
         ) {
             val context = LocalContext.current
             OnboardingScreen(
@@ -253,7 +256,8 @@ fun LightXinNavHost(
         composable(
             Routes.LOGIN,
             enterTransition = { fadeIn(LxMotion.enter()) },
-            exitTransition = { fadeOut(LxMotion.exit()) },
+            // 根切换：旧页原地不动，新页淡入盖上；两页同时淡会叠印
+            exitTransition = { ExitTransition.KeepUntilTransitionsFinished },
         ) {
             LoginScreen(
                 onLoginSuccess = {
@@ -356,6 +360,7 @@ fun LightXinNavHost(
                 onBack = { navController.popBackStack() },
                 onNavigateResult = {
                     navController.navigate(Routes.RUNNING_RESULT) {
+                        popUpTo(Routes.RUNNING_ACTIVE) { inclusive = true }
                         launchSingleTop = true
                     }
                 },
@@ -369,6 +374,7 @@ fun LightXinNavHost(
                 onBack = { navController.popBackStack() },
                 onNavigateResult = {
                     navController.navigate(Routes.RUNNING_RESULT) {
+                        popUpTo(Routes.RUNNING_SIM) { inclusive = true }
                         launchSingleTop = true
                     }
                 },
@@ -379,23 +385,14 @@ fun LightXinNavHost(
             val runningViewModel: RunningViewModel = hiltViewModel(homeEntry)
             RunningResultScreen(
                 viewModel = runningViewModel,
-                onBack = {
-                    navController.navigate(Routes.RUNNING_HOME) {
-                        popUpTo(Routes.RUNNING_HOME) { inclusive = true }
-                    }
-                },
+                onBack = { navController.popBackStack() },
+                // 退回已有的跑步首页走返回转场；从通知直达时栈里没有跑步首页，才新开一个
                 onBackToRunning = {
-                    navController.navigate(Routes.RUNNING_HOME) {
-                        popUpTo(Routes.RUNNING_HOME) { inclusive = true }
-                        launchSingleTop = true
+                    if (!navController.popBackStack(Routes.RUNNING_HOME, inclusive = false)) {
+                        navController.navigate(Routes.RUNNING_HOME) { popUpTo(Routes.HOME) }
                     }
                 },
-                onBackToHome = {
-                    navController.navigate(Routes.HOME) {
-                        popUpTo(Routes.HOME) { inclusive = false }
-                        launchSingleTop = true
-                    }
-                },
+                onBackToHome = { navController.popBackStack(Routes.HOME, inclusive = false) },
             )
         }
         composable(Routes.RUNNING_CLUB_DETAIL) {

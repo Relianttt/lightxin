@@ -79,18 +79,12 @@ fun RunningResultScreen(
             item {
                 LxButton(
                     text = "返回跑步首页",
-                    onClick = {
-                        viewModel.clearResult()
-                        onBackToRunning()
-                    },
+                    onClick = onBackToRunning,
                 )
                 Spacer(modifier = Modifier.height(10.dp))
                 LxOutlinedButton(
                     text = "返回首页",
-                    onClick = {
-                        viewModel.clearResult()
-                        onBackToHome()
-                    },
+                    onClick = onBackToHome,
                 )
             }
         }

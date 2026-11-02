@@ -347,10 +347,6 @@ class RunningViewModel @Inject constructor(
         _uiState.update { it.copy(startError = null) }
     }
 
-    fun clearResult() {
-        _uiState.update { it.copy(lastResult = null, shouldNavigateToResult = false) }
-    }
-
     fun simulationSpeedKmh(): Double? {
         val distance = _uiState.value.simDistance.toDoubleOrNull() ?: return null
         val durationMinutes = _uiState.value.simDurationMinutes.toDoubleOrNull() ?: return null

@@ -14,7 +14,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -35,6 +35,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -75,12 +76,15 @@ import com.lightxin.core.designsystem.theme.LxText
 import com.lightxin.core.designsystem.theme.LxTextMuted
 import com.lightxin.core.designsystem.theme.LxTextSecondary
 import com.lightxin.core.designsystem.theme.LxTint
+import com.lightxin.core.designsystem.theme.LxMotion
+import com.lightxin.core.designsystem.theme.lxStaggerEnter
 import com.lightxin.core.designsystem.theme.lxPressable
 import com.lightxin.feature.water.domain.RecentDevice
 import com.lightxin.feature.water.domain.deviceSubtitle
 import com.lightxin.feature.water.domain.deviceTitle
 import com.lightxin.feature.water.domain.formatYuan
 import com.lightxin.feature.water.domain.parseDeviceCode
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.rememberCoroutineScope
 
@@ -102,6 +106,12 @@ fun WaterHomeScreen(
     val scope = rememberCoroutineScope()
     var showInputSheet by remember { mutableStateOf(false) }
     var showLogoutSheet by remember { mutableStateOf(false) }
+    var staggerDone by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        delay(LxMotion.StaggerWindowMs.toLong())
+        staggerDone = true
+    }
+    val playStagger = !staggerDone
 
     LaunchedEffect(shouldRefresh) {
         if (shouldRefresh) {
@@ -168,6 +178,8 @@ fun WaterHomeScreen(
                         balance = uiState.balance,
                         loading = uiState.balanceLoading,
                         onRetry = viewModel::refresh,
+                        onLogout = { showLogoutSheet = true },
+                        modifier = Modifier.lxStaggerEnter(index = 0, play = playStagger),
                     )
                 }
                 uiState.activeOrder?.let { order ->
@@ -176,6 +188,7 @@ fun WaterHomeScreen(
                         PendingPanel(
                             title = order.deviceName,
                             onClick = { onOpenDevice(order.mac) },
+                            modifier = Modifier.lxStaggerEnter(index = 1, play = playStagger),
                         )
                     }
                 }
@@ -183,17 +196,26 @@ fun WaterHomeScreen(
                     item(key = "recentLabel") {
                         LxSectionLabel(
                             text = "最近使用",
-                            modifier = Modifier.padding(top = 24.dp, bottom = 4.dp),
+                            modifier = Modifier
+                                .padding(top = 24.dp, bottom = 4.dp)
+                                .lxStaggerEnter(index = 2, play = playStagger),
                         )
                     }
-                    items(uiState.recentDevices, key = { it.mac }) { device ->
-                        RecentDeviceRow(device = device, onClick = { onOpenDevice(device.mac) })
+                    itemsIndexed(uiState.recentDevices, key = { _, device -> device.mac }) { index, device ->
+                        RecentDeviceRow(
+                            device = device,
+                            onClick = { onOpenDevice(device.mac) },
+                            modifier = Modifier.lxStaggerEnter(index = 3 + index, play = playStagger),
+                        )
                     }
                 }
                 if (uiState.recentDevices.isEmpty() && uiState.activeOrder == null) {
                     item(key = "empty") {
                         Box(
-                            modifier = Modifier.fillParentMaxHeight(0.45f).fillMaxWidth(),
+                            modifier = Modifier
+                                .fillParentMaxHeight(0.45f)
+                                .fillMaxWidth()
+                                .lxStaggerEnter(index = 2, play = playStagger),
                             contentAlignment = Alignment.Center,
                         ) {
                             LxEmptyState(
@@ -201,18 +223,6 @@ fun WaterHomeScreen(
                                 body = "扫描设备上的二维码开始",
                             )
                         }
-                    }
-                }
-                item(key = "logout") {
-                    Box(
-                        modifier = Modifier.fillMaxWidth().padding(top = 32.dp),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        LxTextAction(
-                            text = "退出趣智校园",
-                            onClick = { showLogoutSheet = true },
-                            color = LxTextMuted,
-                        )
                     }
                 }
             }
@@ -249,9 +259,14 @@ private fun BalancePanel(
     balance: String?,
     loading: Boolean,
     onRetry: () -> Unit,
+    onLogout: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    LxPanel(radius = LxRadiusLg, padding = 20.dp) {
-        LxSectionLabel("余额")
+    LxPanel(radius = LxRadiusLg, padding = 20.dp, modifier = modifier) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            LxSectionLabel("余额", modifier = Modifier.weight(1f))
+            LxTextAction(text = "退出", onClick = onLogout, color = LxTextMuted)
+        }
         Row(
             modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -288,8 +303,9 @@ private fun BalancePanel(
 private fun PendingPanel(
     title: String,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    LxPanel(padding = 16.dp, modifier = Modifier.lxPressable(onClick = onClick)) {
+    LxPanel(padding = 16.dp, modifier = modifier.lxPressable(onClick = onClick)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(modifier = Modifier.weight(1f)) {
                 LxStatus(text = "未结算", tone = LxTone.Warning)
@@ -312,9 +328,10 @@ private fun PendingPanel(
 private fun RecentDeviceRow(
     device: RecentDevice,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     Row(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .lxPressable(onClick = onClick)
             .padding(vertical = 14.dp),

@@ -21,7 +21,7 @@ tags: [motion, navigation, compose, designsystem]
 
 - **页面层级用覆盖式（参考 iOS）**：上层页整屏宽滑入/滑出，全程不改透明度；下层页同向视差 `PageUnderShiftFraction=0.25`。进退都用 `LxMotion.pageSlide()`（临界阻尼，stiffness `PageStiffness=380`）。层级由 NavHost 的 zIndex 管：push 时新页在上，pop 时被返回页在上。
 - **页面根容器必须不透明**（`Scaffold` 默认 `background` 即可），否则下层页会透出来。
-- **路由不单独覆盖转场**，统一走 `LightXinNavHost` 的全局转场；确需覆盖时记住 `popEnter/popExit` 会默认继承。根切换是例外：登录后进首页淡入；跳登录页时旧页 `KeepUntilTransitionsFinished`，登录页淡入盖上。
+- **路由不单独覆盖转场**，统一走 `LightXinNavHost` 的全局转场；确需覆盖时记住 `popEnter/popExit` 会默认继承。根切换是例外：旧页一律 `KeepUntilTransitionsFinished` 原地不动，新页（首页 / 登录页）淡入盖上，不让两页同时淡出淡入。`NavHost` 的 `startDestination` 只取首次解析结果并冻结——它一变 `setGraph` 就清栈重建，登录后会多压一个首页，与淡入中的首页叠印。
 - **返回手势沿用 NavHost 内置的预测性返回**：navigation-compose 2.9.x 用 `SeekableTransitionState.seekTo(progress)` 驱动 `popEnter/popExit`，不自建 `AnimatedContent`。手势期间返回栈还没出栈（被返回页仍是 `currentBackStackEntry`），据此在 `popSlideSpec` 里区分手势与按钮返回：
   - 手势用 `tween(PageGestureMs=350, PageGestureEasing)`：前 20% 与手指 1:1，之后接三次 Hermite（起点斜率 1、终点斜率 0、最大斜率 4/3）。松手后 NavHost 沿这条曲线按剩余比例实时播完，表现为先加速再减速落定。
   - 按钮/系统返回已出栈，用 `pageSlide()` 弹簧。
