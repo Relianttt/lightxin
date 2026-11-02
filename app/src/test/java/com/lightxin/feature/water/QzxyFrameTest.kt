@@ -1,5 +1,6 @@
 package com.lightxin.feature.water
 
+import com.lightxin.feature.water.data.bt.FrameAssembler
 import com.lightxin.feature.water.data.bt.QzxyFrame
 import com.lightxin.feature.water.data.bt.hexToBytes
 import com.lightxin.feature.water.data.bt.toHexLower
@@ -95,6 +96,35 @@ class QzxyFrameTest {
         assertEquals(
             "261101233444000001fa000003930000111100000002",
             QzxyFrame.ackPayload(xf).toHexLower(),
+        )
+    }
+
+    @Test
+    fun `分包到达的字节拼成整帧`() {
+        val assembler = FrameAssembler()
+        val text = "#600004812100802216\n#60000480230000a316\n".toByteArray(Charsets.US_ASCII)
+        val first = assembler.feed(text.copyOfRange(0, 7))
+        val rest = assembler.feed(text.copyOfRange(7, text.size))
+
+        assertTrue(first.isEmpty())
+        assertEquals(listOf(QzxyFrame.CMD_RATE, QzxyFrame.CMD_STATUS), rest.map { it.cmd })
+        assertEquals(QzxyFrame.RESPONSE, rest[0].direction)
+    }
+
+    @Test
+    fun `热水表 BLE 实测：0x85 应答经 20 字节分包后算出的写回帧与官方一致`() {
+        // 11-02 23:57 btsnoop：FF01 通知按 20 字节分包，手机随后向 FF02 写 0x86
+        val notified = "#60002D81850080261102234710000001FA0000039300002DE50200000002" +
+            "000013880000051400000032C47F0E269CB18A16\n"
+        val assembler = FrameAssembler()
+        val frames = notified.toByteArray(Charsets.US_ASCII).toList().chunked(20)
+            .flatMap { assembler.feed(it.toByteArray()) }
+        val collected = frames.single().data
+
+        val ack = QzxyFrame.encode(QzxyFrame.CMD_ACK, QzxyFrame.ackPayload(collected))
+        assertEquals(
+            "#6000198086002611022" + "34710000001fa0000039" + "300002de5000000025e1" + "6\n",
+            ack.toString(Charsets.US_ASCII),
         )
     }
 }

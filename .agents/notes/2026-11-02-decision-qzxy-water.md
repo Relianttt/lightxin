@@ -8,7 +8,7 @@ tags: [qzxy, water, bluetooth, network]
 
 ## 背景
 
-接入趣智校园，用经典蓝牙 SPP（RFCOMM）控制本校饮水机（`bigTypeId=5`）与公寓热水表（`bigTypeId=4`）。
+接入趣智校园，控制本校饮水机（`bigTypeId=5`，经典蓝牙 SPP）与公寓热水表（`bigTypeId=4`，BLE GATT）。
 协议依据是 `docs/接口分析/趣智校园分析报告.md` 第 9 节（真机 HAR + btsnoop 实证），
 实施过程见 `docs/实施方案/2026-11-02-qzxy-water/`。这是会真实扣钱的功能，所以下面几条都是硬约束。
 
@@ -31,6 +31,7 @@ tags: [qzxy, water, bluetooth, network]
   - 上传失败保留 `ActiveOrder`，重试**重走整个结算流程**（重新取 `0x23` 的 randomNumber）；
   - `0x86` 写回失败只记日志，不影响结算结果（服务端已入账）。
 - **`0x22` 关阀失败容忍**：设备可能已自行关阀，关阀应答不决定结算成败，继续走 `0x85` 采集。
+- **传输层按 `bigTypeId` 选**：热水表走 `BleTransport`（`FF00`，写 `FF02` 每包 ≤20 字节，收 `FF01` 通知），饮水机走 `SppTransport`；帧协议、下单与结算编排共用。两者都有 btsnoop 实证（报告 §9.11），HTTP 字段里没有通道标志。
 - **设备判据按 `bigTypeId`，不按名字**；`bigTypeId ∉ {4,5}` 或 `communicationTypeId != 0` 直接报不支持。
 - `run`/`device` 帧协议、`0x23` 状态布局、`0x86` 写回长度全部照报告 §9.4–9.7，不做"优化"。
 
@@ -38,19 +39,20 @@ tags: [qzxy, water, bluetooth, network]
 
 1. insecure / secure RFCOMM 哪种能连通、是否弹系统配对框。
 2. 用户按设备实体键停水后再点「结束」，`0x22` 是否仍返回 `0x80`。
-3. 出水中断开蓝牙，水是否继续出（若断开即停水，设备页需要"离开前先结算"）。
+3. ~~出水中断开蓝牙，水是否继续出~~：热水表已确认断开后照常可用（官方 App 开阀约 4 分钟后主动断开）；饮水机未验证。
+6. 自己的未结算单被下一位用户的 App 先读走上传后，再对该表做 `0x85` 会返回什么（目前读不到用量时报错并保留 `ActiveOrder`）。
 4. 官方 App 被顶号后，LightXin 再次请求时的实际 `errorCode` 与 `errorMessage`。
 5. 本校设备贴纸二维码的真实内容（`parseDeviceCode` 目前只认 `...,AABBCCDDEEFF` 与 12 位 hex）。
 
 ## 考虑过的替代方案
 
 - **复用主 OkHttpClient + 白名单拦截器**：仍需让 `AuthInterceptor` 识别趣智域名并跳过，等价于新 client 但更脆。
-- **BLE GATT 通道**：btsnoop 证明本校设备走 SPP，BLE 那套只是同一厂商板子的另一条路，v1 不做。
+- **热水表也走 SPP**：早期仅凭 HTTP 推断，11-02 btsnoop 证伪，热水表只有 BLE。
 - **用服务端返回的 `clData` 写回设备**：官方 App 并不解密 `clData`，写回是固定 22 字节明文确认包。
 
 ## 后果
 
 - 新增 `feature/water/{data,domain,ui}`、`core/network/QzxyInterceptor.kt`、`core/auth/QzxySessionStore.kt`、
   `core/designsystem/component/QrCodeScanner.kt`（从 AI 课堂抽出）。
-- Manifest 增加 `BLUETOOTH` / `BLUETOOTH_ADMIN`（maxSdk 30）与 `BLUETOOTH_CONNECT`；只连已知 MAC，不需要 `BLUETOOTH_SCAN` 与定位权限。
+- Manifest 增加 `BLUETOOTH` / `BLUETOOTH_ADMIN`（maxSdk 30）与 `BLUETOOTH_CONNECT`；只连已知 MAC，不需要 `BLUETOOTH_SCAN` 与定位权限；因此 API 31+ 不能调 `cancelDiscovery()`（它要求 `BLUETOOTH_SCAN`，会抛 SecurityException），仅在 31 以下调用。
 - 账号被官方 App 顶号时会话失效，`QzxyRepository` 会清会话并跳登录页；登录页不额外解释。

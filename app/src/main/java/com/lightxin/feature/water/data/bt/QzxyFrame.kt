@@ -1,7 +1,11 @@
 package com.lightxin.feature.water.data.bt
 
+import com.lightxin.feature.water.data.QzxyException
 import com.lightxin.feature.water.domain.DeviceStatus
 import com.lightxin.feature.water.domain.UnsupportedProtocol
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.channels.ClosedReceiveChannelException
+import kotlinx.coroutines.withTimeoutOrNull
 
 /** 一帧设备数据。[direction] 请求 0x80、应答 0x81。 */
 data class Frame(val direction: Int, val cmd: Int, val data: ByteArray) {
@@ -108,6 +112,57 @@ object QzxyFrame {
     }
 
     private fun hex2(value: Int): String = HEX[value shr 4 and 0x0F].toString() + HEX[value and 0x0F]
+}
+
+/**
+ * 把分批到达的字节拼成 `\n` 结尾的文本行并解码成帧。
+ * SPP 是字节流，BLE 是每包 ≤20 字节的通知，两者共用。
+ */
+class FrameAssembler {
+    private val line = StringBuilder()
+
+    fun feed(bytes: ByteArray, count: Int = bytes.size): List<Frame> {
+        var frames: MutableList<Frame>? = null
+        for (i in 0 until count) {
+            when (val char = (bytes[i].toInt() and 0xFF).toChar()) {
+                '\n' -> {
+                    QzxyFrame.decodeLine(line.toString())?.let {
+                        (frames ?: mutableListOf<Frame>().also { list -> frames = list }).add(it)
+                    }
+                    line.setLength(0)
+                }
+
+                '\r' -> Unit
+
+                else -> {
+                    line.append(char)
+                    if (line.length > MAX_LINE) line.setLength(0)
+                }
+            }
+        }
+        return frames.orEmpty()
+    }
+
+    private companion object {
+        const val MAX_LINE = 4096
+    }
+}
+
+/** 等待指定命令的应答帧，丢弃无关帧；超时或连接断开抛 [QzxyException]。 */
+internal suspend fun Channel<Frame>.awaitResponse(cmd: Int, timeoutMs: Long): Frame {
+    val matched = try {
+        withTimeoutOrNull(timeoutMs) {
+            var found: Frame? = null
+            while (found == null) {
+                val candidate = receive()
+                if (candidate.direction == QzxyFrame.RESPONSE && candidate.cmd == cmd) found = candidate
+            }
+            found
+        }
+    } catch (e: ClosedReceiveChannelException) {
+        throw QzxyException("与设备断开连接", e)
+    }
+    return matched ?: throw QzxyException("等待设备响应超时")
 }
 
 private val HEX = "0123456789abcdef".toCharArray()

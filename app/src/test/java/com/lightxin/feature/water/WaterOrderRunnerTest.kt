@@ -43,7 +43,7 @@ class WaterOrderRunnerTest {
         transport.statusPool += statusPayload(state = 1, random = "254e0000")
         val api = FakeApi()
         val store = FakeStore()
-        val runner = WaterOrderRunner(transport, api, store)
+        val runner = WaterOrderRunner(UnusedTransport, transport, api, store)
 
         val started = runner.start(device)
         assertEquals(StartOutcome.Running, started.getOrThrow())
@@ -76,7 +76,7 @@ class WaterOrderRunnerTest {
         transport.statusPool += statusPayload(state = 1, acct = 0x1111)
         val api = FakeApi()
         val store = FakeStore()
-        val runner = WaterOrderRunner(transport, api, store)
+        val runner = WaterOrderRunner(UnusedTransport, transport, api, store)
 
         val result = runner.start(device)
         assertEquals("设备使用中", result.exceptionOrNull()?.message)
@@ -91,7 +91,7 @@ class WaterOrderRunnerTest {
         transport.statusPool += statusPayload(state = 6, acct = 11749)
         val api = FakeApi()
         val store = FakeStore()
-        val runner = WaterOrderRunner(transport, api, store)
+        val runner = WaterOrderRunner(UnusedTransport, transport, api, store)
 
         assertEquals(StartOutcome.NeedSettle, runner.start(device).getOrThrow())
         assertTrue(api.rateCalls.isEmpty())
@@ -105,7 +105,7 @@ class WaterOrderRunnerTest {
         transport.failCommands += QzxyFrame.CMD_RATE
         val api = FakeApi()
         val store = FakeStore()
-        val runner = WaterOrderRunner(transport, api, store)
+        val runner = WaterOrderRunner(UnusedTransport, transport, api, store)
 
         val result = runner.start(device)
         assertEquals("开阀失败，已撤销", result.exceptionOrNull()?.message)
@@ -122,7 +122,7 @@ class WaterOrderRunnerTest {
         val api = FakeApi()
         api.failThrows = true
         val store = FakeStore()
-        val runner = WaterOrderRunner(transport, api, store)
+        val runner = WaterOrderRunner(UnusedTransport, transport, api, store)
 
         val result = runner.start(device)
         assertEquals("开阀失败，请稍后在设备页结算", result.exceptionOrNull()?.message)
@@ -135,7 +135,7 @@ class WaterOrderRunnerTest {
         transport.statusPool += statusPayload(state = 0).also { it[0] = 0x00 }
         val api = FakeApi()
         val store = FakeStore()
-        val runner = WaterOrderRunner(transport, api, store)
+        val runner = WaterOrderRunner(UnusedTransport, transport, api, store)
 
         val result = runner.start(device)
         assertEquals("设备未响应", result.exceptionOrNull()?.message)
@@ -149,7 +149,7 @@ class WaterOrderRunnerTest {
         transport.statusPool += statusPayload(state = 0)
         val api = FakeApi()
         val store = FakeStore()
-        val runner = WaterOrderRunner(transport, api, store)
+        val runner = WaterOrderRunner(UnusedTransport, transport, api, store)
         runner.start(device).getOrThrow()
 
         transport.statusPool += statusPayload(state = 1, random = "254e0000")
@@ -173,7 +173,7 @@ class WaterOrderRunnerTest {
         transport.statusPool += statusPayload(state = 0)
         val api = FakeApi()
         val store = FakeStore()
-        val runner = WaterOrderRunner(transport, api, store)
+        val runner = WaterOrderRunner(UnusedTransport, transport, api, store)
         runner.start(device).getOrThrow()
 
         transport.statusPool += statusPayload(state = 1)
@@ -199,6 +199,27 @@ class WaterOrderRunnerTest {
         payload[29] = 0x00
         payload[30] = 0x39
         return payload
+    }
+
+    @Test
+    fun `饮水机走 SPP 传输层`() = runBlocking {
+        val spp = FakeTransport()
+        spp.statusPool += statusPayload(state = 0)
+        val runner = WaterOrderRunner(spp, UnusedTransport, FakeApi(), FakeStore())
+
+        val drinking = device.copy(bigTypeId = WaterDevice.TYPE_DRINKING, smallTypeId = 56)
+        assertEquals(StartOutcome.Running, runner.start(drinking).getOrThrow())
+        assertTrue(spp.requests.any { it.first == QzxyFrame.CMD_RATE })
+    }
+
+    /** 本用例不该用到的传输层；一旦被调用即失败。 */
+    private object UnusedTransport : WaterTransport {
+        override suspend fun connect(mac: String) = throw AssertionError("用错了传输层")
+
+        override suspend fun request(cmd: Int, data: ByteArray, timeoutMs: Long): Frame =
+            throw AssertionError("用错了传输层")
+
+        override fun close() = Unit
     }
 
     private class FakeTransport : WaterTransport {

@@ -3,6 +3,7 @@ package com.lightxin.feature.water.data.bt
 import android.annotation.SuppressLint
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothSocket
+import android.os.Build
 import android.util.Log
 import com.lightxin.feature.water.data.QzxyException
 import com.lightxin.feature.water.domain.WaterTransport
@@ -44,7 +45,8 @@ class SppTransport @Inject constructor() : WaterTransport {
             closeLocked()
             val adapter = BluetoothAdapter.getDefaultAdapter()
                 ?: throw QzxyException("此手机不支持蓝牙")
-            adapter.cancelDiscovery()
+            // API 31+ 的 cancelDiscovery 需要 BLUETOOTH_SCAN；本应用从不发起搜索，无需取消
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) adapter.cancelDiscovery()
             val device = try {
                 adapter.getRemoteDevice(mac)
             } catch (e: IllegalArgumentException) {
@@ -78,19 +80,7 @@ class SppTransport @Inject constructor() : WaterTransport {
             throw QzxyException("与设备断开连接", e)
         }
 
-        val matched = withTimeoutOrNull(timeoutMs) {
-            var found: Frame? = null
-            while (found == null) {
-                val candidate = channel.receive()
-                if (candidate.direction == QzxyFrame.RESPONSE && candidate.cmd == cmd) {
-                    found = candidate
-                } else {
-                    Log.d(TAG, "丢弃无关帧 dir=${candidate.direction} cmd=${candidate.cmd}")
-                }
-            }
-            found
-        }
-        matched ?: throw QzxyException("等待设备响应超时")
+        channel.awaitResponse(cmd, timeoutMs).also { Log.d(TAG, "← cmd=%02x".format(it.cmd)) }
     }
 
     override fun close() {
@@ -129,29 +119,12 @@ class SppTransport @Inject constructor() : WaterTransport {
 
     private fun readLoop(input: InputStream, channel: Channel<Frame>) {
         val buffer = ByteArray(1024)
-        val line = StringBuilder()
+        val assembler = FrameAssembler()
         try {
             while (true) {
                 val count = input.read(buffer)
                 if (count < 0) break
-                for (i in 0 until count) {
-                    val char = buffer[i].toInt().toChar()
-                    when (char) {
-                        '\n' -> {
-                            val text = line.toString()
-                            line.setLength(0)
-                            Log.d(TAG, "← " + text.trim())
-                            QzxyFrame.decodeLine(text)?.let { channel.trySend(it) }
-                        }
-
-                        '\r' -> Unit
-
-                        else -> {
-                            line.append(char)
-                            if (line.length > MAX_LINE) line.setLength(0)
-                        }
-                    }
-                }
+                assembler.feed(buffer, count).forEach { channel.trySend(it) }
             }
         } catch (e: IOException) {
             Log.d(TAG, "读取结束：${e.message}")
@@ -163,7 +136,6 @@ class SppTransport @Inject constructor() : WaterTransport {
     private companion object {
         const val TAG = "Qzxy"
         const val CONNECT_TIMEOUT_MS = 10_000L
-        const val MAX_LINE = 4096
         val SPP_UUID: UUID = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB")
     }
 }

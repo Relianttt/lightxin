@@ -1,11 +1,11 @@
 package com.lightxin.feature.water.data
 
 import com.lightxin.core.network.QzxyRetrofit
+import com.lightxin.feature.water.data.bt.BleTransport
 import com.lightxin.feature.water.data.bt.SppTransport
 import com.lightxin.feature.water.domain.WaterOrderApi
 import com.lightxin.feature.water.domain.WaterOrderRunner
 import com.lightxin.feature.water.domain.WaterOrderStore
-import com.lightxin.feature.water.domain.WaterTransport
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -24,10 +24,6 @@ object WaterModule {
 
     @Provides
     @Singleton
-    fun provideWaterTransport(transport: SppTransport): WaterTransport = transport
-
-    @Provides
-    @Singleton
     fun provideWaterOrderApi(repository: QzxyRepository): WaterOrderApi = repository
 
     @Provides
@@ -37,8 +33,9 @@ object WaterModule {
     @Provides
     @Singleton
     fun provideWaterOrderRunner(
-        transport: WaterTransport,
+        spp: SppTransport,
+        ble: BleTransport,
         api: WaterOrderApi,
         store: WaterOrderStore,
-    ): WaterOrderRunner = WaterOrderRunner(transport, api, store)
+    ): WaterOrderRunner = WaterOrderRunner(spp, ble, api, store)
 }

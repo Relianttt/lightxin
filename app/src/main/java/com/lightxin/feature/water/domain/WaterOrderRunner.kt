@@ -49,18 +49,24 @@ sealed interface StartOutcome {
  * 不变量（见设计 §5.2）：没有成功的 `0x23` 绝不调 `rateOrder`；`rateOrder` 成功后到
  * `upload/data` 或 `upload/fail` 成功前 `ActiveOrder` 一直存在；上传失败保留 `ActiveOrder`
  * 供重试，重试时重走整个结算流程。
+ *
+ * 传输层按品类选：本校热水表走 BLE GATT，饮水机走经典蓝牙 SPP（两者均有 btsnoop 实证），帧协议相同。
  */
 class WaterOrderRunner(
-    private val transport: WaterTransport,
+    private val spp: WaterTransport,
+    private val ble: WaterTransport,
     private val api: WaterOrderApi,
     private val store: WaterOrderStore,
 ) {
+
+    private fun transportOf(device: WaterDevice): WaterTransport = if (device.isHotWater) ble else spp
 
     /** [onConnected] 在蓝牙连上后立即回调，供 UI 从「连接中」切到「开阀中」。 */
     suspend fun start(
         device: WaterDevice,
         onConnected: () -> Unit = {},
     ): Result<StartOutcome> {
+        val transport = transportOf(device)
         var keepOpen = false
         return try {
             transport.connect(device.macWithColon)
@@ -79,7 +85,7 @@ class WaterOrderRunner(
                         startedAt = System.currentTimeMillis(),
                     ),
                 )
-                if (writeRate(rate.downData)) {
+                if (writeRate(transport, rate.downData)) {
                     keepOpen = true
                     Result.success(StartOutcome.Running)
                 } else {
@@ -97,42 +103,48 @@ class WaterOrderRunner(
         }
     }
 
-    suspend fun settle(device: WaterDevice): Result<SettleResult> = try {
-        transport.connect(device.macWithColon)
-        val status = statusOf(transport.request(QzxyFrame.CMD_STATUS, byteArrayOf(0)))
-        // 关阀：设备可能已自行关阀，0x22 的应答不决定结算成败
-        runCatching { transport.request(QzxyFrame.CMD_CLOSE, byteArrayOf(0)) }
+    suspend fun settle(device: WaterDevice): Result<SettleResult> {
+        val transport = transportOf(device)
+        return try {
+            transport.connect(device.macWithColon)
+            val status = statusOf(transport.request(QzxyFrame.CMD_STATUS, byteArrayOf(0)))
+            // 关阀：设备可能已自行关阀，0x22 的应答不决定结算成败
+            runCatching { transport.request(QzxyFrame.CMD_CLOSE, byteArrayOf(0)) }
 
-        val collected = transport.request(QzxyFrame.CMD_COLLECT, byteArrayOf(0)).data
-        if (collected.isEmpty() || (collected[0].toInt() and 0xFF) != QzxyFrame.OK) {
-            throw QzxyException("读取用量失败")
+            val collected = transport.request(QzxyFrame.CMD_COLLECT, byteArrayOf(0)).data
+            if (collected.isEmpty() || (collected[0].toInt() and 0xFF) != QzxyFrame.OK) {
+                throw QzxyException("读取用量失败")
+            }
+            val result = api.uploadData(status, collected.toHexLower())
+            // 写回失败不影响结算结果：服务端已经入账
+            runCatching { transport.request(QzxyFrame.CMD_ACK, QzxyFrame.ackPayload(collected)) }
+
+            store.clearActiveOrder()
+            store.addRecentDevice(
+                RecentDevice(
+                    mac = device.macWithColon,
+                    deviceName = device.deviceName,
+                    bigTypeId = device.bigTypeId,
+                    roomName = device.roomName,
+                    areaName = device.areaName,
+                    buildingName = device.buildingName,
+                    floorName = device.floorName,
+                ),
+            )
+            Result.success(result)
+        } catch (e: Exception) {
+            Result.failure(wrap(e))
+        } finally {
+            transport.close()
         }
-        val result = api.uploadData(status, collected.toHexLower())
-        // 写回失败不影响结算结果：服务端已经入账
-        runCatching { transport.request(QzxyFrame.CMD_ACK, QzxyFrame.ackPayload(collected)) }
-
-        store.clearActiveOrder()
-        store.addRecentDevice(
-            RecentDevice(
-                mac = device.macWithColon,
-                deviceName = device.deviceName,
-                bigTypeId = device.bigTypeId,
-                roomName = device.roomName,
-                areaName = device.areaName,
-                buildingName = device.buildingName,
-                floorName = device.floorName,
-            ),
-        )
-        Result.success(result)
-    } catch (e: Exception) {
-        Result.failure(wrap(e))
-    } finally {
-        transport.close()
     }
 
-    fun close() = transport.close()
+    fun close() {
+        spp.close()
+        ble.close()
+    }
 
-    private suspend fun writeRate(downData: String): Boolean {
+    private suspend fun writeRate(transport: WaterTransport, downData: String): Boolean {
         val frame = runCatching {
             transport.request(QzxyFrame.CMD_RATE, hexToBytes(downData.lowercase()))
         }.getOrNull() ?: return false
