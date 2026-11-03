@@ -72,6 +72,8 @@ data class ActiveOrder(
     /** rateOrder 返回的 consumeDate（yyyyMMddHHmmss），上传失败时要用。 */
     val consumeDate: String = "",
     val startedAt: Long = 0,
+    /** 已写入费率、阀门打开；结算失败后回落为 false，重进设备页据此区分「使用中」与「未结算」。 */
+    val opened: Boolean = false,
 )
 
 /** `rateOrder` 的返回：开阀要 [downData]，撤销要 [consumeDate]。 */

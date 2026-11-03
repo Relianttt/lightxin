@@ -30,6 +30,7 @@ tags: [qzxy, water, bluetooth, network]
   - `rateOrder` 成功到 `upload/data`（或 `upload/fail`）成功前，`ActiveOrder` 一直存在；
   - 上传失败保留 `ActiveOrder`，重试**重走整个结算流程**（重新取 `0x23` 的 randomNumber）；
   - `0x86` 写回失败只记日志，不影响结算结果（服务端已入账）。
+  - `ActiveOrder.opened`：`0x21` 写费率成功后置 true，重进设备页据此恢复「使用中」；结算失败回落 false 显示「未结算」。旧数据缺字段按 false。
 - **`0x22` 关阀失败容忍**：设备可能已自行关阀，关阀应答不决定结算成败，继续走 `0x85` 采集。
 - **传输层按 `bigTypeId` 选**：热水表走 `BleTransport`（`FF00`，写 `FF02` 每包 ≤20 字节，收 `FF01` 通知），饮水机走 `SppTransport`；帧协议、下单与结算编排共用。两者都有 btsnoop 实证（报告 §9.11），HTTP 字段里没有通道标志。
 - **设备判据按 `bigTypeId`，不按名字**；`bigTypeId ∉ {4,5}` 或 `communicationTypeId != 0` 直接报不支持。
@@ -56,4 +57,5 @@ tags: [qzxy, water, bluetooth, network]
   `core/designsystem/component/QrCodeScanner.kt`（从 AI 课堂抽出）。
 - Manifest 增加 `BLUETOOTH` / `BLUETOOTH_ADMIN`（maxSdk 30）与 `BLUETOOTH_CONNECT`；连接已知 MAC 不需要扫描权限，所以 `SppTransport` 在 API 31+ 不调 `cancelDiscovery()`（它要求 `BLUETOOTH_SCAN`，未授权会抛 SecurityException）。
 - 首页「附近设备」按需搜索（点了才申请权限，扫 8 秒）：`NearbyScanner` 同时做 BLE 扫描（热水表）与经典查询（饮水机），按广播名前缀 `KLCXKJ` 或 BLE 服务 `FEE7` 识别；设备全部同名，逐个 `deviceByMac` 查到名称才展示。API 31+ 申请 `BLUETOOTH_SCAN`（`neverForLocation`）+ `BLUETOOTH_CONNECT`，30 及以下用已声明的定位权限并要求系统定位开启。饮水机能否被经典查询搜到未实测。
+- 登录页验证码框用 `KeyboardType.Number`，不用 `NumberPassword`：Flyme 等系统在密码类输入框聚焦时禁止截屏，验证码无需遮挡。
 - 账号被官方 App 顶号时会话失效，`QzxyRepository` 会清会话并跳登录页；登录页不额外解释。

@@ -150,6 +150,8 @@ data class WaterHomeUiState(
     val balance: String? = null,
     val balanceLoading: Boolean = false,
     val recentDevices: List<RecentDevice> = emptyList(),
+    /** 本地「最近使用」读出来之前不显示空状态，避免进页时闪一下「还没有使用过的设备」。 */
+    val localLoaded: Boolean = false,
     val activeOrder: ActiveOrder? = null,
     // 仅下拉刷新时为 true；首次加载只显示骨架，不出刷新圈
     val isRefreshing: Boolean = false,
@@ -270,7 +272,7 @@ class WaterHomeViewModel @Inject constructor(
             store.activeOrder.collect { order -> _uiState.update { it.copy(activeOrder = order) } }
         }
         viewModelScope.launch {
-            store.recentDevices.collect { devices -> _uiState.update { it.copy(recentDevices = devices) } }
+            store.recentDevices.collect { devices -> _uiState.update { it.copy(recentDevices = devices, localLoaded = true) } }
         }
     }
 
@@ -366,7 +368,7 @@ class WaterDeviceViewModel @Inject constructor(
             val phase = when {
                 !device.isSupported -> DevicePhase.Unsupported("暂不支持此设备")
                 !device.isEnabled -> DevicePhase.Unsupported("设备已停用")
-                active?.mac == mac -> DevicePhase.NeedSettle
+                active?.mac == mac -> if (active?.opened == true) DevicePhase.Running else DevicePhase.NeedSettle
                 else -> DevicePhase.Idle
             }
             _uiState.update {
@@ -374,7 +376,7 @@ class WaterDeviceViewModel @Inject constructor(
                     device = device,
                     balance = balance ?: it.balance,
                     phase = phase,
-                    runningSince = if (phase == DevicePhase.NeedSettle) active?.startedAt else null,
+                    runningSince = if (active?.mac == mac) active?.startedAt else null,
                 )
             }
         }
@@ -437,7 +439,12 @@ class WaterDeviceViewModel @Inject constructor(
             return
         }
         _events.send(WaterEvent.Message(error.message.orEmpty()))
-        val active = store.activeOrder.first()
+        var active = store.activeOrder.first()
+        // 结算失败后阀门状态未知，按「未结算」处理，重进页面不再显示使用中
+        if (active != null && active.mac == mac && active.opened) {
+            active = active.copy(opened = false)
+            store.setActiveOrder(active)
+        }
         val next = when {
             active != null -> DevicePhase.NeedSettle
             error.message == "设备使用中" -> DevicePhase.BusyByOther

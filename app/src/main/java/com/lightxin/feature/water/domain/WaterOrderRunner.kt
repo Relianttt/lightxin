@@ -75,17 +75,17 @@ class WaterOrderRunner(
 
             if (status.isIdle) {
                 val rate = api.rateOrder(device, status)
-                store.setActiveOrder(
-                    ActiveOrder(
-                        mac = device.macWithColon,
-                        deviceId = device.deviceId,
-                        deviceName = device.deviceName,
-                        bigTypeId = device.bigTypeId,
-                        consumeDate = rate.consumeDate,
-                        startedAt = System.currentTimeMillis(),
-                    ),
+                val order = ActiveOrder(
+                    mac = device.macWithColon,
+                    deviceId = device.deviceId,
+                    deviceName = device.deviceName,
+                    bigTypeId = device.bigTypeId,
+                    consumeDate = rate.consumeDate,
+                    startedAt = System.currentTimeMillis(),
                 )
+                store.setActiveOrder(order)
                 if (writeRate(transport, rate.downData)) {
+                    store.setActiveOrder(order.copy(opened = true))
                     keepOpen = true
                     Result.success(StartOutcome.Running)
                 } else {

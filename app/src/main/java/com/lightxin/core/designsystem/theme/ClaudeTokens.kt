@@ -18,6 +18,8 @@ internal val TintLight = Color(0xFFF5F4ED)
 internal val TintDark = Color(0xFF1F1E1D)
 internal val TintStrongLight = Color(0xFFF0EEE6)
 internal val TintStrongDark = Color(0xFF141413)
+// 深色下骨架必须比卡片（SurfaceDark）和底色都亮，否则读作「黑洞」
+internal val SkeletonDark = Color(0xFF3E3E3B)
 internal val TextLight = Color(0xFF141413)
 internal val TextDark = Color(0xFFFAF9F5)
 internal val TextSecondaryLight = Color(0xFF3D3D3A)
@@ -49,6 +51,7 @@ val LxCanvas: Color @Composable @ReadOnlyComposable get() = if (isDark) CanvasDa
 val LxSurface: Color @Composable @ReadOnlyComposable get() = if (isDark) SurfaceDark else SurfaceLight
 val LxTint: Color @Composable @ReadOnlyComposable get() = if (isDark) TintDark else TintLight
 val LxTintStrong: Color @Composable @ReadOnlyComposable get() = if (isDark) TintStrongDark else TintStrongLight
+val LxSkeleton: Color @Composable @ReadOnlyComposable get() = if (isDark) SkeletonDark else TintStrongLight
 val LxText: Color @Composable @ReadOnlyComposable get() = if (isDark) TextDark else TextLight
 val LxTextSecondary: Color @Composable @ReadOnlyComposable get() = if (isDark) TextSecondaryDark else TextSecondaryLight
 val LxTextMuted: Color @Composable @ReadOnlyComposable get() = if (isDark) TextMutedDark else TextMutedLight

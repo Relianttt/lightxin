@@ -1,6 +1,10 @@
 package com.lightxin.feature.water.ui
 
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,16 +17,18 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.MoreHoriz
 import androidx.compose.material.icons.outlined.QrCodeScanner
 import androidx.compose.material.icons.outlined.Shower
 import androidx.compose.material.icons.outlined.WaterDrop
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
@@ -42,6 +48,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -57,6 +64,8 @@ import com.lightxin.core.designsystem.component.LxConfirmSheet
 import com.lightxin.core.designsystem.component.LxEmptyState
 import com.lightxin.core.designsystem.component.LxFloatingAction
 import com.lightxin.core.designsystem.component.LxField
+import com.lightxin.core.designsystem.component.LxGroupCard
+import com.lightxin.core.designsystem.component.LxGroupDivider
 import com.lightxin.core.designsystem.component.LxInput
 import com.lightxin.core.designsystem.component.LxNavBar
 import com.lightxin.core.designsystem.component.LxPageHeader
@@ -71,6 +80,8 @@ import com.lightxin.core.designsystem.component.lxHeaderCollapsed
 import com.lightxin.core.designsystem.component.rememberLxPullToRefreshState
 import com.lightxin.core.designsystem.theme.LxAccent
 import com.lightxin.core.designsystem.theme.LxCanvas
+import com.lightxin.core.designsystem.theme.LxHairline
+import com.lightxin.core.designsystem.theme.LxRadiusMd
 import com.lightxin.core.designsystem.theme.LxRadiusLg
 import com.lightxin.core.designsystem.theme.LxSurface
 import com.lightxin.core.designsystem.theme.LxText
@@ -145,7 +156,10 @@ fun WaterHomeScreen(
                 title = "趣智校园",
                 collapsed = listState.lxHeaderCollapsed(),
                 actions = {
-                    LxTextAction(text = "输入设备号", onClick = { showInputSheet = true })
+                    MoreMenu(
+                        onInputCode = { showInputSheet = true },
+                        onLogout = { showLogoutSheet = true },
+                    )
                 },
             )
         },
@@ -184,7 +198,6 @@ fun WaterHomeScreen(
                         balance = uiState.balance,
                         loading = uiState.balanceLoading,
                         onRetry = viewModel::refresh,
-                        onLogout = { showLogoutSheet = true },
                         modifier = Modifier.lxStaggerEnter(index = 0, play = playStagger),
                     )
                 }
@@ -193,16 +206,34 @@ fun WaterHomeScreen(
                         Spacer(Modifier.height(12.dp))
                         PendingPanel(
                             title = order.deviceName,
+                            opened = order.opened,
                             onClick = { openDevice(order.mac) },
                             modifier = Modifier.lxStaggerEnter(index = 1, play = playStagger),
+                        )
+                    }
+                }
+                if (uiState.recentDevices.isNotEmpty()) {
+                    item(key = "recentLabel") {
+                        LxSectionLabel(
+                            text = "最近使用",
+                            modifier = Modifier
+                                .padding(top = 24.dp, bottom = 8.dp)
+                                .lxStaggerEnter(index = 2, play = playStagger),
+                        )
+                    }
+                    item(key = "recent") {
+                        DeviceGroup(
+                            devices = uiState.recentDevices,
+                            onClick = openDevice,
+                            modifier = Modifier.lxStaggerEnter(index = 3, play = playStagger),
                         )
                     }
                 }
                 item(key = "nearbyLabel") {
                     Row(
                         modifier = Modifier
-                            .padding(top = 24.dp, bottom = 4.dp)
-                            .lxStaggerEnter(index = 2, play = playStagger),
+                            .padding(top = 20.dp, bottom = 4.dp)
+                            .lxStaggerEnter(index = 4, play = playStagger),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         LxSectionLabel(text = "附近设备", modifier = Modifier.weight(1f))
@@ -214,51 +245,37 @@ fun WaterHomeScreen(
                         )
                     }
                 }
-                items(uiState.nearby, key = { "nearby:" + it.device.mac }) { entry ->
-                    RecentDeviceRow(
-                        device = entry.device,
-                        onClick = { openDevice(entry.device.mac) },
-                        modifier = Modifier.animateItem(
-                            fadeInSpec = LxMotion.enter(),
-                            placementSpec = LxMotion.placement(),
-                            fadeOutSpec = LxMotion.exit(),
-                        ),
-                    )
+                // 最近使用里已有的设备不在附近列表重复出现
+                val recentMacs = uiState.recentDevices.mapTo(HashSet()) { it.mac }
+                val nearby = uiState.nearby.map { it.device }.filterNot { it.mac in recentMacs }
+                if (nearby.isNotEmpty()) {
+                    item(key = "nearby") {
+                        DeviceGroup(
+                            devices = nearby,
+                            onClick = openDevice,
+                            modifier = Modifier
+                                .padding(top = 4.dp)
+                                .animateContentSize(tween(LxMotion.StateMs, easing = LxMotion.EaseInOut)),
+                        )
+                    }
                 }
-                if (uiState.nearbyScan == NearbyScan.Done && uiState.nearby.isEmpty()) {
+                if (uiState.nearbyScan == NearbyScan.Done && nearby.isEmpty()) {
                     item(key = "nearbyEmpty") {
                         Text(
-                            text = "附近没有发现设备",
+                            text = if (uiState.nearby.isEmpty()) "附近没有发现设备" else "附近没有其他设备",
                             fontSize = 13.sp,
                             color = LxTextMuted,
                             modifier = Modifier.padding(vertical = 12.dp),
                         )
                     }
                 }
-                if (uiState.recentDevices.isNotEmpty()) {
-                    item(key = "recentLabel") {
-                        LxSectionLabel(
-                            text = "最近使用",
-                            modifier = Modifier
-                                .padding(top = 24.dp, bottom = 4.dp)
-                                .lxStaggerEnter(index = 3, play = playStagger),
-                        )
-                    }
-                    itemsIndexed(uiState.recentDevices, key = { _, device -> device.mac }) { index, device ->
-                        RecentDeviceRow(
-                            device = device,
-                            onClick = { openDevice(device.mac) },
-                            modifier = Modifier.lxStaggerEnter(index = 4 + index, play = playStagger),
-                        )
-                    }
-                }
-                if (uiState.recentDevices.isEmpty() && uiState.activeOrder == null && uiState.nearby.isEmpty()) {
+                if (uiState.localLoaded && uiState.recentDevices.isEmpty() && uiState.activeOrder == null && uiState.nearby.isEmpty()) {
                     item(key = "empty") {
                         Box(
                             modifier = Modifier
                                 .fillParentMaxHeight(0.45f)
                                 .fillMaxWidth()
-                                .lxStaggerEnter(index = 3, play = playStagger),
+                                .lxStaggerEnter(index = 5, play = playStagger),
                             contentAlignment = Alignment.Center,
                         ) {
                             LxEmptyState(
@@ -302,14 +319,10 @@ private fun BalancePanel(
     balance: String?,
     loading: Boolean,
     onRetry: () -> Unit,
-    onLogout: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    LxPanel(radius = LxRadiusLg, padding = 20.dp, modifier = modifier) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            LxSectionLabel("余额", modifier = Modifier.weight(1f))
-            LxTextAction(text = "退出", onClick = onLogout, color = LxTextMuted)
-        }
+    LxPanel(radius = LxRadiusLg, padding = 20.dp, modifier = modifier.fillMaxWidth()) {
+        LxSectionLabel("余额")
         Row(
             modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -345,13 +358,18 @@ private fun BalancePanel(
 @Composable
 private fun PendingPanel(
     title: String,
+    opened: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     LxPanel(padding = 16.dp, modifier = modifier.lxPressable(onClick = onClick)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(modifier = Modifier.weight(1f)) {
-                LxStatus(text = "未结算", tone = LxTone.Warning)
+                if (opened) {
+                    LxStatus(text = "使用中", tone = LxTone.Accent)
+                } else {
+                    LxStatus(text = "未结算", tone = LxTone.Warning)
+                }
                 Text(
                     text = title,
                     fontSize = 15.sp,
@@ -362,9 +380,73 @@ private fun PendingPanel(
                     modifier = Modifier.padding(top = 4.dp),
                 )
             }
-            LxTextAction(text = "去结算", onClick = onClick)
+            LxTextAction(text = if (opened) "查看" else "去结算", onClick = onClick)
         }
     }
+}
+
+@Composable
+private fun DeviceGroup(
+    devices: List<RecentDevice>,
+    onClick: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    LxGroupCard(modifier = modifier) {
+        devices.forEachIndexed { index, device ->
+            if (index > 0) LxGroupDivider()
+            RecentDeviceRow(device = device, onClick = { onClick(device.mac) })
+        }
+    }
+}
+
+@Composable
+private fun MoreMenu(
+    onInputCode: () -> Unit,
+    onLogout: () -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    Box {
+        Box(
+            modifier = Modifier
+                .size(44.dp)
+                .clip(RoundedCornerShape(10.dp))
+                .clickable(role = Role.Button) { expanded = true },
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                imageVector = Icons.Outlined.MoreHoriz,
+                contentDescription = "更多",
+                tint = LxTextSecondary,
+            )
+        }
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+            shape = RoundedCornerShape(LxRadiusMd),
+            containerColor = LxSurface,
+            tonalElevation = 0.dp,
+            shadowElevation = 8.dp,
+            border = BorderStroke(0.5.dp, LxHairline),
+        ) {
+            MoreMenuItem(text = "输入设备号") {
+                expanded = false
+                onInputCode()
+            }
+            MoreMenuItem(text = "退出登录") {
+                expanded = false
+                onLogout()
+            }
+        }
+    }
+}
+
+@Composable
+private fun MoreMenuItem(text: String, onClick: () -> Unit) {
+    DropdownMenuItem(
+        text = { Text(text = text, fontSize = 15.sp, color = LxText) },
+        onClick = onClick,
+        modifier = Modifier.widthIn(min = 148.dp),
+    )
 }
 
 @Composable
@@ -377,13 +459,13 @@ private fun RecentDeviceRow(
         modifier = modifier
             .fillMaxWidth()
             .lxPressable(onClick = onClick)
-            .padding(vertical = 14.dp),
+            .padding(horizontal = 15.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(
             modifier = Modifier
-                .size(44.dp)
-                .clip(RoundedCornerShape(12.dp))
+                .size(40.dp)
+                .clip(RoundedCornerShape(10.dp))
                 .background(LxTint),
             contentAlignment = Alignment.Center,
         ) {

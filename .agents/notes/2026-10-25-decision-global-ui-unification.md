@@ -16,6 +16,7 @@ tags: [designsystem, theme, recovery, ui]
 
 - 旧语义 token 保留名称，作为新 token 的别名；全局 ColorScheme 包括 surface 容器使用同一色板。Raw 色值和课程分类配色不改。
 - `LxCard` 保留 16dp 圆角，增加 0.5dp hairline；启动页浅/深色与 LxCanvas 一致。
+- 骨架色用 `LxSkeleton`：深色模式必须比卡片和底色都亮（`LxTintStrong` 深色比卡片暗，骨架会读作黑块）。
 - 首屏加载用骨架；详情加载三行骨架；局部操作保留进度指示器；分页统一文字页脚与显式错误重试。
 - 首页使用 `LxSessionBanner` 白卡与文字操作，登录失效正文为“部分功能已失效，重新登录后恢复”。AI 课堂横幅使用同一卡片而非琥珀底。
 - `ServiceErrorCard` 直接放页面底色，删除装饰图标、脚注和多行操作卡。固定提供重试、重新登录、错误详情；重试中前两项都禁用。

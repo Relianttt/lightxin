@@ -98,6 +98,7 @@ import com.lightxin.core.designsystem.theme.LxTextFaint
 import com.lightxin.core.designsystem.theme.LxTextMuted
 import com.lightxin.core.designsystem.theme.LxTextSecondary
 import com.lightxin.core.designsystem.theme.LxTint
+import com.lightxin.core.designsystem.theme.LxSkeleton
 import com.lightxin.core.designsystem.theme.LxTintStrong
 import com.lightxin.core.designsystem.theme.LxStateWarning
 import kotlin.math.abs
@@ -470,11 +471,15 @@ fun LxFilterTabs(
     onSelect: (Int) -> Unit,
     modifier: Modifier = Modifier,
     indicatorFraction: Float? = null,
+    /** 二选一这类少量选项铺满整行、等分宽度。 */
+    equalWidth: Boolean = false,
+    /** 选中块高度；圆角随高度等比放大（34dp 时为 10/8dp）。 */
+    itemHeight: Dp = 34.dp,
 ) {
     val position = indicatorFraction ?: selectedIndex.toFloat()
     Row(
         modifier = modifier
-            .clip(RoundedCornerShape(10.dp))
+            .clip(RoundedCornerShape(itemHeight * 10f / 34f))
             .background(LxTintStrong)
             .padding(3.dp)
             .selectableGroup(),
@@ -483,11 +488,12 @@ fun LxFilterTabs(
         items.forEachIndexed { index, item ->
             val weight = tabSelectionWeight(index, position)
             val selected = weight >= 0.5f
-            val shape = RoundedCornerShape(LxRadiusSm)
+            val shape = RoundedCornerShape(itemHeight * 8f / 34f)
             val interaction = remember { MutableInteractionSource() }
             Row(
                 modifier = Modifier
-                    .height(34.dp)
+                    .then(if (equalWidth) Modifier.weight(1f) else Modifier)
+                    .height(itemHeight)
                     .clip(shape)
                     // 颜色直接由拖动比例插值，不再叠一层时间动画：手势跟手，
                     // 点选时由 pager 吸附带着走，避免“指示器瞬切 + 内容慢动”。
@@ -503,7 +509,7 @@ fun LxFilterTabs(
                     )
                     .padding(horizontal = 16.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally),
             ) {
                 Text(
                     text = item.text,
@@ -1303,7 +1309,7 @@ fun LxSkeletonBlock(
             .fillMaxWidth(widthFraction)
             .height(height)
             .clip(RoundedCornerShape(4.dp))
-            .background(LxTintStrong.copy(alpha = alpha)),
+            .background(LxSkeleton.copy(alpha = alpha)),
     )
 }
 

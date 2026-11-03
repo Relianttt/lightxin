@@ -49,7 +49,7 @@ class WaterOrderRunnerTest {
         assertEquals(StartOutcome.Running, started.getOrThrow())
         assertEquals(1, api.rateCalls.size)
         assertEquals("69020000", api.rateCalls.single().second.randomNumber)
-        assertNotNull(store.activeOrder)
+        assertTrue(store.activeOrder!!.opened)
         assertEquals(0, transport.closeCount)
 
         val rateFrame = transport.requests.single { it.first == QzxyFrame.CMD_RATE }
@@ -126,7 +126,8 @@ class WaterOrderRunnerTest {
 
         val result = runner.start(device)
         assertEquals("开阀失败，请稍后在设备页结算", result.exceptionOrNull()?.message)
-        assertNotNull(store.activeOrder)
+        // 阀门没开：重进设备页应显示「未结算」而不是「使用中」
+        assertEquals(false, store.activeOrder!!.opened)
     }
 
     @Test

@@ -23,6 +23,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.text.TextStyle
@@ -50,6 +51,8 @@ fun LxTextField(
     keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
     keyboardActions: KeyboardActions = KeyboardActions.Default,
     trailingIcon: @Composable (() -> Unit)? = null,
+    /** 放在白卡里用默认浅底；直接放在页面底色上时传 LxSurface，否则像禁用态。 */
+    containerColor: Color = LxCream,
 ) {
     var isFocused by remember { mutableStateOf(false) }
     val borderColor = when {
@@ -91,7 +94,7 @@ fun LxTextField(
                     .fillMaxWidth()
                     .then(if (singleLine) Modifier.height(56.dp) else Modifier.heightIn(min = 56.dp))
                     .clip(MaterialTheme.shapes.small)
-                    .background(LxCream)
+                    .background(containerColor)
                     .border(width = 1.dp, color = borderColor, shape = MaterialTheme.shapes.small)
                 Row(
                     modifier = containerModifier
