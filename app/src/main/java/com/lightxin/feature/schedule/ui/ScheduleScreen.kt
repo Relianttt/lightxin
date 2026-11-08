@@ -107,6 +107,10 @@ fun ScheduleScreen(
     }
     val showSkeleton = uiState.isLoading && !uiState.hasLoadedWeek &&
         (uiState.courses.isEmpty() || pendingTooLong)
+    val weeks = uiState.weekInfo?.weekNumbers.orEmpty()
+    val onSwipeWeek: (Int) -> Unit = { step ->
+        weekAfterSwipe(weeks, uiState.selectedWeek, step)?.let(viewModel::onWeekSelected)
+    }
 
     Scaffold(
         modifier = modifier,
@@ -131,19 +135,27 @@ fun ScheduleScreen(
                     modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp))
             }
 
-            when {
-                showSkeleton -> LxLoading()
-                error != null && !uiState.hasLoadedWeek -> LxError(
-                    message = error,
-                    onRetry = viewModel::retry,
-                )
-                uiState.courses.isEmpty() -> LxEmpty(message = "本周没有课程")
-                else -> ScheduleGrid(
-                    courses = uiState.courses,
-                    weekDates = uiState.weekDates,
-                    showCurrentDayIndicator = uiState.weekInfo?.currentWeek == uiState.selectedWeek,
-                    onCourseClick = { selectedCourse = it },
-                )
+            // 网格区横向滑动切周（纵向仍是网格滚动）；空周 / 报错状态下同样可以滑
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .weekSwipeGesture(onSwipeWeek),
+            ) {
+                when {
+                    showSkeleton -> LxLoading()
+                    error != null && !uiState.hasLoadedWeek -> LxError(
+                        message = error,
+                        onRetry = viewModel::retry,
+                    )
+                    uiState.courses.isEmpty() -> LxEmpty(message = "本周没有课程")
+                    else -> ScheduleGrid(
+                        courses = uiState.courses,
+                        weekDates = uiState.weekDates,
+                        showCurrentDayIndicator = uiState.weekInfo?.currentWeek == uiState.selectedWeek,
+                        onCourseClick = { selectedCourse = it },
+                    )
+                }
             }
         }
     }
@@ -219,6 +231,8 @@ private fun WeekSelector(
                 modifier = Modifier
                     .align(alignment)
                     .offset(y = (-35).dp)
+                    // clickable 放在 padding 外侧，把内边距也算进“点回本周”的点击区
+                    .clickable { onWeekSelected(currentWeek) }
                     .padding(start = 20.dp, end = 20.dp, top = 2.dp),
                 fontSize = 12.sp,
                 color = LxInkMuted,

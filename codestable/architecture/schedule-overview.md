@@ -5,7 +5,7 @@ scope: feature/schedule/ 的周课表获取、三态周选择器、动态节次�
 summary: schedule 以 ScheduleRepository 封装周次信息与课表数据，UI 层用 LazyRow 胶囊周选择器 + 支持第 0 节的绝对定位网格渲染 7 天课程（块内行数按块高分配），详情走 ModalBottomSheet
 status: current
 last_reviewed: 2026-11-08
-tags: [schedule, course, timetable, week-selector, grid, section-zero]
+tags: [schedule, course, timetable, week-selector, grid, section-zero, gesture]
 depends_on: [network-overview, home-overview]
 ---
 
@@ -88,7 +88,18 @@ UI 层用 `CELL_HEIGHT = 58.dp` 为基准，先根据课程数据计算 `firstSe
 
 三态组合实际产生四种视觉结果（选中+当前周时选中优先）。
 
-`LazyRow` 在选中周变化时自动 `animateScrollToItem(selectedWeek - 2)`，让选中周保持在可视区中央偏左位置。同时通过 `derivedStateOf` 计算"本周"指示器（`← 本周` / `本周 →`），在当前周不在可视区时显示方向提示。
+`LazyRow` 在选中周变化时自动 `animateScrollToItem(selectedWeek - 2)`，让选中周保持在可视区中央偏左位置。同时通过 `derivedStateOf` 计算"本周"指示器（`← 本周` / `本周 →`），在当前周不在可视区时显示方向提示；该提示**可点击**，把选中周跳回当前周（`clickable` 放在 `padding` 外侧以扩大点击区）。
+
+### 2.4.1 网格手势切周
+
+锚点：`feature/schedule/ui/WeekSwipe.kt`
+
+网格内容区（含空周 / 报错态）支持横向滑动切周：向左滑看下一周，向右滑看上一周。
+
+- `Modifier.weekSwipeGesture()` 用 `detectHorizontalDragGestures`，只认横向 touch slop，纵向拖动仍归网格自己的 `verticalScroll`，两者不抢手势
+- 累计位移达到 `WEEK_SWIPE_THRESHOLD = 56.dp` 才切周，过滤纵向滚动时的横向抖动误触
+- 回调经 `rememberUpdatedState`，拖动期间发生重组不打断手势
+- 目标周由纯函数 `weekAfterSwipe(weeks, selected, step)` 算，首/末周越界返回 null（有单测）
 
 ### 2.5 课程详情走 ModalBottomSheet
 
@@ -125,6 +136,7 @@ UI 层用 `CELL_HEIGHT = 58.dp` 为基准，先根据课程数据计算 `firstSe
 
 ## 4. 关键决策
 
+- **切周有三个入口** —— 点周次胶囊、网格横向滑动、点"本周"提示回跳，三者都走 `ScheduleViewModel.onWeekSelected()`，状态与缓存读写只有一条路径。来源：`ui/ScheduleScreen.kt`、`ui/WeekSwipe.kt`。
 - **课表格子文字按块高分配行数** —— 见 §2.3。行数写死会在大半个块空着的同时把教室压成一行省略号。来源：`ui/CourseBlockLabels.kt`。
 - **切周不拆网格** —— `selectWeek()` 保留上一周的课程占位，UI 只在“等超过 120ms（`WEEK_SWITCH_GRACE_MS`）仍无数据”时才切骨架屏，正常缓存命中（十几毫秒）不会出现空白闪帧。首次加载（`courses` 为空）仍立刻显示骨架屏。来源：`ui/ScheduleViewModel.kt`、`ui/ScheduleScreen.kt:93-107`。
 - **课程块用绝对定位而非 LazyColumn** —— 网格按 10 节固定高度渲染，不虚拟化。因为课表数据量小（最多 7 天 × 每天数门课），绝对定位更直观。
@@ -141,6 +153,7 @@ UI 层用 `CELL_HEIGHT = 58.dp` 为基准，先根据课程数据计算 `firstSe
 - `feature/schedule/ui/ScheduleViewModel.kt:24-95` — 状态管理与加载
 - `feature/schedule/ui/ScheduleScreen.kt:68-400` — 周选择器 + 网格 + 详情
 - `feature/schedule/ui/CourseBlockLabels.kt` — 课程块行数预算 + 教室短标签（纯函数，有单测）
+- `feature/schedule/ui/WeekSwipe.kt` — 网格横向滑动切周手势 + 目标周计算（纯函数，有单测）
 - `feature/home/domain/SceneResolver.kt` — 首页场景引擎消费课表
 
 ## 6. 已知约束 / 边界情况
