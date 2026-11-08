@@ -57,6 +57,9 @@ fun LxDialog(
     confirmTone: LxDialogConfirmTone = LxDialogConfirmTone.Primary,
     dismissOnClickOutside: Boolean = true,
     dismissOnBackPress: Boolean = true,
+    /** 底部操作行左侧的次要操作（如"跳过此版本"），与右侧的稍后/确认同一行、同一套 [DialogAction]。 */
+    leadingText: String? = null,
+    onLeading: (() -> Unit)? = null,
     content: (@Composable ColumnScope.() -> Unit)? = null,
 ) {
     // 关闭时先播完退场再回调，进场与退场使用独立缩放幅度。
@@ -115,21 +118,31 @@ fun LxDialog(
                     content?.invoke(this)
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.End,
+                        // 有左侧次要操作时贴两端，否则维持原来的全部右对齐
+                        horizontalArrangement = if (leadingText.isNullOrBlank()) Arrangement.End else Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        if (!dismissText.isNullOrBlank()) {
+                        if (!leadingText.isNullOrBlank()) {
                             DialogAction(
-                                text = dismissText,
+                                text = leadingText,
                                 color = LxInkMuted,
-                                onClick = { animateOutThen(onDismiss ?: onDismissRequest) },
+                                onClick = { animateOutThen(onLeading ?: onDismissRequest) },
                             )
                         }
-                        DialogAction(
-                            text = confirmText,
-                            color = if (confirmTone == LxDialogConfirmTone.Destructive) LxRose else LxTerra,
-                            onClick = { animateOutThen(onConfirm) },
-                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            if (!dismissText.isNullOrBlank()) {
+                                DialogAction(
+                                    text = dismissText,
+                                    color = LxInkMuted,
+                                    onClick = { animateOutThen(onDismiss ?: onDismissRequest) },
+                                )
+                            }
+                            DialogAction(
+                                text = confirmText,
+                                color = if (confirmTone == LxDialogConfirmTone.Destructive) LxRose else LxTerra,
+                                onClick = { animateOutThen(onConfirm) },
+                            )
+                        }
                     }
                 }
             }

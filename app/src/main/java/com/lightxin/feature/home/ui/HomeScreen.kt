@@ -4,9 +4,7 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.Home
@@ -26,7 +24,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -173,6 +170,8 @@ private fun UpdateDialog(viewModel: UpdatePromptViewModel) {
             onDismiss = { viewModel.dismiss() },
             onConfirm = { viewModel.downloadUpdate() },
             confirmTone = LxDialogConfirmTone.Primary,
+            leadingText = "跳过此版本",
+            onLeading = { viewModel.skipVersion() },
             content = {
                 Text(
                     text = "v${state.versionName}",
@@ -186,15 +185,6 @@ private fun UpdateDialog(viewModel: UpdatePromptViewModel) {
                         color = LxInkMuted,
                     )
                 }
-                Text(
-                    text = "跳过此版本",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = LxInkMuted,
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(12.dp))
-                        .clickable { viewModel.skipVersion() }
-                        .padding(vertical = 4.dp),
-                )
             },
         )
     }
