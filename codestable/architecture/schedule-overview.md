@@ -2,9 +2,9 @@
 doc_type: architecture
 slug: schedule-overview
 scope: feature/schedule/ 的周课表获取、三态周选择器、动态节次课程网格渲染，以及与首页 SceneResolver 的共享边界
-summary: schedule 以 ScheduleRepository 封装周次信息与课表数据，UI 层用 LazyRow 胶囊周选择器 + 支持第 0 节的绝对定位网格渲染 7 天课程，详情走 ModalBottomSheet
+summary: schedule 以 ScheduleRepository 封装周次信息与课表数据，UI 层用 LazyRow 胶囊周选择器 + 支持第 0 节的绝对定位网格渲染 7 天课程（块内行数按块高分配），详情走 ModalBottomSheet
 status: current
-last_reviewed: 2026-05-31
+last_reviewed: 2026-11-08
 tags: [schedule, course, timetable, week-selector, grid, section-zero]
 depends_on: [network-overview, home-overview]
 ---
@@ -67,6 +67,16 @@ UI 层用 `CELL_HEIGHT = 58.dp` 为基准，先根据课程数据计算 `firstSe
 
 锚点：`feature/schedule/ui/ScheduleScreen.kt:238-320`。
 
+#### 课程块文字排版（行数按块高分配）
+
+课名字号 10sp / 行高 13sp，教室 9sp / 行高 11sp，块上下内边距各 3dp。能放几行**必须按块高算**，不能写死 `maxLines`：写死会出现“2 节高的块只画 3 行课名、1 节高的块硬塞 1 行教室”两类截断。
+
+`courseBlockLines(innerHeightDp, nameLineDp, roomLineDp, hasRoom)` 是纯函数（`ui/CourseBlockLabels.kt`，有 JVM 单测）：先给教室不超过块内高 45% 的行数（四舍五入，上限 `ROOM_MAX_LINES = 3`），再保证课名至少 1 行，其余全给课名，不变式是 `nameLines * nameLineDp + roomLines * roomLineDp <= innerHeightDp`。行高用 `sp.toDp()` 换算，跟随系统字体缩放（真机 `font_scale=1.06` 时 45% 预算正好卡在 1.93 行，截断成 1 行就是这个坑）。
+
+48dp 横排不下完整教室，格子里用 `shortRoomLabel()` 把 `博识楼（A4）S201` 压成 `A4 S201`（兼容服务端全角/半角括号不配对），完整楼名只在课程详情弹窗里显示。
+
+当前结果：1 节高的块给 2 行课名 + 2 行教室；2 节高的块给 5 行课名 + 3 行教室。
+
 ### 2.4 三态周选择器
 
 锚点：`feature/schedule/ui/ScheduleScreen.kt:128-183`
@@ -110,10 +120,13 @@ UI 层用 `CELL_HEIGHT = 58.dp` 为基准，先根据课程数据计算 `firstSe
 
 - `ScheduleUiState` 由 `ScheduleViewModel` 持有
 - `selectedWeek` 是 ViewModel 内部状态，用户切换时触发重新加载，不持久化
+- 切周时**不清空** `courses` / `weekDates`，上一周的网格留在原地当占位，新快照到位后由 `showWeek()` 整体替换。清空会让 UI 整屏换骨架屏，缓存命中快时表现为“切周闪一下”。
 - `WeekInfo` 在 ViewModel init 时加载一次，后续不再刷新
 
 ## 4. 关键决策
 
+- **课表格子文字按块高分配行数** —— 见 §2.3。行数写死会在大半个块空着的同时把教室压成一行省略号。来源：`ui/CourseBlockLabels.kt`。
+- **切周不拆网格** —— `selectWeek()` 保留上一周的课程占位，UI 只在“等超过 120ms（`WEEK_SWITCH_GRACE_MS`）仍无数据”时才切骨架屏，正常缓存命中（十几毫秒）不会出现空白闪帧。首次加载（`courses` 为空）仍立刻显示骨架屏。来源：`ui/ScheduleViewModel.kt`、`ui/ScheduleScreen.kt:93-107`。
 - **课程块用绝对定位而非 LazyColumn** —— 网格按 10 节固定高度渲染，不虚拟化。因为课表数据量小（最多 7 天 × 每天数门课），绝对定位更直观。
 - **课程颜色用 name.hashCode() 取色** —— 确保同一课程颜色稳定，不与后端绑定。来源：`ScheduleScreen.kt:70-73`。
 - **课表数据进入 splash 预加载** —— 首页冷启动时 `HomeBootstrap` 预取课表数据，让首屏可直接展示。来源：`feature/home/domain/HomeBootstrap.kt:54-68`。
@@ -125,14 +138,15 @@ UI 层用 `CELL_HEIGHT = 58.dp` 为基准，先根据课程数据计算 `firstSe
 - `feature/schedule/data/ScheduleRepository.kt:22-86` — 两段式加载主链
 - `feature/schedule/data/ScheduleResponse.kt:8-46` — 响应模型
 - `feature/schedule/domain/ScheduleModels.kt:3-17` — WeekInfo 与 Course
-- `feature/schedule/ui/ScheduleViewModel.kt:24-81` — 状态管理与加载
-- `feature/schedule/ui/ScheduleScreen.kt:68-384` — 周选择器 + 网格 + 详情
+- `feature/schedule/ui/ScheduleViewModel.kt:24-95` — 状态管理与加载
+- `feature/schedule/ui/ScheduleScreen.kt:68-400` — 周选择器 + 网格 + 详情
+- `feature/schedule/ui/CourseBlockLabels.kt` — 课程块行数预算 + 教室短标签（纯函数，有单测）
 - `feature/home/domain/SceneResolver.kt` — 首页场景引擎消费课表
 
 ## 6. 已知约束 / 边界情况
 
-- **课表数据不缓存到本地** —— 每次进入或切换周次都重新请求后端。无离线课表能力。
-- **最大节次仍按 10 节处理** —— `SECTION_COUNT = 10` 仍是网格最大常量；常规显示 1-10，遇到第 0 节课程时显示 0-10（第 0 节标签为“早”）。来源：`ScheduleScreen.kt:61,238-320`。
+- **课表有 Room 离线缓存** —— 每学年的每周课表按 `userCode+schoolYear+schoolTerm+weekNumber` 落 `schedule_week_cache`，切周先读缓存再决定是否联网刷新。
+- **最大节次仍按 10 节处理** —— `SECTION_COUNT = 10` 仍是网格最大常量；常规显示 1-10，遇到第 0 节课程时显示 0-10（第 0 节标签为“早”）。超出的课程块会落到网格外、可能以半截形态露在视口底部。来源：`ScheduleScreen.kt:61,238-320`。
 - **第 0 节只影响课表页网格起点** —— 首页课程时间判断仍由 `feature/home/domain/SectionSchedule.kt` 维护，不从课表 UI 的动态 `firstSection` 反推。
 - **课程详情中的 `LxDetailRow` 使用固定 48dp labelWidth** —— 适用于当前字段长度，若新增字段需要调整。
 - **`selectedWeek` 在 ViewModel 重建时回到 init 值** —— 不持久化，进程重建后从当前周开始。

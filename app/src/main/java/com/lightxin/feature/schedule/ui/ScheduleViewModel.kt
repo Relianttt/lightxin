@@ -115,8 +115,10 @@ class ScheduleViewModel @Inject constructor(
         fun isCurrent() = version == selectionVersion && session.isCurrent(current.lease)
         _uiState.update {
             if (it.selectedWeek == week && it.hasLoadedWeek) it.copy(isRefreshing = true, error = null, refreshError = null)
-            else it.copy(selectedWeek = week, courses = emptyList(), weekDates = emptyMap(),
-                hasLoadedWeek = false, lastSyncedAt = null, isLoading = true, isRefreshing = false, error = null, refreshError = null)
+            // 切周保留上一周的课表做占位，等新快照到位再整体替换——
+            // 直接清空会让 UI 整屏换骨架屏，缓存命中快时就是“闪一下”。
+            else it.copy(selectedWeek = week, hasLoadedWeek = false, isLoading = true,
+                isRefreshing = false, error = null, refreshError = null)
         }
         weekJob = viewModelScope.launch {
             val cached = repository.cachedWeek(current, info, week)

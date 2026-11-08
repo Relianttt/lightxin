@@ -40,6 +40,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -57,6 +58,7 @@ import com.lightxin.core.designsystem.theme.LxTerra
 import com.lightxin.core.designsystem.theme.LxTerraGlow
 import com.lightxin.feature.schedule.domain.Course
 import com.lightxin.feature.schedule.data.local.SCHOOL_ZONE
+import kotlinx.coroutines.delay
 import java.time.Instant
 import java.time.format.DateTimeFormatter
 import java.time.LocalDate
@@ -67,6 +69,14 @@ private val CELL_HEIGHT = 58.dp
 private val SECTION_LABEL_WIDTH = 32.dp
 private val GRID_START_PADDING = 12.dp
 private val GRID_END_PADDING = 10.dp
+private val BLOCK_VERTICAL_PADDING = 3.dp
+private val NAME_FONT_SIZE = 10.sp
+private val NAME_LINE_HEIGHT = 13.sp
+private val ROOM_FONT_SIZE = 9.sp
+private val ROOM_LINE_HEIGHT = 11.sp
+
+/** 切周后先留着上一周的网格，超过这段时间还没数据才换骨架屏 —— 缓存命中通常 <20ms，不会闪。 */
+private const val WEEK_SWITCH_GRACE_MS = 120L
 
 @Composable
 @androidx.compose.runtime.ReadOnlyComposable
@@ -84,6 +94,19 @@ fun ScheduleScreen(
     val uiState by viewModel.uiState.collectAsState()
     var selectedCourse by remember { mutableStateOf<Course?>(null) }
     val error = uiState.error
+
+    // 切周时上一周的网格先留在原地（内容会在十几毫秒内被新快照替掉），
+    // 只有真的等超过一个缓冲期才切骨架屏，避免“整屏空白闪一下”。
+    var pendingTooLong by remember { mutableStateOf(false) }
+    LaunchedEffect(uiState.isLoading, uiState.hasLoadedWeek, uiState.courses.isEmpty()) {
+        pendingTooLong = false
+        if (uiState.isLoading && !uiState.hasLoadedWeek && uiState.courses.isNotEmpty()) {
+            delay(WEEK_SWITCH_GRACE_MS)
+            pendingTooLong = true
+        }
+    }
+    val showSkeleton = uiState.isLoading && !uiState.hasLoadedWeek &&
+        (uiState.courses.isEmpty() || pendingTooLong)
 
     Scaffold(
         modifier = modifier,
@@ -109,7 +132,7 @@ fun ScheduleScreen(
             }
 
             when {
-                uiState.isLoading && !uiState.hasLoadedWeek -> LxLoading()
+                showSkeleton -> LxLoading()
                 error != null && !uiState.hasLoadedWeek -> LxError(
                     message = error,
                     onRetry = viewModel::retry,
@@ -256,6 +279,10 @@ private fun ScheduleGrid(
     // 大一大二接口会下发第0节（早自习），存在时网格从第0节起画；大三等无第0节则从第1节起，行为不变
     val firstSection = if (courses.any { it.startSection <= 0 }) 0 else 1
     val rowCount = SECTION_COUNT - firstSection + 1
+    val density = LocalDensity.current
+    // sp→dp 会带上系统字体缩放，行数预算才能跟实际排版对齐
+    val nameLineDp = with(density) { NAME_LINE_HEIGHT.toDp().value }
+    val roomLineDp = with(density) { ROOM_LINE_HEIGHT.toDp().value }
 
     Column(
         modifier = Modifier
@@ -335,9 +362,18 @@ private fun ScheduleGrid(
                 ) {
                     // 课程块（绝对定位）
                     dayCourses.forEach { course ->
+                        val rows = course.endSection - course.startSection + 1
                         val top = (course.startSection - firstSection) * CELL_HEIGHT.value
-                        val height = (course.endSection - course.startSection + 1) * CELL_HEIGHT.value
+                        val height = rows * CELL_HEIGHT.value
                         val color = courseColor(course.name)
+                        val hasRoom = course.room.isNotBlank()
+                        val roomLabel = shortRoomLabel(course.room)
+                        val (nameLines, roomLines) = courseBlockLines(
+                            innerHeightDp = height - BLOCK_VERTICAL_PADDING.value * 2,
+                            nameLineDp = nameLineDp,
+                            roomLineDp = roomLineDp,
+                            hasRoom = hasRoom,
+                        )
 
                         Box(
                             modifier = Modifier
@@ -348,28 +384,28 @@ private fun ScheduleGrid(
                                 .clip(RoundedCornerShape(6.dp))
                                 .background(color)
                                 .clickable { onCourseClick(course) }
-                                .padding(horizontal = 5.dp, vertical = 4.dp),
+                                .padding(horizontal = 5.dp, vertical = BLOCK_VERTICAL_PADDING),
                             contentAlignment = Alignment.TopStart,
                         ) {
                             Column {
                                 Text(
                                     text = course.name,
-                                    fontSize = 10.sp,
+                                    fontSize = NAME_FONT_SIZE,
                                     fontWeight = FontWeight.Medium,
-                                    lineHeight = 12.5.sp,
+                                    lineHeight = NAME_LINE_HEIGHT,
                                     // 贴在课程块分类色底上的前景固定白字，不随主题变
                                     color = Color.White,
-                                    maxLines = 3,
+                                    maxLines = nameLines,
                                     overflow = TextOverflow.Ellipsis,
                                 )
-                                if (course.room.isNotBlank()) {
+                                if (hasRoom) {
                                     Text(
-                                        text = course.room,
-                                        fontSize = 9.sp,
+                                        text = roomLabel,
+                                        fontSize = ROOM_FONT_SIZE,
+                                        lineHeight = ROOM_LINE_HEIGHT,
                                         color = Color.White.copy(alpha = 0.7f),
-                                        maxLines = 1,
+                                        maxLines = roomLines,
                                         overflow = TextOverflow.Ellipsis,
-                                        modifier = Modifier.padding(top = 1.dp),
                                     )
                                 }
                             }
