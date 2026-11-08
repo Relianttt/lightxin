@@ -1,5 +1,6 @@
 package com.lightxin.feature.water.ui
 
+import android.content.ClipData
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.LinearEasing
@@ -44,6 +45,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.ClipEntry
+import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.TextStyle
@@ -68,6 +71,7 @@ import com.lightxin.core.designsystem.component.LxPrimaryButton
 import com.lightxin.core.designsystem.component.LxSectionLabel
 import com.lightxin.core.designsystem.component.LxSkeletonList
 import com.lightxin.core.designsystem.component.LxStatus
+import com.lightxin.core.designsystem.component.LxTextButton
 import com.lightxin.core.designsystem.component.LxTone
 import com.lightxin.core.designsystem.component.lxHeaderCollapsed
 import com.lightxin.core.designsystem.theme.LxAccent
@@ -109,6 +113,15 @@ fun WaterDeviceScreen(
     val headerCollapsed = listState.lxHeaderCollapsed()
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+    val clipboard = LocalClipboard.current
+    val copyDiagnostic: () -> Unit = {
+        uiState.diagnostic?.let { text ->
+            scope.launch {
+                clipboard.setClipEntry(ClipEntry(ClipData.newPlainText("诊断信息", text)))
+                snackbarHostState.showSnackbar("已复制")
+            }
+        }
+    }
 
     var showLeaveSheet by remember { mutableStateOf(false) }
 
@@ -243,7 +256,12 @@ fun WaterDeviceScreen(
                     modifier = Modifier.padding(padding).fillMaxSize(),
                     contentAlignment = Alignment.Center,
                 ) {
-                    LxEmptyState(title = phase.title, body = device?.deviceName.orEmpty())
+                    LxEmptyState(
+                        title = phase.title,
+                        body = device?.deviceName.orEmpty(),
+                        actionText = uiState.diagnostic?.let { "复制诊断信息" },
+                        onAction = copyDiagnostic,
+                    )
                 }
 
                 device != null -> AnimatedContent(
@@ -280,6 +298,15 @@ fun WaterDeviceScreen(
                             }
                             item(key = "panel") {
                                 DeviceInfoPanel(device = device, balance = uiState.balance)
+                            }
+                            if (uiState.diagnostic != null) {
+                                item(key = "diagnostic") {
+                                    LxTextButton(
+                                        text = "复制诊断信息",
+                                        onClick = copyDiagnostic,
+                                        modifier = Modifier.padding(top = 12.dp),
+                                    )
+                                }
                             }
                             if (target == DevicePhase.BusyByOther) {
                                 item(key = "busy") {

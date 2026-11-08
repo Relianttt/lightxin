@@ -64,6 +64,10 @@ data class QzxyDeviceData(
     val snCode: String? = null,
     val macAddress: String? = null,
     val communicationTypeId: Int? = null,
+    /** 仅诊断。类型未知（布尔或 0/1 都可能），用 Any 防止 Gson 解析失败拖垮整个响应。 */
+    val isBle: Any? = null,
+    /** 仅诊断。 */
+    val realMac: String? = null,
     val isUse: Int? = null,
     /** 预扣金额，元。服务端下发数字（1.0），Gson 会转成字符串。 */
     val withholdMoney: String? = null,

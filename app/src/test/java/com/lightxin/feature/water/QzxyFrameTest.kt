@@ -75,13 +75,35 @@ class QzxyFrameTest {
         assertNull(QzxyFrame.decodeLine("#zz000480230000a316"))
     }
 
+    /** linyu `DeviceQueryParserTest` 的真机帧（梧州学院，28 字节短布局）：state=3 待采集。 */
+    private val pendingSettle28 = hexToBytes("800000020100000a0400004bb5c47f0e3e4cfd030000000001000000")
+
+    /** 同一台设备回到空闲。 */
+    private val idle28 = hexToBytes("800000020100000a0400004bb5c47f0e3e4cfd000000000001000000")
+
     @Test
-    fun `短载荷状态抛 UnsupportedProtocol`() {
-        try {
-            QzxyFrame.parseStatus(ByteArray(28))
-            fail("应当抛 UnsupportedProtocol")
-        } catch (e: UnsupportedProtocol) {
-            assertEquals(true, e.message!!.contains("28"))
+    fun `28 字节短布局按自己的偏移解析`() {
+        val status = QzxyFrame.parseStatus(pendingSettle28)
+        assertEquals(3, status.state)
+        assertEquals("", status.protocolType)
+        assertEquals("0000", status.randomNumber)
+        assertEquals("0001", status.macType)
+        assertEquals(0x4BB5, status.acct)
+        assertTrue(status.isPendingSettle)
+
+        assertTrue(QzxyFrame.parseStatus(idle28).isIdle)
+    }
+
+    @Test
+    fun `未知长度抛 UnsupportedProtocol`() {
+        for (size in listOf(27, 29, 30)) {
+            val payload = ByteArray(size).also { it[0] = 0x80.toByte() }
+            try {
+                QzxyFrame.parseStatus(payload)
+                fail("应当抛 UnsupportedProtocol：$size")
+            } catch (e: UnsupportedProtocol) {
+                assertTrue(e.message!!.contains("$size"))
+            }
         }
     }
 

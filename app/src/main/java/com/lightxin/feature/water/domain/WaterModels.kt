@@ -27,11 +27,14 @@ data class WaterDevice(
     val buildingName: String = "",
     val floorName: String = "",
     val roomName: String = "",
+    /** 服务端原始识别字段（未下发的保持「未下发」），失败时供用户复制反馈。 */
+    val diagnostic: String = "",
 ) {
     val isDrinking: Boolean get() = bigTypeId == TYPE_DRINKING
     val isHotWater: Boolean get() = bigTypeId == TYPE_HOT_WATER
-    val isSupported: Boolean
-        get() = (isDrinking || isHotWater) && communicationTypeId == 0
+
+    /** 不看 communicationTypeId：宽宏楼的蓝牙表被它误判为不支持，linyu 也不用它。 */
+    val isSupported: Boolean get() = isDrinking || isHotWater
     val isEnabled: Boolean get() = isUse == 1
 
     /** 带冒号大写的 MAC，蓝牙与 HTTP 都用这个形式。 */
@@ -45,9 +48,9 @@ data class WaterDevice(
 
 /** `0x23` 状态应答解析结果（报告 §9.5）。 */
 data class DeviceStatus(
-    /** 2 位小写 hex，如 "10"。 */
+    /** 2 位小写 hex，如 "10"；28 字节短帧无此字段，为空串。 */
     val protocolType: String,
-    /** 8 位小写 hex，如 "69020000"。 */
+    /** 小写 hex，长帧 8 位（如 "69020000"），短帧 4 位。 */
     val randomNumber: String,
     /** 0 空闲 / 1 使用中 / 3、6 待结算。 */
     val state: Int,
@@ -104,5 +107,5 @@ data class RecentDevice(
     val floorName: String = "",
 )
 
-/** 设备状态帧不是已知布局（v1 只支持 ≥31 字节布局）。 */
+/** 设备状态帧不是已知布局（28 字节或 ≥31 字节）。 */
 class UnsupportedProtocol(message: String) : Exception(message)

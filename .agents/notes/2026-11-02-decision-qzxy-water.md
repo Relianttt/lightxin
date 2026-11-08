@@ -33,8 +33,9 @@ tags: [qzxy, water, bluetooth, network]
   - `ActiveOrder.opened`：`0x21` 写费率成功后置 true，重进设备页据此恢复「使用中」；结算失败回落 false 显示「未结算」。旧数据缺字段按 false。
 - **`0x22` 关阀失败容忍**：设备可能已自行关阀，关阀应答不决定结算成败，继续走 `0x85` 采集。
 - **传输层按 `bigTypeId` 选**：热水表走 `BleTransport`（`FF00`，写 `FF02` 每包 ≤20 字节，收 `FF01` 通知），饮水机走 `SppTransport`；帧协议、下单与结算编排共用。两者都有 btsnoop 实证（报告 §9.11），HTTP 字段里没有通道标志。
-- **设备判据按 `bigTypeId`，不按名字**；`bigTypeId ∉ {4,5}` 或 `communicationTypeId != 0` 直接报不支持。
-- `run`/`device` 帧协议、`0x23` 状态布局、`0x86` 写回长度全部照报告 §9.4–9.7，不做"优化"。
+- **设备判据按 `bigTypeId`，不按名字**；只有 `bigTypeId ∉ {4,5}` 报不支持。**不看 `communicationTypeId`**（2026-11-08：宽宏楼的蓝牙表因它被误判，linyu 也不用它）；`isBle` 服务端基本不下发、`smallTypeId == 1` 不代表蓝牙表，二者都不做判据。`communicationTypeId` / `isBle` / `realMac` 原值只进诊断文本（缺失显示「未下发」），「暂不支持」或开阀/结算失败时可一键复制。
+- **`0x23` 支持 28 字节短布局**（取自 linyu，梧州学院真机验证、本校未验证）：无 protocolType（传空串）、randomNumber 2 字节、state=`p[19]`、devType/a1=`p[23]`/`p[24]`；acct 沿用 `p[11..12]` 属推断。其余非 ≥31 长度仍拒绝。开阀/结算失败的诊断一律附最近一次 `0x23` 的 `len` + `hex`，能解析时再附 state / protocolType / randomNumber / macType。
+- `run`/`device` 帧协议、`0x23` 长布局、`0x86` 写回长度全部照报告 §9.4–9.7，不做"优化"。
 
 ## 待真机确认（未写入代码承诺）
 

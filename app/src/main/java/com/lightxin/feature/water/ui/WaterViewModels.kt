@@ -10,6 +10,8 @@ import com.lightxin.feature.water.data.QzxySessionExpired
 import com.lightxin.feature.water.data.WaterLocalStore
 import com.lightxin.feature.water.data.bt.NearbyDevice
 import com.lightxin.feature.water.data.bt.NearbyScanner
+import com.lightxin.feature.water.data.bt.QzxyFrame
+import com.lightxin.feature.water.data.bt.toHexLower
 import com.lightxin.feature.water.domain.ActiveOrder
 import com.lightxin.feature.water.domain.RecentDevice
 import com.lightxin.feature.water.domain.SettleResult
@@ -326,6 +328,8 @@ data class WaterDeviceUiState(
     val phase: DevicePhase = DevicePhase.Loading,
     val result: SettleResult? = null,
     val runningSince: Long? = null,
+    /** 「暂不支持」或开阀/结算失败时的可复制诊断文本。 */
+    val diagnostic: String? = null,
 )
 
 @HiltViewModel
@@ -377,6 +381,7 @@ class WaterDeviceViewModel @Inject constructor(
                     balance = balance ?: it.balance,
                     phase = phase,
                     runningSince = if (active?.mac == mac) active?.startedAt else null,
+                    diagnostic = if (phase is DevicePhase.Unsupported) device.diagnostic else null,
                 )
             }
         }
@@ -385,7 +390,7 @@ class WaterDeviceViewModel @Inject constructor(
     fun start() {
         val device = _uiState.value.device ?: return
         if (_uiState.value.phase != DevicePhase.Idle) return
-        _uiState.update { it.copy(phase = DevicePhase.Connecting) }
+        _uiState.update { it.copy(phase = DevicePhase.Connecting, diagnostic = null) }
         viewModelScope.launch {
             runner.start(device) { _uiState.update { it.copy(phase = DevicePhase.Starting) } }
                 .onSuccess { outcome ->
@@ -406,7 +411,7 @@ class WaterDeviceViewModel @Inject constructor(
         val device = _uiState.value.device ?: return
         val phase = _uiState.value.phase
         if (phase != DevicePhase.NeedSettle && phase != DevicePhase.Idle && phase != DevicePhase.Running) return
-        _uiState.update { it.copy(phase = DevicePhase.Settling) }
+        _uiState.update { it.copy(phase = DevicePhase.Settling, diagnostic = null) }
         viewModelScope.launch {
             runner.settle(device)
                 .onSuccess { result ->
@@ -450,6 +455,27 @@ class WaterDeviceViewModel @Inject constructor(
             error.message == "设备使用中" -> DevicePhase.BusyByOther
             else -> DevicePhase.Idle
         }
-        _uiState.update { it.copy(phase = next, runningSince = if (next == DevicePhase.NeedSettle) active?.startedAt else null) }
+        _uiState.update {
+            it.copy(
+                phase = next,
+                runningSince = if (next == DevicePhase.NeedSettle) active?.startedAt else null,
+                diagnostic = it.device?.let { device -> failureDiagnostic(device, error, runner.lastStatusPayload) },
+            )
+        }
     }
 }
+
+/** 设备字段 + 失败原因 + 最近一次 `0x23` 原始载荷及其解析结果。 */
+internal fun failureDiagnostic(device: WaterDevice, error: Throwable, statusPayload: ByteArray?): String =
+    buildString {
+        append(device.diagnostic)
+        append("\nerror=").append(error.message.orEmpty())
+        generateSequence(error.cause) { it.cause }.forEach { append(" <- ").append(it.message.orEmpty()) }
+        if (statusPayload != null) {
+            append("\n0x23 len=${statusPayload.size} hex=${statusPayload.toHexLower()}")
+            runCatching { QzxyFrame.parseStatus(statusPayload) }.getOrNull()?.let { s ->
+                append("\nstate=${s.state} protocolType=${s.protocolType.ifEmpty { "空" }}")
+                append(" randomNumber=${s.randomNumber} macType=${s.macType}")
+            }
+        }
+    }

@@ -80,9 +80,27 @@ object QzxyFrame {
 
     /**
      * 解析 `0x23` 应答载荷（报告 §9.5）。
-     * v1 只支持实测过的 ≥31 字节长布局，其余抛 [UnsupportedProtocol]。
+     * 支持 ≥31 字节长布局（本校实测）与 28 字节短布局，其余长度抛 [UnsupportedProtocol]。
+     *
+     * 短布局取自 linyu `DeviceQueryParser`（梧州学院真机验证，本校未验证）：无 protocolType（传空串）、
+     * randomNumber 只有 2 字节原样透传、state=`p[19]`、devType/a1=`p[23]`/`p[24]`。
+     * acct 沿用 `p[11..12]` 是推断：短帧前 19 字节与长帧结构一致。
      */
     fun parseStatus(payload: ByteArray): DeviceStatus {
+        val acct = if (payload.size >= 13) {
+            ((payload[11].toInt() and 0xFF) shl 8) or (payload[12].toInt() and 0xFF)
+        } else {
+            0
+        }
+        if (payload.size == 28) {
+            return DeviceStatus(
+                protocolType = "",
+                randomNumber = payload.copyOfRange(21, 23).toHexLower(),
+                state = payload[19].toInt() and 0xFF,
+                macType = hex2(payload[23].toInt() and 0xFF) + hex2(payload[24].toInt() and 0xFF),
+                acct = acct,
+            )
+        }
         if (payload.size < 31) throw UnsupportedProtocol("设备状态长度不支持：${payload.size}")
         val devType = payload[29].toInt() and 0xFF
         val a1 = payload[30].toInt() and 0xFF
@@ -91,7 +109,7 @@ object QzxyFrame {
             randomNumber = payload.copyOfRange(24, 28).toHexLower(),
             state = payload[28].toInt() and 0xFF,
             macType = hex2(devType) + hex2(a1),
-            acct = ((payload[11].toInt() and 0xFF) shl 8) or (payload[12].toInt() and 0xFF),
+            acct = acct,
         )
     }
 

@@ -94,6 +94,7 @@ class QzxyRepository @Inject constructor(
             buildingName = data.buildingName.orEmpty(),
             floorName = data.floorName.orEmpty(),
             roomName = data.roomName.orEmpty(),
+            diagnostic = deviceDiagnostic(data),
         )
     }
 
@@ -236,4 +237,20 @@ class QzxyRepository @Inject constructor(
     private companion object {
         val SESSION_EXPIRED_HINTS = listOf("登录", "失效", "过期", "请重新")
     }
+}
+
+/**
+ * 设备识别字段的原始值，用于「暂不支持 / 开阀失败」时让用户复制反馈。
+ * 缺失显示「未下发」，与 false / 0 区分；不含手机号与账号。
+ */
+internal fun deviceDiagnostic(data: QzxyDeviceData): String {
+    fun raw(value: Any?): String = value?.toString() ?: "未下发"
+    return listOf(
+        "deviceName=${raw(data.deviceName)}",
+        "bigTypeId=${raw(data.bigTypeId)} smallTypeId=${raw(data.smallTypeId)}",
+        "communicationTypeId=${raw(data.communicationTypeId)}",
+        "isBle=${raw(data.isBle)}",
+        "macAddress=${raw(data.macAddress)} realMac=${raw(data.realMac)}",
+        "isUse=${raw(data.isUse)}",
+    ).joinToString("\n")
 }

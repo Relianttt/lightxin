@@ -59,6 +59,11 @@ class WaterOrderRunner(
     private val store: WaterOrderStore,
 ) {
 
+    /** 本次 start/settle 最近一次 `0x23` 原始载荷（含解析失败的），失败时供诊断输出。 */
+    @Volatile
+    var lastStatusPayload: ByteArray? = null
+        private set
+
     private fun transportOf(device: WaterDevice): WaterTransport = if (device.isHotWater) ble else spp
 
     /** [onConnected] 在蓝牙连上后立即回调，供 UI 从「连接中」切到「开阀中」。 */
@@ -67,6 +72,7 @@ class WaterOrderRunner(
         onConnected: () -> Unit = {},
     ): Result<StartOutcome> {
         val transport = transportOf(device)
+        lastStatusPayload = null
         var keepOpen = false
         return try {
             transport.connect(device.macWithColon)
@@ -105,6 +111,7 @@ class WaterOrderRunner(
 
     suspend fun settle(device: WaterDevice): Result<SettleResult> {
         val transport = transportOf(device)
+        lastStatusPayload = null
         return try {
             transport.connect(device.macWithColon)
             val status = statusOf(transport.request(QzxyFrame.CMD_STATUS, byteArrayOf(0)))
@@ -164,6 +171,7 @@ class WaterOrderRunner(
 
     private fun statusOf(frame: Frame): DeviceStatus {
         val data = frame.data
+        lastStatusPayload = data
         if (data.isEmpty() || (data[0].toInt() and 0xFF) != QzxyFrame.OK) {
             throw QzxyException("设备未响应")
         }

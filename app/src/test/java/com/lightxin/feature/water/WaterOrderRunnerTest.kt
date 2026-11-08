@@ -86,6 +86,17 @@ class WaterOrderRunnerTest {
     }
 
     @Test
+    fun `失败后保留最近一次 0x23 载荷供诊断`() = runBlocking {
+        val transport = FakeTransport()
+        val busy = statusPayload(state = 1, acct = 0x1111)
+        transport.statusPool += busy
+        val runner = WaterOrderRunner(UnusedTransport, transport, FakeApi(), FakeStore())
+
+        assertTrue(runner.start(device).isFailure)
+        assertArrayEquals(busy, runner.lastStatusPayload)
+    }
+
+    @Test
     fun `设备上有自己的未结算单时引导结算`() = runBlocking {
         val transport = FakeTransport()
         transport.statusPool += statusPayload(state = 6, acct = 11749)
