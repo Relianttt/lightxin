@@ -146,7 +146,7 @@ UI 层用 `CELL_HEIGHT = 58.dp` 为基准，先根据课程数据计算 `firstSe
 ## 6. 已知约束 / 边界情况
 
 - **课表有 Room 离线缓存** —— 每学年的每周课表按 `userCode+schoolYear+schoolTerm+weekNumber` 落 `schedule_week_cache`，切周先读缓存再决定是否联网刷新。
-- **最大节次仍按 10 节处理** —— `SECTION_COUNT = 10` 仍是网格最大常量；常规显示 1-10，遇到第 0 节课程时显示 0-10（第 0 节标签为“早”）。超出的课程块会落到网格外、可能以半截形态露在视口底部。来源：`ScheduleScreen.kt:61,238-320`。
+- **最大节次仍按 10 节处理** —— `SECTION_COUNT = 10` 仍是网格最大常量；常规显示 1-10，遇到第 0 节课程时显示 0-10（第 0 节标签为“早”）。网格高于视口时纵向滚动查看靠后的节次，课块超出视口的那部分被裁切属正常滚动表现。来源：`ScheduleScreen.kt:61,238-320`。
 - **第 0 节只影响课表页网格起点** —— 首页课程时间判断仍由 `feature/home/domain/SectionSchedule.kt` 维护，不从课表 UI 的动态 `firstSection` 反推。
 - **课程详情中的 `LxDetailRow` 使用固定 48dp labelWidth** —— 适用于当前字段长度，若新增字段需要调整。
 - **`selectedWeek` 在 ViewModel 重建时回到 init 值** —— 不持久化，进程重建后从当前周开始。
