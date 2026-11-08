@@ -103,4 +103,19 @@ class ScheduleViewModelTest {
         assertEquals(8, vm.uiState.value.selectedWeek)
         assertEquals("eight", vm.uiState.value.courses.single().name)
     }
+
+    @Test fun neighborWeekIsPreloadedFromCacheForPaging() = runBlocking {
+        fetch = { week ->
+            TimeTableResponse(listOf(DaySchedule("1", listOf(CourseVo("w$week", "1", "2", "", "", null)), "10/19")), true)
+        }
+        val account = repo.account()
+        val info = repo.refreshSemester(account).getOrThrow().info
+        repo.refreshWeek(account, info, 7).getOrThrow()
+        repo.refreshWeek(account, info, 8).getOrThrow()
+        offline = true
+        val vm = viewModel()
+        val state = withTimeout(10_000) { vm.uiState.first { 8 in it.weekData } }
+        assertEquals(7, state.selectedWeek)
+        assertEquals("w8", state.weekData.getValue(8).courses.single().name)
+    }
 }

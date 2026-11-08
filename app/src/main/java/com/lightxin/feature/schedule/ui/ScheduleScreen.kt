@@ -5,6 +5,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -15,9 +16,13 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.PagerState
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -35,11 +40,19 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -58,7 +71,6 @@ import com.lightxin.core.designsystem.theme.LxTerra
 import com.lightxin.core.designsystem.theme.LxTerraGlow
 import com.lightxin.feature.schedule.domain.Course
 import com.lightxin.feature.schedule.data.local.SCHOOL_ZONE
-import kotlinx.coroutines.delay
 import java.time.Instant
 import java.time.format.DateTimeFormatter
 import java.time.LocalDate
@@ -75,8 +87,8 @@ private val NAME_LINE_HEIGHT = 13.sp
 private val ROOM_FONT_SIZE = 9.sp
 private val ROOM_LINE_HEIGHT = 11.sp
 
-/** 切周后先留着上一周的网格，超过这段时间还没数据才换骨架屏 —— 缓存命中通常 <20ms，不会闪。 */
-private const val WEEK_SWITCH_GRACE_MS = 120L
+/** 选中胶囊在两周之间被拉到最长时，上下各收窄这么多，看起来像被扯细了一点。 */
+private val INDICATOR_SQUASH = 2.dp
 
 @Composable
 @androidx.compose.runtime.ReadOnlyComposable
@@ -93,68 +105,74 @@ fun ScheduleScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var selectedCourse by remember { mutableStateOf<Course?>(null) }
-    val error = uiState.error
-
-    // 切周时上一周的网格先留在原地（内容会在十几毫秒内被新快照替掉），
-    // 只有真的等超过一个缓冲期才切骨架屏，避免“整屏空白闪一下”。
-    var pendingTooLong by remember { mutableStateOf(false) }
-    LaunchedEffect(uiState.isLoading, uiState.hasLoadedWeek, uiState.courses.isEmpty()) {
-        pendingTooLong = false
-        if (uiState.isLoading && !uiState.hasLoadedWeek && uiState.courses.isNotEmpty()) {
-            delay(WEEK_SWITCH_GRACE_MS)
-            pendingTooLong = true
-        }
-    }
-    val showSkeleton = uiState.isLoading && !uiState.hasLoadedWeek &&
-        (uiState.courses.isEmpty() || pendingTooLong)
-    val weeks = uiState.weekInfo?.weekNumbers.orEmpty()
-    val onSwipeWeek: (Int) -> Unit = { step ->
-        weekAfterSwipe(weeks, uiState.selectedWeek, step)?.let(viewModel::onWeekSelected)
-    }
+    val info = uiState.weekInfo
 
     Scaffold(
         modifier = modifier,
         containerColor = MaterialTheme.colorScheme.background,
     ) { padding ->
         Column(modifier = Modifier.padding(padding)) {
-            uiState.weekInfo?.let { info ->
+            if (info == null) {
+                Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                    uiState.error?.let { LxError(message = it, onRetry = viewModel::retry) } ?: LxLoading()
+                }
+            } else {
+                val weeks = info.weekNumbers
+                val pagerState = rememberPagerState(
+                    initialPage = weeks.indexOf(uiState.selectedWeek).coerceAtLeast(0),
+                ) { weeks.size }
+                SyncPagerWithSelection(pagerState, weeks, uiState.selectedWeek, viewModel::onWeekSelected)
+
                 WeekSelector(
-                    weeks = info.weekNumbers,
+                    weeks = weeks,
                     selectedWeek = uiState.selectedWeek,
                     currentWeek = info.currentWeek,
+                    position = { pagerState.currentPage + pagerState.currentPageOffsetFraction },
                     onWeekSelected = viewModel::onWeekSelected,
                 )
-            }
 
-            // 同步时间只在刷新失败、正在用本地缓存时提示；联网正常时不占版面。
-            uiState.lastSyncedAt?.takeIf { uiState.refreshError != null }?.let { syncedAt ->
-                val time = DateTimeFormatter.ofPattern("MM月dd日 HH:mm").withZone(SCHOOL_ZONE).format(Instant.ofEpochMilli(syncedAt))
-                Text("正在显示本地课表 · 上次同步 $time",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp))
-            }
+                // 同步时间只在刷新失败、正在用本地缓存时提示；联网正常时不占版面。
+                uiState.lastSyncedAt?.takeIf { uiState.refreshError != null }?.let { syncedAt ->
+                    val time = DateTimeFormatter.ofPattern("MM月dd日 HH:mm").withZone(SCHOOL_ZONE).format(Instant.ofEpochMilli(syncedAt))
+                    Text("正在显示本地课表 · 上次同步 $time",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp))
+                }
 
-            // 网格区横向滑动切周（纵向仍是网格滚动）；空周 / 报错状态下同样可以滑
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth()
-                    .weekSwipeGesture(onSwipeWeek),
-            ) {
-                when {
-                    showSkeleton -> LxLoading()
-                    error != null && !uiState.hasLoadedWeek -> LxError(
-                        message = error,
-                        onRetry = viewModel::retry,
-                    )
-                    uiState.courses.isEmpty() -> LxEmpty(message = "本周没有课程")
-                    else -> ScheduleGrid(
-                        courses = uiState.courses,
-                        weekDates = uiState.weekDates,
-                        showCurrentDayIndicator = uiState.weekInfo?.currentWeek == uiState.selectedWeek,
-                        onCourseClick = { selectedCourse = it },
-                    )
+                // 每周一页平铺，拖动时能看到相邻周跟着滑进来；纵向滚动放在翻页器外层，
+                // 各周共用一个滚动位置——看着下午的课翻页，下一周也停在下午。
+                BoxWithConstraints(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                    val viewportHeight = maxHeight
+                    HorizontalPager(
+                        state = pagerState,
+                        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
+                        beyondViewportPageCount = 1,
+                        key = { weeks[it] },
+                        verticalAlignment = Alignment.Top,
+                    ) { page ->
+                        val week = weeks[page]
+                        val data = uiState.weekData[week]
+                        if (data != null && data.courses.isNotEmpty()) {
+                            ScheduleGrid(
+                                courses = data.courses,
+                                weekDates = data.weekDates,
+                                showCurrentDayIndicator = week == info.currentWeek,
+                                onCourseClick = { selectedCourse = it },
+                            )
+                        } else {
+                            // 外层是纵向滚动（高度不设上限），占位态给满一屏高度才能居中
+                            Box(modifier = Modifier.fillMaxWidth().height(viewportHeight)) {
+                                val error = uiState.error
+                                when {
+                                    data != null -> LxEmpty(message = "本周没有课程")
+                                    week == uiState.selectedWeek && error != null ->
+                                        LxError(message = error, onRetry = viewModel::retry)
+                                    else -> LxLoading()
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -174,15 +192,43 @@ fun ScheduleScreen(
 
 // ═══════════════ 周次选择器（三态胶囊） ═══════════════
 
+/**
+ * 翻页器与 ViewModel 选中周双向对齐：
+ * - 选中周从别处变了（点胶囊 / 点「本周」/ 换学期）→ 翻页器滑过去；
+ * - 手指翻页停稳 → 告诉 ViewModel 选中那一周。
+ * 两边各自先比对一下，已经一致就不动，避免来回触发。
+ */
+@Composable
+private fun SyncPagerWithSelection(
+    pagerState: PagerState,
+    weeks: List<Int>,
+    selectedWeek: Int,
+    onWeekSelected: (Int) -> Unit,
+) {
+    LaunchedEffect(pagerState, selectedWeek, weeks) {
+        val index = weeks.indexOf(selectedWeek)
+        if (index >= 0 && index != pagerState.currentPage) pagerState.animateScrollToPage(index)
+    }
+    val currentSelected by rememberUpdatedState(selectedWeek)
+    val currentOnWeekSelected by rememberUpdatedState(onWeekSelected)
+    LaunchedEffect(pagerState, weeks) {
+        snapshotFlow { pagerState.settledPage }.collect { page ->
+            weeks.getOrNull(page)?.takeIf { it != currentSelected }?.let(currentOnWeekSelected)
+        }
+    }
+}
+
 @Composable
 private fun WeekSelector(
     weeks: List<Int>,
     selectedWeek: Int,
     currentWeek: Int,
+    /** 翻页器的连续位置（页序号 + 拖动偏移），选中胶囊按它逐帧移动。 */
+    position: () -> Float,
     onWeekSelected: (Int) -> Unit,
 ) {
     val listState = rememberLazyListState()
-    // 首次直接落到选中周，之后点选周次才滚动过去
+    // 首次直接落到选中周，之后切周才滚动过去
     var positioned by remember { mutableStateOf(false) }
     LaunchedEffect(selectedWeek, weeks) {
         val index = weeks.indexOf(selectedWeek)
@@ -206,20 +252,27 @@ private fun WeekSelector(
             }
         }
     }
+    val currentPosition by rememberUpdatedState(position)
+    val indicatorColor = LxTerra
 
     Box(modifier = Modifier.fillMaxWidth()) {
         LazyRow(
             state = listState,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 10.dp),
+                .padding(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 10.dp)
+                // 选中胶囊画在所有周次文字底下，只在绘制阶段读位置，拖动时不触发重组
+                .drawBehind { drawWeekIndicator(listState, currentPosition(), weeks.lastIndex, indicatorColor) },
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            itemsIndexed(weeks) { _, week ->
+            itemsIndexed(weeks) { index, week ->
+                val emphasis by remember(index) {
+                    derivedStateOf { chipEmphasis(currentPosition(), index) }
+                }
                 WeekChip(
                     label = if (week == 0) "预备" else "第${week}周",
-                    isSelected = week == selectedWeek,
                     isCurrent = week == currentWeek,
+                    emphasis = emphasis,
                     onClick = { onWeekSelected(week) },
                 )
             }
@@ -241,32 +294,52 @@ private fun WeekSelector(
     }
 }
 
+/** 按翻页位置画选中胶囊：停稳时贴合某一枚周次，拖动途中在相邻两枚之间拉长、变细。 */
+private fun DrawScope.drawWeekIndicator(
+    listState: LazyListState,
+    position: Float,
+    lastIndex: Int,
+    color: Color,
+) {
+    if (lastIndex < 0) return
+    val clamped = position.coerceIn(0f, lastIndex.toFloat())
+    val from = clamped.toInt()
+    val fraction = clamped - from
+    val items = listState.layoutInfo.visibleItemsInfo
+    fun spanOf(index: Int) = items.firstOrNull { it.index == index }
+        ?.let { IndicatorSpan(it.offset.toFloat(), (it.offset + it.size).toFloat()) }
+    val a = spanOf(from)
+    val b = if (fraction > 0f) spanOf(from + 1) else a
+    // 跨很多周跳转时两端可能有一端滚出可视区，退化为贴着看得见的那枚
+    val span = if (a != null && b != null) stretchedSpan(a, b, fraction) else a ?: b ?: return
+    val inset = stretchAmount(fraction) * INDICATOR_SQUASH.toPx()
+    val height = size.height - inset * 2
+    drawRoundRect(
+        color = color,
+        topLeft = Offset(span.start, inset),
+        size = Size(span.end - span.start, height),
+        cornerRadius = CornerRadius(height / 2),
+    )
+}
+
 @Composable
 private fun WeekChip(
     label: String,
-    isSelected: Boolean,
     isCurrent: Boolean,
+    /** 被选中胶囊覆盖的程度：0 = 未选中，1 = 正中选中；拖动途中连续变化。 */
+    emphasis: Float,
     onClick: () -> Unit,
 ) {
-    // 四态组合：default / cur / on / on.cur（选中填充优先，选中时边框 transparent）
-    val bg = if (isSelected) LxTerra else Color.Transparent
-    val textColor = when {
-        // 贴在陶土品牌色块上的前景：Light/Dark 两种主题下品牌色都是暖橙，固定白字对比度最佳
-        isSelected -> Color.White
-        isCurrent -> LxInkSoft
-        else -> LxInkMuted
-    }
-    val borderColor = when {
-        isSelected -> Color.Transparent
-        isCurrent -> LxInkMuted
-        else -> Color.Transparent
-    }
-    val weight = if (isCurrent || isSelected) FontWeight.Medium else FontWeight.Normal
+    // 底色由 WeekSelector 统一画（会移动、会变形），这里只管文字和“本周”描边随覆盖程度渐变。
+    // 贴在陶土品牌色块上的前景：Light/Dark 两种主题下品牌色都是暖橙，固定白字对比度最佳
+    val textColor = lerp(if (isCurrent) LxInkSoft else LxInkMuted, Color.White, emphasis)
+    val borderColor = if (isCurrent) LxInkMuted.copy(alpha = LxInkMuted.alpha * (1f - emphasis)) else Color.Transparent
+    // 字重只随“本周”变、不随选中变：否则拖到一半胶囊宽度会跳一下
+    val weight = if (isCurrent) FontWeight.Medium else FontWeight.Normal
 
     Box(
         modifier = Modifier
             .clip(RoundedCornerShape(20.dp))
-            .background(bg)
             .border(1.dp, borderColor, RoundedCornerShape(20.dp))
             .clickable(onClick = onClick)
             .padding(horizontal = 14.dp, vertical = 5.dp),
@@ -298,10 +371,10 @@ private fun ScheduleGrid(
     val nameLineDp = with(density) { NAME_LINE_HEIGHT.toDp().value }
     val roomLineDp = with(density) { ROOM_LINE_HEIGHT.toDp().value }
 
+    // 纵向滚动由外层翻页器统一负责，这里只按内容撑高
     Column(
         modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
+            .fillMaxWidth()
             .padding(start = GRID_START_PADDING, end = GRID_END_PADDING),
     ) {
         // ── 表头：星期 ──

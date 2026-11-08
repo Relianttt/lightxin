@@ -9,6 +9,7 @@ import com.lightxin.feature.schedule.data.ScheduleSyncCoordinator
 import com.lightxin.feature.schedule.data.local.ScheduleWeekSnapshot
 import com.lightxin.feature.schedule.data.local.SemesterSnapshot
 import com.lightxin.feature.schedule.domain.Course
+import com.lightxin.feature.schedule.domain.ScheduleData
 import com.lightxin.feature.schedule.domain.WeekInfo
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
@@ -31,6 +32,8 @@ data class ScheduleUiState(
     val isRefreshing: Boolean = false,
     val refreshError: String? = null,
     val lastSyncedAt: Long? = null,
+    /** 已到手的各周课表（选中周 + 从缓存预读的相邻周），供横向翻页时相邻页直接有内容。 */
+    val weekData: Map<Int, ScheduleData> = emptyMap(),
 )
 
 @HiltViewModel
@@ -76,7 +79,10 @@ class ScheduleViewModel @Inject constructor(
         val info = if (estimated) snapshot.estimatedInfo() else snapshot.info
         val previous = _uiState.value.weekInfo
         val changed = previous == null || previous.schoolYear != info.schoolYear || previous.schoolTerm != info.schoolTerm
+        // 换学期时选中周和周次列表同一帧到位，翻页器不会先落在旧周再跳
         _uiState.update { it.copy(weekInfo = info,
+            selectedWeek = if (changed) info.currentWeek else it.selectedWeek,
+            weekData = if (changed) emptyMap() else it.weekData,
             hasLoadedWeek = if (changed) false else it.hasLoadedWeek) }
         if (changed || _uiState.value.selectedWeek !in info.weekNumbers) selectWeek(info.currentWeek, force = true)
     }
@@ -125,6 +131,7 @@ class ScheduleViewModel @Inject constructor(
             if (!isCurrent()) return@launch
             cached?.let { showWeek(it) }
             coroutineScope {
+                launch { preloadNeighbors(current, info, week, ::isCurrent) }
                 launch {
                     repository.observeWeek(current, info, week).collect { snapshot ->
                         if (isCurrent() && snapshot != null) showWeek(snapshot)
@@ -153,8 +160,20 @@ class ScheduleViewModel @Inject constructor(
         }
     }
 
+    /** 只读本地缓存，不发请求：相邻周没缓存就让那一页等选中后再走正常加载。 */
+    private suspend fun preloadNeighbors(current: AccountContext, info: WeekInfo, week: Int, isCurrent: () -> Boolean) {
+        val index = info.weekNumbers.indexOf(week)
+        for (neighbor in listOfNotNull(info.weekNumbers.getOrNull(index - 1), info.weekNumbers.getOrNull(index + 1))) {
+            if (neighbor in _uiState.value.weekData) continue
+            val snapshot = repository.cachedWeek(current, info, neighbor) ?: continue
+            if (!isCurrent()) return
+            _uiState.update { it.copy(weekData = it.weekData + (neighbor to snapshot.data)) }
+        }
+    }
+
     private fun showWeek(snapshot: ScheduleWeekSnapshot) {
         _uiState.update { it.copy(courses = snapshot.data.courses, weekDates = snapshot.data.weekDates,
+            weekData = it.weekData + (it.selectedWeek to snapshot.data),
             hasLoadedWeek = true, lastSyncedAt = snapshot.syncedAt, isLoading = false, error = null) }
     }
 }
